@@ -1,0 +1,98 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NARAP Admin Login and Dashboard</title>
+</head>
+<body>
+<div id="loginSection">
+  <h2>Admin Login</h2>
+  <input type="text" id="username" placeholder="Username"><br>
+  <input type="password" id="password" placeholder="Password"><br>
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="adminSection" style="display:none;">
+  <h1>Admin Panel</h1>
+  <form id="userForm">
+    <input type="text" id="name" placeholder="Name"><br>
+    <input type="email" id="email" placeholder="Email"><br>
+    <input type="password" id="userpassword" placeholder="Password"><br>
+    <input type="text" id="code" placeholder="Code"><br>
+    <button type="submit">Add User</button>
+  </form>
+
+  <button onclick="getUsers()">Refresh Users</button>
+  <button onclick="confirmDeleteAll()">Delete All Users</button>
+  <ul id="usersList"></ul>
+</div>
+
+<script>
+const backendUrl = "https://narap.onrender.com";
+
+async function login() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+
+  const res = await fetch(backendUrl + '/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+    credentials: 'include'
+  });
+
+  if (res.ok) {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('adminSection').style.display = 'block';
+    getUsers();
+  } else {
+    alert('Login failed');
+  }
+}
+
+document.getElementById('userForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('name').value;
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('userpassword').value;
+  const code = document.getElementById('code').value;
+
+  await fetch(backendUrl + '/api/addUser', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name, email, password, code })
+  });
+  alert('User Added');
+  getUsers();
+});
+
+async function getUsers() {
+  const res = await fetch(backendUrl + '/api/getUsers', { credentials: 'include' });
+  const users = await res.json();
+  const list = document.getElementById('usersList');
+  list.innerHTML = '';
+  users.forEach(user => {
+    const li = document.createElement('li');
+    li.innerHTML = `${user.name} (${user.email}) <button onclick="deleteUser('${user._id}')">Delete</button>`;
+    list.appendChild(li);
+  });
+}
+
+async function deleteUser(id) {
+  if (confirm('Delete this user?')) {
+    await fetch(backendUrl + '/api/deleteUser/' + id, { method: 'DELETE', credentials: 'include' });
+    getUsers();
+  }
+}
+
+async function confirmDeleteAll() {
+  if (confirm('Delete all users?')) {
+    await fetch(backendUrl + '/api/deleteAllUsers', { method: 'DELETE', credentials: 'include' });
+    getUsers();
+  }
+}
+</script>
+</body>
+</html>
