@@ -10,6 +10,17 @@ require('dotenv').config();
 
 const app = express();
 
+// Allow your Vercel site (and localhost dev) to make requests
+app.use(cors({
+  origin: [
+    'https://narap-git-master-abdulkareem-moshoods-projects.vercel.app',
+    'https://narapdb.com.ng',
+    'http://localhost:3000'
+  ],
+  credentials: true,            // so cookies / credentials work
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS']
+}));
+
 // Middleware
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
