@@ -2,7 +2,6 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
-const serverless = require('serverless-http');
 const path = require('path');
 const bcrypt = require('bcrypt'); // Added bcrypt dependency
 require('dotenv').config();
@@ -12,48 +11,35 @@ const app = express();
 // Middleware - must come before static file serving
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-// Serve static files from 'public' directory with caching
-app.use(express.static(path.join(__dirname, '..', 'public'), {
-  maxAge: '1d',
-  setHeaders: (res, filePath) => {
-    if (/\.(png|jpg|jpeg|gif|ico|webp|svg)$/i.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=2592000'); // 30 days for images
-    }
-    else if (/\.(css|js)$/i.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days for CSS/JS
-    }
-  }
-}))
 
+// Serve static files from 'public' directory with caching
+app.use(
+  express.static(path.join(__dirname, '..', 'public'), {
+    maxAge: '1d',
+    setHeaders: (res, filePath) => {
+      if (/\.(png|jpg|jpeg|gif|ico|webp|svg)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=2592000'); // 30 days for images
+      } else if (/\.(css|js)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days for CSS/JS
+      }
+    },
+  })
+);
 
 // Function to connect to MongoDB
 async function connectDB() {
-  if (mongoose.connection.readyState === 1) return mongoose.connection;
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+  console.log('Connecting to MongoDB at:', process.env.MONGO_URI);
   await mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
+    bufferCommands: false,
   });
-  console.log('MongoDB connected');
+  console.log('MongoDB connected successfully.');
   return mongoose.connection;
 }
-
-// Local dev only
-if (!process.env.VERCEL) {
-  connectDB()
-    .then(() => {
-      const port = process.env.PORT || 3000;
-      app.listen(port, () =>
-        console.log(`Dev server listening on http://localhost:${port}`)
-      );
-    })
-    .catch(err => {
-      console.error('DB connection error:', err);
-      process.exit(1);
-    });
-}
-
-
-
 
 // ==================== ROUTES TO SERVE HTML PAGES ====================
 app.get('/', (req, res) => {
@@ -64,141 +50,9 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
 
-// Catch-all route for frontend (SPA behavior)
+// ==================== API ROUTES ====================
 
-
-// Fetch certificate count by state
-app.get('/api/analytics/certificates-by-state', async (req, res) => {
-  try {
-    const certificatesByState = await Certificate.aggregate([
-      { $group: { _id: '$userId', count: { $sum: 1 } } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'user'
-        }
-      },
-      { $unwind: '$user' },
-      { $group: { _id: '$user.state', count: { $sum: '$count' } } },
-      { $sort: { count: -1 } }
-    ]);
-    res.json(certificatesByState);
-  } catch (err) {
-    console.error('Error fetching certificates by state:', err);
-    res.status(500).json({ message: 'Server error while fetching certificates by state' });
-  }
-});
-
-// Fetch registration trend data
-app.get('/api/analytics/registration-trend', async (req, res) => {
-  try {
-    const trend = await User.aggregate([
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ]);
-    res.json(trend);
-  } catch (err) {
-    console.error('Error fetching registration trend:', err);
-    res.status(500).json({ message: 'Server error while fetching registration trend' });
-  }
-});
-
-// Fetch members grouped by state
-app.get('/api/analytics/by-state', async (req, res) => {
-  try {
-    const membersByState = await User.aggregate([
-      { $group: { _id: '$state', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]);
-    res.json(membersByState);
-  } catch (err) {
-    console.error('Error fetching members by state:', err);
-    res.status(500).json({ message: 'Server error while fetching members by state' });
-  }
-});
-
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
-
-// ==================== DATABASE MODELS ====================
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  code: { type: String, required: true, unique: true },
-  position: {
-    type: String,
-    required: true,
-    enum: [
-      'PRESIDENT', 'DEPUTY PRESIDENT', 'WELFARE', 'PUBLIC RELATION OFFICER',
-      'STATE WELFARE COORDINATOR', 'MEMBER', 'TASK FORCE', 'PROVOST MARSHAL 1',
-      'PROVOST MARSHAL 2', 'VICE PRESIDENT (South West)', 'VICE PRESIDENT (South East)',
-      'VICE PRESIDENT (South South)', 'VICE PRESIDENT (North West)', 'VICE PRESIDENT (North Central)',
-      'VICE PRESIDENT (North East)', 'PUBLIC RELATION OFFICE', 'FINANCIAL SECRETARY',
-      'SECRETARY', 'ASSISTANT SECRETARY', 'TREASURER', 'COORDINATOR', 'ASSISTANT FINANCIAL SECRETARY'
-    ],
-    default: 'MEMBER'
-  },
-  state: { type: String, required: true },
-  zone: { type: String, required: true },
-  passportPhoto: { type: String },
-  signature: { type: String },
-  isActive: { type: Boolean, default: true },
-  lastLogin: { type: Date },
-  cardGenerated: { type: Boolean, default: false },
-  dateAdded: { type: Date, default: Date.now }
-}, { timestamps: true });
-userSchema.index({ code: 1 });
-userSchema.index({ email: 1 });
-userSchema.index({ state: 1 });
-userSchema.index({ position: 1 });
-const User = mongoose.model('User', userSchema);
-
-const certificateSchema = new mongoose.Schema({
-  number: { type: String, required: [true, 'Certificate number is required'], unique: true, uppercase: true, trim: true },
-  recipient: { type: String, required: [true, 'Recipient name is required'], trim: true },
-  email: { type: String, required: [true, 'Email is required'], lowercase: true, trim: true,
-    validate: { validator: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), message: 'Please enter a valid email address' }
-  },
-  title: { type: String, required: [true, 'Certificate title is required'], trim: true },
-  type: { type: String, required: true, enum: { values: ['membership', 'training', 'achievement', 'recognition', 'service'], message: 'Invalid certificate type' }, default: 'membership' },
-  description: { type: String, trim: true },
-  issueDate: { type: Date, required: [true, 'Issue date is required'], default: Date.now },
-  validUntil: { type: Date, validate: { validator: v => !v || v > this.issueDate, message: 'Valid until date must be after issue date' } },
-  status: { type: String, enum: { values: ['active', 'revoked', 'expired'], message: 'Invalid certificate status' }, default: 'active' },
-  revokedAt: { type: Date },
-  revokedBy: { type: String },
-  revokedReason: { type: String },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  issuedBy: { type: String, default: 'NARAP Admin System' },
-  serialNumber: { type: String, unique: true }
-}, { timestamps: true });
-certificateSchema.pre('save', function(next) {
-  if (!this.serialNumber) {
-    this.serialNumber = `NARAP-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-  }
-  next();
-});
-certificateSchema.index({ number: 1 });
-certificateSchema.index({ email: 1 });
-certificateSchema.index({ status: 1 });
-certificateSchema.index({ recipient: 1 });
-certificateSchema.index({ serialNumber: 1 });
-const Certificate = mongoose.model('Certificate', certificateSchema);
-
-// ==================== AUTHENTICATION ENDPOINTS ====================
+// Authentication
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -210,6 +64,33 @@ app.post('/api/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get all users
+app.get('/api/getUsers', async (req, res) => {
+  try {
+    const users = await User.find().select('-password').sort({ dateAdded: -1 });
+    const formattedUsers = users.map(user => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      code: user.code,
+      position: user.position,
+      state: user.state,
+      zone: user.zone,
+      passportPhoto: user.passportPhoto,
+      signature: user.signature,
+      dateAdded: user.dateAdded || user.createdAt,
+      isActive: user.isActive,
+      cardGenerated: user.cardGenerated,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    }));
+    res.json(formattedUsers);
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ message: 'Server error while fetching users' });
   }
 });
 
@@ -934,22 +815,7 @@ app.use((error, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-if (!process.env.VERCEL) {
-  // Connect DB then start HTTP server for local dev
-  connectDB()
-    .then(() => {
-      const PORT = process.env.PORT || 3000;
-      app.listen(PORT, () =>
-        console.log(`🛡️  Local server listening on http://localhost:${PORT}`)
-      );
-    })
-    .catch(err => {
-      console.error('DB connection failed:', err);
-      process.exit(1);
-    });
-}
 
-// Export the app for serverless
 
 // Endpoint to fetch member registration trend by month/year
 app.get('/api/members/history', async (req, res) => {
@@ -995,5 +861,33 @@ app.get('/api/system/health', async (req, res) => {
   }
 });
 
-// Export app and connectDB for serverless index.js
+// Catch-all for client-side routing (SPA behavior)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+
+// ==================== DATABASE MODELS ====================
+const userSchema = new mongoose.Schema({ /* … your schema … */ });
+const User = mongoose.model('User', userSchema);
+
+const certificateSchema = new mongoose.Schema({ /* … your schema … */ });
+const Certificate = mongoose.model('Certificate', certificateSchema);
+
+// ==================== LOCAL DEVELOPMENT SERVER ====================
+// Only start the HTTP listener when NOT deploying on Vercel
+if (!process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      const port = process.env.PORT || 3000;
+      app.listen(port, () =>
+        console.log(`✅  Dev server listening on http://localhost:${port}`)
+      );
+    })
+    .catch(err => {
+      console.error('❌ DB connection failed:', err);
+      process.exit(1);
+    });
+}
+
+// Export the raw Express app and the connectDB helper
 module.exports = { app, connectDB };
