@@ -922,8 +922,23 @@ app.use((error, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
+if (!process.env.VERCEL) {
+  // Connect DB then start HTTP server for local dev
+  connectDB()
+    .then(() => {
+      const PORT = process.env.PORT || 3000;
+      app.listen(PORT, () =>
+        console.log(`🛡️  Local server listening on http://localhost:${PORT}`)
+      );
+    })
+    .catch(err => {
+      console.error('DB connection failed:', err);
+      process.exit(1);
+    });
+}
+
 // Export the app for serverless
-module.exports = serverless(app);
+module.exports = { app, connectDB };
 
 // Endpoint to fetch member registration trend by month/year
 app.get('/api/members/history', async (req, res) => {
