@@ -15,24 +15,17 @@
       "src": "/api/(.*)",
       "dest": "/api/server.js",
       "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+        "Access-Control-Allow-Origin": "https://narapdb.com.ng",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
       }
     },
     {
       "src": "/admin",
-      "dest": "/admin.html",
-      "headers": {
-        "Cache-Control": "no-store"
-      }
-    },
-    {
-      "src": "/",
-      "dest": "/index.html"
+      "dest": "/admin.html"
     },
     {
       "src": "/(.*)",
-      "status": 200,
       "dest": "/$1"
     }
   ],
