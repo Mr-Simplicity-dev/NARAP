@@ -1,6 +1,7 @@
 // File: api/server.js
 const express = require('express');
 const mongoose = require('mongoose');
+const serverless = require('serverless-http');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -77,6 +78,8 @@ const userSchema = new mongoose.Schema({
   dateAdded: { type: Date, default: Date.now }
 }, { timestamps: true });
 
+userSchema.index({ code: 1 });
+userSchema.index({ email: 1 });
 userSchema.index({ state: 1 });
 userSchema.index({ position: 1 });
 
@@ -107,9 +110,11 @@ certificateSchema.pre('save', function(next) {
   next();
 });
 
+certificateSchema.index({ number: 1 });
 certificateSchema.index({ email: 1 });
 certificateSchema.index({ status: 1 });
 certificateSchema.index({ recipient: 1 });
+certificateSchema.index({ serialNumber: 1 });
 
 const User = mongoose.model('User', userSchema);
 const Certificate = mongoose.model('Certificate', certificateSchema);
@@ -154,60 +159,47 @@ app.use((req, res, next) => {
 
 app.post('/api/login', async (req, res) => {
   try {
-    // Debugging log
-    console.log('Login attempt received');
-    
-    await connectDB();
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email and password are required' 
-      });
-    }
-
-    // Temporary admin bypass (remove in production)
-    if (email === 'Admin@gmail.com' && password === 'Password') {
+    // Permanent admin login via env vars
+    if (
+      email === process.env.ADMIN_EMAIL &&
+      password === process.env.ADMIN_PASSWORD
+    ) {
       const token = jwt.sign(
         { userId: 'admin', role: 'admin' },
-        process.env.JWT_SECRET || 'development-secret',
-        { expiresIn: '1h' }
+        process.env.JWT_SECRET,
+        { expiresIn: '365d' }
       );
-      return res.json({ 
+      return res.json({
         success: true,
         token,
-        user: { email: 'Admin@gmail.com', role: 'admin' }
+        user: { email, role: 'admin' }
       });
     }
-
+    // Normal user lookup
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    
     if (!user) {
       console.log('User not found:', email);
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: 'Invalid credentials' 
+        message: 'Invalid credentials'
       });
     }
-
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       console.log('Password mismatch for:', email);
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: 'Invalid credentials' 
+        message: 'Invalid credentials'
       });
     }
-
     const token = jwt.sign(
       { userId: user._id, role: user.position },
       process.env.JWT_SECRET,
       { expiresIn: '6h' }
     );
-
     console.log('Successful login for:', email);
-    res.json({
+    return res.json({
       success: true,
       token,
       user: {
@@ -217,16 +209,17 @@ app.post('/api/login', async (req, res) => {
         role: user.position
       }
     });
-
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: 'Login failed',
-      error: process.env.NODE_ENV === 'development' ? error.message : null
+      message: 'Login failed'
     });
   }
 });
+    
+
+   
 
 // Admin Panel Endpoints (protected with authenticate middleware)
 app.get('/api/getUsers', authenticate, async (req, res) => {
