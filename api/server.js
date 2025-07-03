@@ -11,9 +11,7 @@ require('dotenv').config();
 const app = express();
 
 
-
 // Allow your front-end origin(s) to talk to this API
-
 
 const allowed = new Set([
   'https://narapdb.com.ng',
