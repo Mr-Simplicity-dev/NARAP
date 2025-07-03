@@ -814,8 +814,6 @@ app.get('/api/analytics/dashboard', async (req, res) => {
     }
 });
 
-
-
 // ==================== SYSTEM HEALTH ENDPOINTS ====================
 app.get('/api/health', async (req, res) => {
     try {
@@ -844,49 +842,6 @@ app.get('/api/health', async (req, res) => {
             error: error.message
         });
     }
-});
-
-app.get('/api/members/history', async (req, res) => {
-  try {
-    const members = await User.find({}, { createdAt: 1 });
-    const history = {};
-
-    members.forEach(user => {
-      const date = new Date(user.createdAt);
-      const monthYear = `${date.getMonth() + 1}-${date.getFullYear()}`;
-
-      if (!history[monthYear]) {
-        history[monthYear] = 0;
-      }
-      history[monthYear]++;
-    });
-
-    res.json(history);
-  } catch (err) {
-    console.error('Error fetching member registration history:', err);
-    res.status(500).json({ message: 'Server error while loading member history' });
-  }
-});
-
-app.get('/api/system/health', async (req, res) => {
-  try {
-    const memoryUsage = process.memoryUsage();
-    const uptime = process.uptime();
-    const healthData = {
-      memory: {
-        used: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-        total: Math.round(memoryUsage.heapTotal / 1024 / 1024),
-        limit: Math.round(memoryUsage.rss / 1024 / 1024)
-      },
-      uptime: `${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s`,
-      timestamp: new Date().toISOString()
-    };
-
-    res.json(healthData);
-  } catch (error) {
-    console.error('System health check failed:', error);
-    res.status(500).json({ message: 'Error checking system health' });
-  }
 });
 
 // ==================== BULK OPERATIONS ====================
