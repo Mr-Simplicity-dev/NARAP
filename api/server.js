@@ -72,8 +72,7 @@ const connectDB = async () => {
   }
   try {
     await mongoose.connect(uri, {
-            useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000
+           serverSelectionTimeoutMS: 5000
     });
     console.log('MongoDB connected successfully');
     return mongoose.connection;
@@ -1273,4 +1272,5 @@ connectDB()
   .catch(err => console.error('❌ MongoDB connect failed (serverless):', err));
 
 // Export the app wrapped by serverless-http
-module.exports = { connectDB, handler: serverless(app) };
+module.exports = app;
+
