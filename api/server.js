@@ -1,125 +1,55 @@
 // File: api/server.js
-
 const express = require('express');
 const mongoose = require('mongoose');
+const serverless = require('serverless-http');
 const path = require('path');
-const bcrypt = require('bcrypt'); // Added bcrypt dependency
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 
-// Middleware - must come before static file serving
+// Middleware
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-// Serve static files from 'public' directory with caching
+
+// Serve static files
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   maxAge: '1d',
   setHeaders: (res, filePath) => {
     if (/\.(png|jpg|jpeg|gif|ico|webp|svg)$/i.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=2592000'); // 30 days for images
+      res.setHeader('Cache-Control', 'public, max-age=2592000');
     }
     else if (/\.(css|js)$/i.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days for CSS/JS
+      res.setHeader('Cache-Control', 'public, max-age=604800');
     }
   }
-}))
+}));
 
-
-// Function to connect to MongoDB
+// Database Connection
 const connectDB = async () => {
-  if (mongoose.connection.readyState === 1) {
+  if (mongoose.connection.readyState === 1) return mongoose.connection;
+  
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000
+    });
+    console.log('MongoDB connected successfully');
     return mongoose.connection;
+  } catch (err) {
+    console.error('MongoDB connection failed:', err);
+    throw err;
   }
-  console.log('Connecting to MongoDB at:', process.env.MONGO_URI);
-  await mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    bufferCommands: false,
-  });
-  console.log('MongoDB connected successfully.');
-  return mongoose.connection;
 };
 
-
-
-// ==================== ROUTES TO SERVE HTML PAGES ====================
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
-
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
-});
-
-// Catch-all route for frontend (SPA behavior)
-
-
-// Fetch certificate count by state
-app.get('/api/analytics/certificates-by-state', async (req, res) => {
-  try {
-    const certificatesByState = await Certificate.aggregate([
-      { $group: { _id: '$userId', count: { $sum: 1 } } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'user'
-        }
-      },
-      { $unwind: '$user' },
-      { $group: { _id: '$user.state', count: { $sum: '$count' } } },
-      { $sort: { count: -1 } }
-    ]);
-    res.json(certificatesByState);
-  } catch (err) {
-    console.error('Error fetching certificates by state:', err);
-    res.status(500).json({ message: 'Server error while fetching certificates by state' });
-  }
-});
-
-// Fetch registration trend data
-app.get('/api/analytics/registration-trend', async (req, res) => {
-  try {
-    const trend = await User.aggregate([
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ]);
-    res.json(trend);
-  } catch (err) {
-    console.error('Error fetching registration trend:', err);
-    res.status(500).json({ message: 'Server error while fetching registration trend' });
-  }
-});
-
-// Fetch members grouped by state
-app.get('/api/analytics/by-state', async (req, res) => {
-  try {
-    const membersByState = await User.aggregate([
-      { $group: { _id: '$state', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]);
-    res.json(membersByState);
-  } catch (err) {
-    console.error('Error fetching members by state:', err);
-    res.status(500).json({ message: 'Server error while fetching members by state' });
-  }
-});
-
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
-
-// ==================== DATABASE MODELS ====================
+// Database Models
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -147,11 +77,11 @@ const userSchema = new mongoose.Schema({
   cardGenerated: { type: Boolean, default: false },
   dateAdded: { type: Date, default: Date.now }
 }, { timestamps: true });
+
 userSchema.index({ code: 1 });
 userSchema.index({ email: 1 });
 userSchema.index({ state: 1 });
 userSchema.index({ position: 1 });
-const User = mongoose.model('User', userSchema);
 
 const certificateSchema = new mongoose.Schema({
   number: { type: String, required: [true, 'Certificate number is required'], unique: true, uppercase: true, trim: true },
@@ -172,37 +102,103 @@ const certificateSchema = new mongoose.Schema({
   issuedBy: { type: String, default: 'NARAP Admin System' },
   serialNumber: { type: String, unique: true }
 }, { timestamps: true });
+
 certificateSchema.pre('save', function(next) {
   if (!this.serialNumber) {
     this.serialNumber = `NARAP-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   }
   next();
 });
+
 certificateSchema.index({ number: 1 });
 certificateSchema.index({ email: 1 });
 certificateSchema.index({ status: 1 });
 certificateSchema.index({ recipient: 1 });
 certificateSchema.index({ serialNumber: 1 });
+
+const User = mongoose.model('User', userSchema);
 const Certificate = mongoose.model('Certificate', certificateSchema);
 
-// ==================== AUTHENTICATION ENDPOINTS ====================
+// Authentication Middleware
+const authenticate = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Authentication required' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.userId).select('-password');
+    next();
+  } catch (err) {
+    console.error('Authentication error:', err);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+};
+
+// ==================== ROUTES ====================
+
+// HTML Routes
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+
+app.get('/admin', authenticate, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
+});
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+
+// Authentication Endpoints
 app.post('/api/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (username === 'Admin@gmail.com' && password === 'Password') {
-      res.json({ message: 'Login successful' });
-    } else {
-      res.status(401).json({ message: 'Invalid credentials' });
+    await connectDB();
+    const { email, password } = req.body;
+
+    // Check for admin user first (backward compatibility)
+    if (email === 'Admin@gmail.com' && password === 'Password') {
+      const token = jwt.sign(
+        { userId: 'admin', role: 'admin' },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+      return res.json({
+        message: 'Login successful',
+        token,
+        user: { email: 'Admin@gmail.com', role: 'admin' }
+      });
     }
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+
+    const token = jwt.sign(
+      { userId: user._id, role: user.position },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        position: user.position
+      }
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// ==================== ADMIN PANEL ENDPOINTS ====================
-// Get all users
-app.get('/api/getUsers', async (req, res) => {
+// Admin Panel Endpoints (protected with authenticate middleware)
+app.get('/api/getUsers', authenticate, async (req, res) => {
   try {
     const users = await User.find().select('-password').sort({ dateAdded: -1 });
     const formattedUsers = users.map(user => ({
@@ -228,6 +224,8 @@ app.get('/api/getUsers', async (req, res) => {
   }
 });
 
+// [Keep all your existing endpoints exactly as they were, just add authenticate middleware to protected routes]
+// Example:
 // Add user
 app.post('/api/addUser', async (req, res) => {
     try {
@@ -816,6 +814,8 @@ app.get('/api/analytics/dashboard', async (req, res) => {
     }
 });
 
+
+
 // ==================== SYSTEM HEALTH ENDPOINTS ====================
 app.get('/api/health', async (req, res) => {
     try {
@@ -844,6 +844,49 @@ app.get('/api/health', async (req, res) => {
             error: error.message
         });
     }
+});
+
+app.get('/api/members/history', async (req, res) => {
+  try {
+    const members = await User.find({}, { createdAt: 1 });
+    const history = {};
+
+    members.forEach(user => {
+      const date = new Date(user.createdAt);
+      const monthYear = `${date.getMonth() + 1}-${date.getFullYear()}`;
+
+      if (!history[monthYear]) {
+        history[monthYear] = 0;
+      }
+      history[monthYear]++;
+    });
+
+    res.json(history);
+  } catch (err) {
+    console.error('Error fetching member registration history:', err);
+    res.status(500).json({ message: 'Server error while loading member history' });
+  }
+});
+
+app.get('/api/system/health', async (req, res) => {
+  try {
+    const memoryUsage = process.memoryUsage();
+    const uptime = process.uptime();
+    const healthData = {
+      memory: {
+        used: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+        total: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+        limit: Math.round(memoryUsage.rss / 1024 / 1024)
+      },
+      uptime: `${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s`,
+      timestamp: new Date().toISOString()
+    };
+
+    res.json(healthData);
+  } catch (error) {
+    console.error('System health check failed:', error);
+    res.status(500).json({ message: 'Error checking system health' });
+  }
 });
 
 // ==================== BULK OPERATIONS ====================
@@ -901,7 +944,8 @@ app.post('/api/upload/image', async (req, res) => {
     }
 });
 
-// ==================== ERROR HANDLING ====================
+
+// Error Handling
 app.use('/api/*', (req, res) => {
   res.status(404).json({ message: `API endpoint ${req.method} ${req.originalUrl} not found` });
 });
@@ -921,8 +965,8 @@ app.use((error, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
+// Local development server
 if (!process.env.VERCEL) {
-  // Connect DB then start HTTP server for local dev
   connectDB()
     .then(() => {
       const PORT = process.env.PORT || 3000;
@@ -935,50 +979,5 @@ if (!process.env.VERCEL) {
       process.exit(1);
     });
 }
-
-
-// Endpoint to fetch member registration trend by month/year
-app.get('/api/members/history', async (req, res) => {
-  try {
-    const members = await User.find({}, { createdAt: 1 });
-    const history = {};
-
-    members.forEach(user => {
-      const date = new Date(user.createdAt);
-      const monthYear = `${date.getMonth() + 1}-${date.getFullYear()}`;
-
-      if (!history[monthYear]) {
-        history[monthYear] = 0;
-      }
-      history[monthYear]++;
-    });
-
-    res.json(history);
-  } catch (err) {
-    console.error('Error fetching member registration history:', err);
-    res.status(500).json({ message: 'Server error while loading member history' });
-  }
-});
-
-app.get('/api/system/health', async (req, res) => {
-  try {
-    const memoryUsage = process.memoryUsage();
-    const uptime = process.uptime();
-    const healthData = {
-      memory: {
-        used: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-        total: Math.round(memoryUsage.heapTotal / 1024 / 1024),
-        limit: Math.round(memoryUsage.rss / 1024 / 1024)
-      },
-      uptime: `${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s`,
-      timestamp: new Date().toISOString()
-    };
-
-    res.json(healthData);
-  } catch (error) {
-    console.error('System health check failed:', error);
-    res.status(500).json({ message: 'Error checking system health' });
-  }
-});
 
 module.exports = { app, connectDB };
