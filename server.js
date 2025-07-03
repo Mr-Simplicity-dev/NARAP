@@ -41,24 +41,7 @@ const connectDB = async () => {
   return mongoose.connection;
 };
 
-// Start server after successful DB connection (local only)
-const startServer = async () => {
-  try {
-    await connectDB();
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`Server listening on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error('Error starting server:', err);
-    process.exit(1);
-  }
-};
 
-// Only start server if not in Vercel environment
-if (!process.env.VERCEL) {
-  startServer();
-}
 
 // ==================== ROUTES TO SERVE HTML PAGES ====================
 app.get('/', (req, res) => {
@@ -69,7 +52,7 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
 
-// Catch-all route for frontend (SPA behavior)
+
 
 
 // Fetch certificate count by state
