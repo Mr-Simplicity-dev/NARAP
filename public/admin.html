@@ -281,48 +281,52 @@
 
                 <!-- Analytics Tab -->
                 <div id="analyticsTab" class="tab-content">
-                    <!-- Charts Container -->
-                    <div class="charts-container">
-                        <div class="chart-card">
-                            <div class="chart-title">Member Registration Trend</div>
-                            <canvas id="memberChart" width="400" height="200"></canvas>
-                        </div>
-                        <div class="chart-card">
-                            <div class="chart-title">Certificate Issuance</div>
-                            <canvas id="certificateChart" width="400" height="200"></canvas>
-                        </div>
-                        <div class="chart-card">
-                            <div class="chart-title">Members by State</div>
-                            <canvas id="stateChart" width="400" height="200"></canvas>
-                        </div>
-                        <div class="chart-card">
-                            <div class="chart-title">System Health</div>
-                            <div id="systemHealth">
-                                <div class="loading">Loading system health data...</div>
-                            </div>
-                        </div>
+                <!-- Charts Container -->
+                <div class="charts-container">
+                    <div class="chart-card" id="regTrendPanel">
+                        <div class="chart-title">Member Registration Trend</div>
+                        <canvas id="memberChart" width="400" height="200"></canvas>
                     </div>
-
-                    <!-- Detailed Statistics -->
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-number" id="avgMembersPerMonth">0</div>
-                            <div class="stat-label">Avg Members/Month</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="activeCertificates">0</div>
-                            <div class="stat-label">Active Certificates</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="revokedCertificates">0</div>
-                            <div class="stat-label">Revoked Certificates</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="systemLoad">0%</div>
-                            <div class="stat-label">System Load</div>
+                    <div class="chart-card" id="certIssuancePanel">
+                        <div class="chart-title">Certificate Issuance</div>
+                        <canvas id="certificateChart" width="400" height="200"></canvas>
+                    </div>
+                    <div class="chart-card" id="membersByStatePanel">
+                        <div class="chart-title">Members by State</div>
+                        <canvas id="stateChart" width="400" height="200"></canvas>
+                    </div>
+                    <div class="chart-card" id="systemHealthPanel">
+                        <div class="chart-title">System Health</div>
+                        <div id="systemHealth">
+                            <div class="loading">Loading system health data...</div>
                         </div>
                     </div>
                 </div>
+
+            
+             <!-- Detailed Statistics -->
+                <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="avgMembersPerMonth">0</div>
+                    <div class="stat-label">Avg Members/Month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="activeCertificates">0</div>
+                    <div class="stat-label">Active Certificates</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="revokedCertificates">0</div>
+                    <div class="stat-label">Revoked Certificates</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="systemLoad">0%</div>
+                    <div class="stat-label">System Load</div>
+                </div>
+            </div>
+            
+
+</div>
+
 
                 <!-- System Tab -->
                 <div id="systemTab" class="tab-content">
