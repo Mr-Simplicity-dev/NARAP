@@ -2,12 +2,11 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.js",
+      "src": "api/server.js",
       "use": "@vercel/node",
       "config": {
         "maxLambdaSize": "15mb",
         "includeFiles": [
-          "api/server.js",
           "package.json",
           "package-lock.json",
           ".env.local"
@@ -17,24 +16,19 @@
     },
     {
       "src": "public/**/*",
-      "use": "@vercel/static",
-      "config": {
-        "maxDuration": 30
-      }
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/index.js",
+      "dest": "/api/server.js",
+      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       "headers": {
-        "Access-Control-Allow-Origin": "narapdb.com.ng",
+        "Access-Control-Allow-Origin": "https://narapdb.com.ng",
         "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
         "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
-        "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload"
+        "Access-Control-Allow-Credentials": "true"
       }
     },
     {
@@ -55,6 +49,7 @@
     {
       "src": "/(.*)",
       "dest": "/public/$1",
+      "status": 200,
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
       }
@@ -65,27 +60,25 @@
       "source": "/api/(.*)",
       "headers": [
         {
-          "key": "X-DNS-Prefetch-Control",
-          "value": "off"
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
         },
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
         }
       ]
-    },
-    {
-      "source": "/(.*\\.(js|css))",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
     }
   ],
-  "regions": ["dub1"], 
-  "public": false, 
+  "regions": ["dub1"],
   "cleanUrls": true,
   "trailingSlash": false
 }
