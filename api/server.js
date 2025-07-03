@@ -13,9 +13,8 @@ const app = express();
 
 
 // Allow your front-end origin(s) to talk to this API
-const cors = require('cors');
 
-// … after `const app = express()`
+
 app.use(cors({
   origin: [
     'https://narapdb.com.ng',         // your production URL
