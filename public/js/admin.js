@@ -303,7 +303,7 @@ async function login(event) {
                 'Accept': 'application/json'
             },
             credentials: 'include',
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ email: username, password })
         });
 
         console.log('Response status:', res.status);
