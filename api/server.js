@@ -1,7 +1,6 @@
 // File: api/server.js
 const express = require('express');
 const mongoose = require('mongoose');
-const serverless = require('serverless-http');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -78,8 +77,6 @@ const userSchema = new mongoose.Schema({
   dateAdded: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-userSchema.index({ code: 1 });
-userSchema.index({ email: 1 });
 userSchema.index({ state: 1 });
 userSchema.index({ position: 1 });
 
@@ -110,11 +107,9 @@ certificateSchema.pre('save', function(next) {
   next();
 });
 
-certificateSchema.index({ number: 1 });
 certificateSchema.index({ email: 1 });
 certificateSchema.index({ status: 1 });
 certificateSchema.index({ recipient: 1 });
-certificateSchema.index({ serialNumber: 1 });
 
 const User = mongoose.model('User', userSchema);
 const Certificate = mongoose.model('Certificate', certificateSchema);
