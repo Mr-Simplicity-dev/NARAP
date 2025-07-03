@@ -1,5 +1,5 @@
 // Make sure this matches your server port
-const backendUrl = window.location.origin;
+const backendUrl = window.location.origin;;
 
 // Add this to verify the URL is correct
 console.log('Admin panel initialized with backend URL:', backendUrl);
@@ -117,7 +117,9 @@ class NotificationManager {
     }
 }
 
-
+function initializeNotificationManager() {
+    // no-op
+}
 
 // Local storage keys
 const LOCAL_MEMBERS_KEY = 'narap_local_members';
@@ -263,71 +265,80 @@ function getMessageStyle(type) {
 }
 
 
-// Add this to display error messages
-function showErrorMessage(message) {
-  const errorElement = document.getElementById('error-message') || 
-    document.createElement('div');
-  errorElement.id = 'error-message';
-  errorElement.style.color = 'red';
-  errorElement.textContent = message;
-  document.body.prepend(errorElement);
-}
-
 // Corrected login function
 async function login(event) {
-  if (event) event.preventDefault();
-
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-  const loginError = document.getElementById('loginError');
-  loginError.innerHTML = '';
-
-  if (!username || !password) {
-    loginError.innerHTML = '<div class="error">Please enter both username and password</div>';
-    return;
-  }
-
-  try {
-        showMessage('Logging in...', 'info');
-
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        email: username,
-        password
-      })
-    });
-
-
-
-    console.log('Response status:', res.status);
-    console.log('Response ok:', res.ok);
-
-    if (res.ok) {
-      const data = await res.json();
-      showMessage('Login successful!', 'success');
-      document.getElementById('loginSection').style.display = 'none';
-      document.getElementById('adminSection').style.display = 'block';
-      await loadDashboard();
-    } else {
-      const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
-      const msg = errorData.message || `Server error: ${res.status}`;
-      loginError.innerHTML = `<div class="error">Login failed: ${msg}</div>`;
-      showMessage(`Login failed: ${msg}`, 'error');
+    if (event) event.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const loginError = document.getElementById('loginError');
+    
+    // Clear previous errors
+    loginError.innerHTML = '';
+    
+    // Validate input
+    if (!username || !password) {
+        loginError.innerHTML = '<div class="error">Please enter both username and password</div>';
+        return;
     }
-
-  } catch (error) {
-    console.error('❌ Login error:', error);
-    loginError.innerHTML = `<div class="error">Network error. Please try again.</div>`;
-    showMessage('Network error. Please try again.', 'error');
-  }
+    
+    console.log('🔐 Login attempt:', { username, password: '***' });
+    console.log('Backend URL:', backendUrl);
+    
+    try {
+        showMessage('Logging in...', 'info');
+        
+        const res = await fetch(`${backendUrl}/api/login`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ username, password }),
+            credentials: 'include'
+        });
+        
+        console.log('Response status:', res.status);
+        console.log('Response ok:', res.ok);
+        
+        if (res.ok) {
+            const data = await res.json();
+            console.log('✅ Login successful:', data);
+            
+            showMessage('Login successful!', 'success');
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('adminSection').style.display = 'block';
+            
+            // Load dashboard
+            try {
+                await loadDashboard();
+            } catch (dashboardError) {
+                console.error('Dashboard load error:', dashboardError);
+                showMessage('Login successful, but failed to load dashboard', 'warning');
+            }
+        } else {
+            const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
+            console.log('❌ Login failed:', errorData);
+            const errorMessage = errorData.message || `Server error: ${res.status}`;
+            loginError.innerHTML = `<div class="error">Login failed: ${errorMessage}</div>`;
+            showMessage(`Login failed: ${errorMessage}`, 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Login error:', error);
+        
+        let errorMessage = 'Network error: Please check your connection and try again';
+        
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            errorMessage = 'Cannot connect to server. Please ensure the server is running on port 5000';
+        } else if (error.message.includes('JSON')) {
+            errorMessage = 'Server response error. Please check server logs';
+        }
+        
+        loginError.innerHTML = `<div class="error">${errorMessage}</div>`;
+        showMessage(errorMessage, 'error');
+    }
 }
-
 
 
 // Logout function
@@ -515,7 +526,7 @@ async function getMembers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
         
-        const res = await fetch(`/api/getUsers`, {
+        const res = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -616,7 +627,7 @@ async function getCertificates() {
         
         // Try to fetch from backend
         try {
-            const res = await fetch(`/api/certificates`, {
+            const res = await fetch(`${backendUrl}/api/certificates`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: {
@@ -1120,6 +1131,26 @@ function closeRevocationModal() {
     }
 }
 
+// Helper function to toggle custom reason field
+function toggleCustomReason(selectedValue) {
+    try {
+        const customReasonDiv = document.getElementById('customReasonDiv');
+        if (customReasonDiv) {
+            if (selectedValue === 'Other') {
+                customReasonDiv.style.display = 'block';
+                // Focus on the textarea
+                setTimeout(() => {
+                    const textarea = document.getElementById('customReason');
+                    if (textarea) textarea.focus();
+                }, 100);
+            } else {
+                customReasonDiv.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Error toggling custom reason:', error);
+    }
+}
 
 // COMPLETELY REWRITTEN function to execute revocation
 async function executeRevocation(certificateId) {
@@ -1379,7 +1410,7 @@ async function confirmRevocation(certificateId) {
         let backendSuccess = false;
         if (navigator.onLine && certificate.isFromBackend) {
             try {
-                const res = await fetch(`/api/certificates/${certificateId}`, {
+                const res = await fetch(`${backendUrl}/api/certificates/${certificateId}`, {
                     method: 'PUT',
                     credentials: 'include',
                     headers: {
@@ -1458,7 +1489,7 @@ async function deleteCertificate(certificateId) {
         let backendSuccess = false;
         if (navigator.onLine && certificate.isFromBackend) {
             try {
-                const res = await fetch(`/api/certificates/${certificateId}`, {
+                const res = await fetch(`${backendUrl}/api/certificates/${certificateId}`, {
                     method: 'DELETE',
                     credentials: 'include',
                     headers: {
@@ -1931,7 +1962,7 @@ async function addMember(event) {
     try {
         showMessage('Adding member...', 'success');
         
-        const res = await fetch(`/api/addUser`, {
+        const res = await fetch(`${backendUrl}/api/addUser`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -1988,7 +2019,7 @@ async function updateMember(event) {
     try {
         showMessage('Updating member...', 'success');
         
-        const res = await fetch(`/api/updateUser/${memberId}`, {
+        const res = await fetch(`${backendUrl}/api/updateUser/${memberId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -2015,7 +2046,7 @@ async function deleteMember(memberId) {
     }
     
     try {
-        const res = await fetch(`/api/deleteUser/${memberId}`, {
+        const res = await fetch(`${backendUrl}/api/deleteUser/${memberId}`, {
             method: 'DELETE',
             credentials: 'include',
             headers: {
@@ -2153,7 +2184,7 @@ async function issueCertificate(event) {
         let backendSuccess = false;
         if (navigator.onLine) {
             try {
-                const res = await fetch(`/api/certificates`, {
+                const res = await fetch(`${backendUrl}/api/certificates`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -2283,7 +2314,7 @@ function savePendingSync(pendingSync) {
         // Sync certificate creations
         for (const cert of pendingSync.certificateCreations) {
             try {
-                const res = await fetch(`/api/certificates`, {
+                const res = await fetch(`${backendUrl}/api/certificates`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -2303,7 +2334,7 @@ function savePendingSync(pendingSync) {
         // Sync certificate updates
         for (const cert of pendingSync.certificateUpdates) {
             try {
-                const res = await fetch(`/api/certificates/${cert._id || cert.id}`, {
+                const res = await fetch(`${backendUrl}/api/certificates/${cert._id || cert.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -2554,7 +2585,7 @@ async function clearAllData() {
         showMessage('Clearing all data...', 'success');
         
         // Clear backend data
-        const res = await fetch(`/api/deleteAllUsers`, {
+        const res = await fetch(`${backendUrl}/api/deleteAllUsers`, {
             method: 'DELETE',
             credentials: 'include',
             headers: {
@@ -2955,10 +2986,6 @@ function setupPreviewListeners() {
 // Call this when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     setupPreviewListeners();
-
-    // Bind login form submit to login() function
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) loginForm.addEventListener('submit', login);
 });
 
 
@@ -3098,7 +3125,7 @@ async function importData() {
                 }
                 
                 try {
-                    const res = await fetch(`/api/addUser`, {
+                    const res = await fetch(`${backendUrl}/api/addUser`, {
                         method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
@@ -3178,7 +3205,7 @@ async function restoreBackup() {
             if (backupData.members && Array.isArray(backupData.members)) {
                 for (const member of backupData.members) {
                     try {
-                        const res = await fetch(`/api/addUser`, {
+                        const res = await fetch(`${backendUrl}/api/addUser`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             credentials: 'include',
@@ -3403,29 +3430,35 @@ function quickIssueCertificate() {
 }
 
 // System health monitoring
+// ─────────────────────────────────────────────────────────────────────────────
+// Robust checkSystemHealth: fetches JSON health data and updates UI
 async function checkSystemHealth() {
     try {
-        const response = await fetch(`${backendUrl}/api/health`, {
+        const res = await fetch(`${backendUrl}/api/health`, {
             credentials: 'include'
         });
-        
-        if (response.ok) {
-            const health = await response.json();
-            const serverStatusElement = document.getElementById('serverStatus');
-            const systemLoadElement = document.getElementById('systemLoad');
-            
-            if (serverStatusElement) serverStatusElement.textContent = 'Healthy';
-            if (systemLoadElement) systemLoadElement.textContent = health.load || '0%';
-        } else {
-            const serverStatusElement = document.getElementById('serverStatus');
-            if (serverStatusElement) serverStatusElement.textContent = 'Warning';
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
-    } catch (error) {
+        const health = await res.json();
         const serverStatusElement = document.getElementById('serverStatus');
-        if (serverStatusElement) serverStatusElement.textContent = 'Error';
-        console.error('Health check failed:', error);
+        const systemLoadElement = document.getElementById('systemLoad');
+        if (serverStatusElement) {
+            serverStatusElement.textContent = health.status === 'healthy' ? 'Healthy' : 'Unhealthy';
+        }
+        if (systemLoadElement) {
+            systemLoadElement.textContent = health.load || '0%';
+        }
+    } catch (err) {
+        console.error('Health check failed:', err);
+        showMessage(`Health check failed: ${err.message}`, 'error');
+        const serverStatusElement = document.getElementById('serverStatus');
+        if (serverStatusElement) {
+            serverStatusElement.textContent = 'Error';
+        }
     }
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Certificate verification function
 async function verifyCertificate(certificateNumber) {
@@ -3439,7 +3472,7 @@ async function verifyCertificate(certificateNumber) {
         
         // Then check backend if online
         if (navigator.onLine) {
-            const res = await fetch(`/api/verifyCertificate/${certificateNumber}`, {
+            const res = await fetch(`${backendUrl}/api/verifyCertificate/${certificateNumber}`, {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -3466,230 +3499,12 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         console.log('NARAP Admin Panel initializing...');
         
-         
         // Load theme
         loadTheme();
         
         // Auto-fill admin credentials on page load
         fillAdminCredentials();
         
-
-    
-    // Mobile menu functionality
-    function toggleMobileMenu() {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.querySelector('.mobile-overlay');
-        sidebar.classList.toggle('mobile-open');
-        overlay.classList.toggle('active');
-    }
-
-    function closeMobileMenu() {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.querySelector('.mobile-overlay');
-        sidebar.classList.remove('mobile-open');
-        overlay.classList.remove('active');
-    }
-
-    // Signature functionality
-    let signatureCanvas, signatureCtx;
-    let isDrawing = false;
-    let signatureHistory = [];
-    let currentSignatureType = 'draw';
-
-    function initializeSignatureCanvas() {
-        signatureCanvas = document.getElementById('signatureCanvas');
-        signatureCtx = signatureCanvas.getContext('2d');
-        
-        // Set canvas background
-        signatureCtx.fillStyle = 'white';
-        signatureCtx.fillRect(0, 0, signatureCanvas.width, signatureCanvas.height);
-        
-        // Set default drawing properties
-        signatureCtx.strokeStyle = '#000000';
-        signatureCtx.lineWidth = 2;
-        signatureCtx.lineCap = 'round';
-        signatureCtx.lineJoin = 'round';
-
-        // Mouse events
-        signatureCanvas.addEventListener('mousedown', startDrawing);
-        signatureCanvas.addEventListener('mousemove', draw);
-        signatureCanvas.addEventListener('mouseup', stopDrawing);
-        signatureCanvas.addEventListener('mouseout', stopDrawing);
-
-        // Touch events for mobile
-        signatureCanvas.addEventListener('touchstart', handleTouch);
-        signatureCanvas.addEventListener('touchmove', handleTouch);
-        signatureCanvas.addEventListener('touchend', stopDrawing);
-    }
-
-    function startDrawing(e) {
-        isDrawing = true;
-        saveSignatureState();
-        const rect = signatureCanvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        signatureCtx.beginPath();
-        signatureCtx.moveTo(x, y);
-    }
-
-    function draw(e) {
-        if (!isDrawing) return;
-        const rect = signatureCanvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        signatureCtx.lineTo(x, y);
-        signatureCtx.stroke();
-    }
-
-    function stopDrawing() {
-        isDrawing = false;
-    }
-
-    function handleTouch(e) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
-                                        e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
-            clientX: touch.clientX,
-            clientY: touch.clientY
-        });
-        signatureCanvas.dispatchEvent(mouseEvent);
-    }
-
-    function clearSignature() {
-        signatureCtx.fillStyle = 'white';
-        signatureCtx.fillRect(0, 0, signatureCanvas.width, signatureCanvas.height);
-        signatureHistory = [];
-    }
-
-    function saveSignatureState() {
-        signatureHistory.push(signatureCtx.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height));
-    }
-
-    function undoSignature() {
-        if (signatureHistory.length > 0) {
-            const previousState = signatureHistory.pop();
-            signatureCtx.putImageData(previousState, 0, 0);
-        }
-    }
-
-    function changePenColor(color) {
-        signatureCtx.strokeStyle = color;
-    }
-
-    function changePenSize(size) {
-        signatureCtx.lineWidth = size;
-    }
-
-    function switchSignatureTab(tabName) {
-        // Remove active class from all tabs and content
-        document.querySelectorAll('.signature-tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('.signature-tab-content').forEach(content => content.classList.remove('active'));
-        
-        // Add active class to selected tab and content
-        document.querySelector(`[onclick="switchSignatureTab('${tabName}')"]`).classList.add('active');
-        document.getElementById(`${tabName}SignatureTab`).classList.add('active');
-        
-        currentSignatureType = tabName;
-    }
-
-    function updateTypedSignature(text) {
-        const preview = document.getElementById('typedSignaturePreview');
-        const font = document.getElementById('signatureFont').value;
-        preview.style.fontFamily = font;
-        preview.style.fontSize = '32px';
-        preview.style.color = '#000';
-        preview.style.textAlign = 'center';
-        preview.style.padding = '20px';
-        preview.textContent = text || 'Your signature will appear here';
-    }
-
-    function updateSignatureFont(font) {
-        const text = document.getElementById('signatureText').value;
-        updateTypedSignature(text);
-    }
-
-    function handleSignatureUpload(input) {
-        const file = input.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const preview = document.getElementById('uploadedSignaturePreview');
-                preview.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; max-height: 200px; border: 1px solid #ddd; border-radius: 8px;">`;
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-
-    function saveSignature() {
-        let signatureData = null;
-        
-        switch(currentSignatureType) {
-            case 'draw':
-                signatureData = signatureCanvas.toDataURL();
-                break;
-            case 'type':
-                const text = document.getElementById('signatureText').value;
-                const font = document.getElementById('signatureFont').value;
-                if (text) {
-                    // Create a temporary canvas to generate typed signature
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = 400;
-                    tempCanvas.height = 100;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCtx.fillStyle = 'white';
-                    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-                    tempCtx.fillStyle = 'black';
-                    tempCtx.font = `32px "${font}"`;
-                    tempCtx.textAlign = 'center';
-                    tempCtx.fillText(text, tempCanvas.width/2, tempCanvas.height/2 + 10);
-                    signatureData = tempCanvas.toDataURL();
-                }
-                break;
-            case 'upload':
-                const uploadedImg = document.querySelector('#uploadedSignaturePreview img');
-                if (uploadedImg) {
-                    signatureData = uploadedImg.src;
-                }
-                break;
-        }
-        
-        if (signatureData) {
-            // Store signature data (you can modify this based on your needs)
-            localStorage.setItem('userSignature', signatureData);
-            showMessage('Signature saved successfully!', 'success');
-            closeSignatureModal();
-        } else {
-            showMessage('Please create a signature first!', 'error');
-        }
-    }
-
-    function showSignatureModal() {
-        document.getElementById('signatureModal').classList.add('active');
-        if (!signatureCanvas) {
-            setTimeout(initializeSignatureCanvas, 100);
-        }
-    }
-
-    function closeSignatureModal() {
-        document.getElementById('signatureModal').classList.remove('active');
-    }
-
-    // Make functions available globally
-    window.toggleMobileMenu = toggleMobileMenu;
-    window.closeMobileMenu = closeMobileMenu;
-    window.clearSignature = clearSignature;
-    window.undoSignature = undoSignature;
-    window.changePenColor = changePenColor;
-    window.changePenSize = changePenSize;
-    window.switchSignatureTab = switchSignatureTab;
-    window.updateTypedSignature = updateTypedSignature;
-    window.updateSignatureFont = updateSignatureFont;
-    window.handleSignatureUpload = handleSignatureUpload;
-    window.saveSignature = saveSignature;
-    window.showSignatureModal = showSignatureModal;
-    window.closeSignatureModal = closeSignatureModal;
-    
         // Set up navigation
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
@@ -4110,7 +3925,7 @@ async function batchDeleteMembers() {
     
     for (const memberId of selectedMembers) {
         try {
-            const res = await fetch(`/api/deleteUser/${memberId}`, {
+            const res = await fetch(`${backendUrl}/api/deleteUser/${memberId}`, {
                 method: 'DELETE',
                 credentials: 'include'
             });
@@ -4928,7 +4743,7 @@ function getMessageStyle(type) {
 
 
 // Initialize performance monitor
-// // const performanceMonitor = new PerformanceMonitor();
+const performanceMonitor = new PerformanceMonitor();
 
 // Enhanced API call wrapper with performance monitoring
 async function apiCall(endpoint, options = {}) {
@@ -4936,7 +4751,7 @@ async function apiCall(endpoint, options = {}) {
     let success = false;
     
     try {
-//         performanceMonitor.startTimer(`API: ${endpoint}`);
+        performanceMonitor.startTimer(`API: ${endpoint}`);
         
         const response = await fetch(`${backendUrl}${endpoint}`, {
             credentials: 'include',
@@ -4950,8 +4765,8 @@ async function apiCall(endpoint, options = {}) {
         const duration = performance.now() - startTime;
         success = response.ok;
         
-//         performanceMonitor.recordApiCall(endpoint, duration, success);
-//         performanceMonitor.endTimer(`API: ${endpoint}`);
+        performanceMonitor.recordApiCall(endpoint, duration, success);
+        performanceMonitor.endTimer(`API: ${endpoint}`);
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -4961,8 +4776,8 @@ async function apiCall(endpoint, options = {}) {
         
     } catch (error) {
         const duration = performance.now() - startTime;
-//         performanceMonitor.recordApiCall(endpoint, duration, false);
-//         performanceMonitor.recordError(error, `API call to ${endpoint}`);
+        performanceMonitor.recordApiCall(endpoint, duration, false);
+        performanceMonitor.recordError(error, `API call to ${endpoint}`);
         throw error;
     }
 }
@@ -4999,7 +4814,7 @@ function hideLoadingState(element) {
 // Enhanced error handling
 function handleError(error, context = 'Unknown') {
     console.error(`Error in ${context}:`, error);
-//     performanceMonitor.recordError(error, context);
+    performanceMonitor.recordError(error, context);
     
     let userMessage = 'An unexpected error occurred';
     
@@ -5227,7 +5042,7 @@ function finalizeInitialization() {
     }
     
     console.log('NARAP Admin Panel fully initialized and ready!');
-//     console.log('Performance report:', performanceMonitor.getReport());
+    console.log('Performance report:', performanceMonitor.getReport());
 }
 
 // Auto-save functionality
@@ -5315,7 +5130,7 @@ window.narapAdmin = {
     
     // Utility classes
     notificationManager,
-//     performanceMonitor,
+    performanceMonitor,
     dataCache,
     
     // Form functions
@@ -5345,280 +5160,7 @@ console.log('NARAP Admin Panel JavaScript fully loaded');
 console.log('Total functions available:', Object.keys(window.narapAdmin).length);
 console.log('Ready for production use!');
 
+// End of admin.js file
 
 
 
-// Helper to log actions
-function logActivity(msg) {
-  const div = document.createElement('div');
-  div.textContent = `[${new Date().toLocaleString()}] ${msg}`;
-  document.getElementById('messages').prepend(div);
-}
-
-// Panel switcher
-function showPanel(id) {
-    document.querySelectorAll('.analytics-panel').forEach(p => p.classList.add('hidden'));
-    const panel = document.getElementById(id);
-    if (!panel) {
-        console.error('Panel not found for ID:', id);
-        return;
-    }
-    panel.classList.remove('hidden');
-  switch (id) {
-    case 'byStatePanel': loadByState(); break;
-    case 'certStatePanel': loadCertificatesByState(); break;
-    case 'regTrendPanel': loadRegTrend(); break;
-    case 'sysHealthPanel': loadSystemInfo(); break;
-  }
-}
-
-//  Members by State
-async function loadByState() {
-  try {
-    const res = await fetch(`/api/members/by-state`, { credentials: 'include' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const { states } = await res.json();
-    const ol = document.getElementById('stateList');
-    ol.innerHTML = '';
-    states.forEach((s, i) => {
-      const li = document.createElement('li');
-      li.textContent = `${i+1}. ${s.name} (${s.count})`;
-      const a = document.createElement('a');
-      a.textContent = ' [Download Excel]';
-      a.href = `${backendUrl}/api/members/export?state=${encodeURIComponent(s.name)}`;
-      a.download = `${s.name}-members.xlsx`;
-      li.appendChild(a);
-      ol.appendChild(li);
-    });
-    logActivity('Viewed members by state');
-  } catch (err) {
-    console.error('loadByState error:', err);
-    showMessage('Network or server error occurred while loading members by state', 'error');
-  }
-}
-
-//  Certificates by State
-async function loadCertificatesByState() {
-  try {
-    const res = await fetch(`/api/certificates/by-state`, { credentials: 'include' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const { states } = await res.json();
-    const ol = document.getElementById('certStateList');
-    ol.innerHTML = '';
-    states.forEach((s, i) => {
-      const li = document.createElement('li');
-      li.textContent = `${i+1}. ${s.name}`;
-      const zip = document.createElement('a');
-      zip.textContent = ' [Download ZIP]';
-      zip.href = `${backendUrl}/api/certificates/export-zip?state=${encodeURIComponent(s.name)}`;
-      zip.download = `${s.name}-certificates.zip`;
-      const pdf = document.createElement('a');
-      pdf.textContent = ' [Download PDF]';
-      pdf.href = `${backendUrl}/api/certificates/export-pdf?state=${encodeURIComponent(s.name)}`;
-      pdf.download = `${s.name}-certificates.pdf`;
-      li.append(zip, pdf);
-      ol.appendChild(li);
-    });
-    logActivity('Viewed certificates by state');
-  } catch (err) {
-    console.error('loadCertificatesByState error:', err);
-    showMessage('Network or server error occurred while loading certificates by state', 'error');
-  }
-}
-
-// Registration Trend
-async function loadRegTrend() {
-  try {
-    const response = await fetch('/api/members/history', {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-      }
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Failed to load registration trend:', error);
-    showErrorMessage('Failed to load data. Please try again later.');
-    return {}; // Return empty object as fallback
-  }
-}
-
-// System Health & Clear All Data
-async function loadSystemInfo() {
-  try {
-    const res = await fetch(`/api/system/info`, { credentials: 'include' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    if (!res.ok) {
-    const text = await res.text();
-    console.error(`Error fetching data: ${res.status}`, text);
-    throw new Error('Failed to fetch valid JSON');
-}
-const info = await res.json();
-    const ul = document.getElementById('systemInfo');
-    ul.innerHTML = '';
-    Object.entries(info).forEach(([k, v]) => {
-      const li = document.createElement('li');
-      li.textContent = `${k}: ${v}`;
-      ul.appendChild(li);
-    });
-    logActivity('Viewed system health');
-  } catch (err) {
-    console.error('loadSystemInfo error:', err);
-    showMessage('Network or server error occurred while loading system health', 'error');
-  }
-}
-
-function clearAllData() {
-  const pwd = prompt('Enter admin password to clear all data:');
-  if (pwd !== '07067012884') { alert('Incorrect password'); return; }
-  fetch(`${backendUrl}/api/system/clear`, { method: 'POST', credentials: 'include' })
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      alert('All data cleared');
-      logActivity('Cleared all members and certificates');
-    })
-    .catch(err => {
-      console.error('clearAllData error:', err);
-      showMessage('Failed to clear data', 'error');
-    });
-}
-
-// Kick off the default panel
-document.addEventListener('DOMContentLoaded', () => {
-  showPanel('regTrendPanel');
-});
-
-
-
-
-// --- Analytics Tab Wiring ---
-function logActivity(msg) {
-    const div = document.createElement('div');
-    div.textContent = `[${new Date().toLocaleString()}] ${msg}`;
-    document.getElementById('messages').prepend(div);
-}
-
-function showPanel(id) {
-    document.querySelectorAll('.analytics-panel').forEach(p => p.classList.add('hidden'));
-
-    const panel = document.getElementById(id);
-    if (panel) {
-        panel.classList.remove('hidden');
-    } else {
-        console.warn(`⚠️ Panel with id "${id}" not found.`);
-    }
-
-    switch (id) {
-        case 'byStatePanel': loadByState(); break;
-        case 'certStatePanel': loadCertificatesByState(); break;
-        case 'regTrendPanel': loadRegTrend(); break;
-        case 'sysHealthPanel': loadSystemInfo(); break;
-    }
-}
-
-async function loadByState() {
-    try {
-        const res = await fetch(`/api/members/by-state`, { credentials: 'include' });
-        if (!res.ok) throw new Error(res.statusText);
-        const { states } = await res.json();
-        const ol = document.getElementById('stateList');
-        ol.innerHTML = '';
-        states.forEach((s,i) => {
-            const li = document.createElement('li');
-            li.textContent = `${i+1}. ${s.name} (${s.count})`;
-            const a = document.createElement('a');
-            a.textContent = ' Download Excel';
-            a.href = `${backendUrl}/api/members/export?state=${encodeURIComponent(s.name)}`;
-            a.download = `${s.name}-members.xlsx`;
-            li.appendChild(a);
-            ol.appendChild(li);
-        });
-        logActivity('Viewed members by state');
-    } catch (err) {
-        console.error(err);
-        showMessage('Network or server error occurred while loading members by state','error');
-    }
-}
-
-async function loadCertificatesByState() {
-    try {
-        const res = await fetch(`/api/certificates/by-state`, { credentials: 'include' });
-        if (!res.ok) throw new Error(res.statusText);
-        const { states } = await res.json();
-        const ol = document.getElementById('certStateList');
-        ol.innerHTML = '';
-        states.forEach((s,i) => {
-            const li = document.createElement('li');
-            li.textContent = `${i+1}. ${s.name}`;
-            const zip = document.createElement('a');
-            zip.textContent = ' Download ZIP';
-            zip.href = `${backendUrl}/api/certificates/export-zip?state=${encodeURIComponent(s.name)}`;
-            zip.download = `${s.name}-certificates.zip`;
-            const pdf = document.createElement('a');
-            pdf.textContent = ' Download PDF';
-            pdf.href = `${backendUrl}/api/certificates/export-pdf?state=${encodeURIComponent(s.name)}`;
-            pdf.download = `${s.name}-certificates.pdf`;
-            li.append(zip, pdf);
-            ol.appendChild(li);
-        });
-        logActivity('Viewed certificates by state');
-    } catch (err) {
-        console.error(err);
-        showMessage('Network or server error occurred while loading certificates by state','error');
-    }
-}
-
-
-
-async function loadSystemInfo() {
-    try {
-        const res = await fetch(`/api/system/info`, { credentials: 'include' });
-        if (!res.ok) throw new Error(res.statusText);
-        if (!res.ok) {
-    const text = await res.text();
-    console.error(`Error fetching data: ${res.status}`, text);
-    throw new Error('Failed to fetch valid JSON');
-}
-const info = await res.json();
-        const ul = document.getElementById('systemInfo');
-        ul.innerHTML = '';
-        Object.entries(info).forEach(([k,v]) => {
-            const li = document.createElement('li');
-            li.textContent = `${k}: ${v}`;
-            ul.appendChild(li);
-        });
-        logActivity('Viewed system health');
-    } catch (err) {
-        console.error(err);
-        showMessage('Network or server error occurred while loading system health','error');
-    }
-}
-
-function clearAllData() {
-    const pwd = prompt('Enter admin password to clear all data:');
-    if (pwd !== '07067012884') {
-        alert('Incorrect password');
-        return;
-    }
-    fetch(`${backendUrl}/api/system/clear`, { method: 'POST', credentials: 'include' })
-        .then(r => {
-            if (!r.ok) throw new Error(r.statusText);
-            alert('All data cleared');
-            logActivity('Cleared all members and certificates');
-        })
-        .catch(err => {
-            console.error(err);
-            showMessage('Failed to clear data','error');
-        });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    showPanel('regTrendPanel');
-});
-// --- End Analytics Tab Wiring ----

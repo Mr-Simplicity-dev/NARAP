@@ -178,114 +178,57 @@ app.use((req, res, next) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
     });
 
-// Authentication Endpoints
-
+// ==================== AUTHENTICATION ENDPOINTS ====================
 
 app.post('/api/login', async (req, res) => {
-  try {
-    // Debugging log
-    console.log('Login attempt received');
-    
-    await connectDB();
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email and password are required' 
-      });
+    try {
+        const { username, password } = req.body;
+        
+        // Hardcoded credentials for now
+        if (username === 'Admin@gmail.com' && password === 'Password') {
+            res.json({ message: 'Login successful' });
+        } else {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Server error' });
     }
-
-    // Temporary admin bypass (remove in production)
-    if (email === 'Admin@gmail.com' && password === 'Password') {
-      const token = jwt.sign(
-        { userId: 'admin', role: 'admin' },
-        process.env.JWT_SECRET || 'development-secret',
-        { expiresIn: '1h' }
-      );
-      return res.json({ 
-        success: true,
-        token,
-        user: { email: 'Admin@gmail.com', role: 'admin' }
-      });
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    
-    if (!user) {
-      console.log('User not found:', email);
-      return res.status(401).json({ 
-        success: false,
-        message: 'Invalid credentials' 
-      });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      console.log('Password mismatch for:', email);
-      return res.status(401).json({ 
-        success: false,
-        message: 'Invalid credentials' 
-      });
-    }
-
-    const token = jwt.sign(
-      { userId: user._id, role: user.position },
-      process.env.JWT_SECRET,
-      { expiresIn: '6h' }
-    );
-
-    console.log('Successful login for:', email);
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.position
-      }
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Login failed',
-      error: process.env.NODE_ENV === 'development' ? error.message : null
-    });
-  }
 });
 
-// Admin Panel Endpoints (protected with authenticate middleware)
-app.get('/api/getUsers', authenticate, async (req, res) => {
-  try {
-    const users = await User.find().select('-password').sort({ dateAdded: -1 });
-    const formattedUsers = users.map(user => ({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      code: user.code,
-      position: user.position,
-      state: user.state,
-      zone: user.zone,
-      passportPhoto: user.passportPhoto,
-      signature: user.signature,
-      dateAdded: user.dateAdded || user.createdAt,
-      isActive: user.isActive,
-      cardGenerated: user.cardGenerated,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    }));
-    res.json(formattedUsers);
-  } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ message: 'Server error while fetching users' });
-  }
+// ==================== ADMIN PANEL COMPATIBLE ENDPOINTS ====================
+
+// Get all users (admin panel expects this endpoint)
+app.get('/api/getUsers', async (req, res) => {
+    try {
+        const users = await User.find().select('-password').sort({ dateAdded: -1 });
+        
+        // Return in format expected by admin panel
+        const formattedUsers = users.map(user => ({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            code: user.code,
+            position: user.position,
+            state: user.state,
+            zone: user.zone,
+            passportPhoto: user.passportPhoto,
+            signature: user.signature,
+            dateAdded: user.dateAdded || user.createdAt,
+            isActive: user.isActive,
+            cardGenerated: user.cardGenerated,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+        }));
+        
+        res.json(formattedUsers);
+    } catch (error) {
+        console.error('Get users error:', error);
+        res.status(500).json({ message: 'Server error while fetching users' });
+    }
 });
 
-// [Keep all your existing endpoints exactly as they were, just add authenticate middleware to protected routes]
-// Add user
+// Add user (admin panel expects this endpoint)
 app.post('/api/addUser', async (req, res) => {
     try {
         const {
@@ -366,7 +309,7 @@ app.post('/api/addUser', async (req, res) => {
     }
 });
 
-// Delete single user
+// Delete single user (admin panel expects this endpoint)
 app.delete('/api/deleteUser/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -388,7 +331,7 @@ app.delete('/api/deleteUser/:id', async (req, res) => {
     }
 });
 
-// Delete all users
+// Delete all users (admin panel expects this endpoint)
 app.delete('/api/deleteAllUsers', async (req, res) => {
     try {
         const result = await User.deleteMany({});
@@ -403,7 +346,7 @@ app.delete('/api/deleteAllUsers', async (req, res) => {
     }
 });
 
-// Update user
+// Update user (admin panel expects this endpoint)
 app.put('/api/updateUser/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -414,13 +357,13 @@ app.put('/api/updateUser/:id', async (req, res) => {
             return res.status(400).json({ message: 'Invalid user ID format' });
         }
         
-        // Remove sensitive fields
+        // Remove sensitive fields that shouldn't be updated directly
         delete updateData.password;
         delete updateData._id;
         delete updateData.createdAt;
         delete updateData.updatedAt;
         
-        // If code is being updated
+        // If code is being updated, make sure it's uppercase and unique
         if (updateData.code) {
             updateData.code = updateData.code.toUpperCase().trim();
             const existingCode = await User.findOne({
@@ -432,7 +375,7 @@ app.put('/api/updateUser/:id', async (req, res) => {
             }
         }
         
-        // Update cardGenerated status
+        // Update cardGenerated status if images are provided
         if (updateData.passportPhoto && updateData.signature) {
             updateData.cardGenerated = true;
         }
@@ -462,42 +405,68 @@ app.put('/api/updateUser/:id', async (req, res) => {
 });
 
 // ==================== FRONTEND VERIFICATION ENDPOINTS ====================
-// Member verification
+
+// Member verification endpoint for public frontend
 app.post('/api/members/verify', async (req, res) => {
-  try {
-    const { code } = req.body;
-    if (!code) return res.status(400).json({ success: false, message: 'Code is required' });
-    const member = await User.findOne({ code: { $regex: new RegExp(`^${code}$`, 'i') }, isActive: { $ne: false } }).select('-password');
-    if (!member) {
-      console.log('❌ Member not found for code:', code);
-      return res.status(404).json({ success: false, message: 'Member not found with this code. Please verify the code and try again.' });
+    try {
+        const { code } = req.body;
+        
+        console.log('🔍 Frontend verification request for code:', code);
+        
+        if (!code) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Code is required' 
+            });
+        }
+        
+        // Search for member by code (case insensitive)
+        const member = await User.findOne({ 
+            code: { $regex: new RegExp(`^${code}$`, 'i') },
+            isActive: { $ne: false }
+        }).select('-password');
+        
+        if (!member) {
+                       console.log('❌ Member not found for code:', code);
+            return res.status(404).json({ 
+                success: false,
+                message: 'Member not found with this code. Please verify the code and try again.' 
+            });
+        }
+        
+        console.log('✅ Member found:', member.name, member.code);
+        
+        // Update last verification time
+        member.lastVerification = new Date();
+        await member.save();
+        
+        res.json({
+            success: true,
+            message: 'Member found successfully',
+            member: {
+                _id: member._id,
+                name: member.name,
+                email: member.email,
+                code: member.code,
+                position: member.position || 'MEMBER',
+                state: member.state,
+                zone: member.zone,
+                passportPhoto: member.passportPhoto,
+                signature: member.signature,
+                dateAdded: member.dateAdded || member.createdAt,
+                isActive: member.isActive !== false
+            }
+        });
+    } catch (error) {
+        console.error('❌ Member verification error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Server error while verifying member' 
+        });
     }
-    member.lastVerification = new Date();
-    await member.save();
-    res.json({
-      success: true,
-      message: 'Member found successfully',
-      member: {
-        _id: member._id,
-        name: member.name,
-        email: member.email,
-        code: member.code,
-        position: member.position || 'MEMBER',
-        state: member.state,
-        zone: member.zone,
-        passportPhoto: member.passportPhoto,
-        signature: member.signature,
-        dateAdded: member.dateAdded || member.createdAt,
-        isActive: member.isActive !== false
-      }
-    });
-  } catch (error) {
-    console.error('❌ Member verification error:', error);
-    res.status(500).json({ success: false, message: 'Server error while verifying member' });
-  }
 });
 
-// Certificate verification (single implementation)
+// Certificate verification endpoint for public frontend
 app.post('/api/certificates/verify', async (req, res) => {
     try {
         const { certificateNumber } = req.body;
@@ -561,7 +530,7 @@ app.post('/api/certificates/verify', async (req, res) => {
     }
 });
 
-// Legacy searchUser endpoint
+// Legacy searchUser endpoint for backward compatibility
 app.post('/api/searchUser', async (req, res) => {
     try {
         const { code } = req.body;
@@ -603,7 +572,8 @@ app.post('/api/searchUser', async (req, res) => {
 });
 
 // ==================== CERTIFICATE MANAGEMENT ENDPOINTS ====================
-// Logging middleware
+
+// Logging middleware for certificate routes (for debugging)
 app.use('/api/certificates', (req, res, next) => {
     console.log(`📋 Certificate API: ${req.method} ${req.originalUrl}`);
     if (req.body && Object.keys(req.body).length > 0) {
@@ -744,71 +714,151 @@ app.get('/api/certificates/verify/:number', async (req, res) => {
     }
 });
 
-// Revoke certificate
+// FIXED: Revoke certificate endpoint
 app.put('/api/certificates/:id/revoke', async (req, res) => {
     try {
         const { id } = req.params;
         const { reason, revokedBy = 'Admin' } = req.body;
         
-        console.log(`Revoking certificate ${id} with reason: ${reason}`);
+        console.log(`🚫 Revoking certificate ${id} with reason: ${reason}`);
         
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: 'Invalid certificate ID format' });
         }
         
-        const certificate = await Certificate.findByIdAndUpdate(
+        if (!reason || reason.trim() === '') {
+            return res.status(400).json({ message: 'Revocation reason is required' });
+        }
+        
+        const certificate = await Certificate.findById(id);
+        if (!certificate) {
+            return res.status(404).json({ message: 'Certificate not found' });
+        }
+        
+        if (certificate.status === 'revoked') {
+            return res.status(400).json({ message: 'Certificate is already revoked' });
+        }
+        
+        const updatedCertificate = await Certificate.findByIdAndUpdate(
             id,
             {
                 status: 'revoked',
                 revokedAt: new Date(),
-                revokedBy,
-                revokedReason: reason
+                revokedBy: revokedBy.trim(),
+                revokedReason: reason.trim()
             },
-            { new: true }
+            { new: true, runValidators: true }
         );
         
-        if (!certificate) {
-            return res.status(404).json({ message: 'Certificate not found' });
-        }
-        
-        console.log('Certificate revoked successfully:', certificate.number);
+        console.log('✅ Certificate revoked successfully:', updatedCertificate.number);
         
         res.json({
+            success: true,
             message: 'Certificate revoked successfully',
-            certificate
+            certificate: updatedCertificate
         });
     } catch (error) {
-        console.error('Revoke certificate error:', error);
-        res.status(500).json({ message: 'Server error while revoking certificate' });
+        console.error('❌ Revoke certificate error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Server error while revoking certificate' 
+        });
     }
 });
 
-// Delete certificate
-app.delete('/api/certificates/:id', async (req, res) => {
+// FIXED: Reactivate certificate endpoint
+app.put('/api/certificates/:id/activate', async (req, res) => {
     try {
         const { id } = req.params;
         
-        console.log(`Deleting certificate ${id}`);
+        console.log(`🔄 Reactivating certificate ${id}`);
         
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: 'Invalid certificate ID format' });
         }
         
-        const certificate = await Certificate.findByIdAndDelete(id);
+        const certificate = await Certificate.findById(id);
         if (!certificate) {
             return res.status(404).json({ message: 'Certificate not found' });
         }
         
-        console.log('Certificate deleted successfully:', certificate.number);
+        if (certificate.status !== 'revoked') {
+            return res.status(400).json({ message: 'Only revoked certificates can be reactivated' });
+        }
         
-        res.json({ message: 'Certificate deleted successfully' });
+        const updatedCertificate = await Certificate.findByIdAndUpdate(
+            id,
+            {
+                status: 'active',
+                $unset: {
+                    revokedAt: 1,
+                    revokedBy: 1,
+                    revokedReason: 1
+                }
+            },
+            { new: true, runValidators: true }
+        );
+        
+        console.log('✅ Certificate reactivated successfully:', updatedCertificate.number);
+        
+        res.json({
+            success: true,
+            message: 'Certificate reactivated successfully',
+            certificate: updatedCertificate
+        });
     } catch (error) {
-        console.error('Delete certificate error:', error);
-        res.status(500).json({ message: 'Server error while deleting certificate' });
+        console.error('❌ Reactivate certificate error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Server error while reactivating certificate' 
+        });
+    }
+});
+
+// FIXED: Delete certificate endpoint
+app.delete('/api/certificates/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        console.log(`🗑️ Deleting certificate ${id}`);
+        
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid certificate ID format' });
+        }
+        
+        const certificate = await Certificate.findById(id);
+        if (!certificate) {
+            return res.status(404).json({ message: 'Certificate not found' });
+        }
+        
+        // Store certificate info before deletion for logging
+        const certificateInfo = {
+            number: certificate.number,
+            recipient: certificate.recipient,
+            title: certificate.title
+        };
+        
+        await Certificate.findByIdAndDelete(id);
+        
+        console.log('✅ Certificate deleted successfully:', certificateInfo.number);
+        
+        res.json({ 
+            success: true,
+            message: 'Certificate deleted successfully',
+            deletedCertificate: certificateInfo
+        });
+    } catch (error) {
+        console.error('❌ Delete certificate error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Server error while deleting certificate' 
+        });
     }
 });
 
 // ==================== ANALYTICS ENDPOINTS ====================
+
+// Get dashboard statistics
 app.get('/api/analytics/dashboard', async (req, res) => {
     try {
         const totalMembers = await User.countDocuments();
@@ -828,7 +878,7 @@ app.get('/api/analytics/dashboard', async (req, res) => {
         // Members by state
         const membersByState = await User.aggregate([
             { $group: { _id: '$state', count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
+                       { $sort: { count: -1 } },
             { $limit: 10 }
         ]);
         
@@ -838,7 +888,7 @@ app.get('/api/analytics/dashboard', async (req, res) => {
             { $sort: { count: -1 } }
         ]);
         
-        // Recent registrations
+        // Recent registrations (last 30 days)
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         
@@ -873,70 +923,9 @@ app.get('/api/analytics/dashboard', async (req, res) => {
     }
 });
 
-// Replace the existing /api/members/history endpoint in your server.js with this:
-
-app.get('/api/members/history', async (req, res) => {
-  try {
-    // Ensure database connection
-    const db = await connectDB();
-    if (db.readyState !== 1) {
-      return res.status(500).json({ 
-        success: false,
-        message: 'Database connection not established'
-      });
-    }
-
-    // Get members grouped by month/year
-    const members = await User.aggregate([
-      {
-        $match: {
-          createdAt: { $exists: true }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { 
-        $sort: { "_id.year": 1, "_id.month": 1 } 
-      }
-    ]);
-
-    // Format the data for frontend
-    const history = members.reduce((acc, curr) => {
-      const key = `${curr._id.month}-${curr._id.year}`;
-      acc[key] = curr.count;
-      return acc;
-    }, {});
-
-    // Send successful response
-    res.json({
-      success: true,
-      data: history,
-      stats: {
-        totalMonths: members.length,
-        latestDate: members.length > 0 
-          ? `${members[members.length-1]._id.month}-${members[members.length-1]._id.year}`
-          : null
-      }
-    });
-
-  } catch (err) {
-    console.error('❌ Member history error:', err);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to load member history',
-      error: process.env.NODE_ENV === 'development' ? err.message : null
-    });
-  }
-});
-
 // ==================== SYSTEM HEALTH ENDPOINTS ====================
+
+// Health check endpoint
 app.get('/api/health', async (req, res) => {
     try {
         // Check database connection
@@ -955,7 +944,7 @@ app.get('/api/health', async (req, res) => {
                 used: Math.round(memoryUsage.heapUsed / 1024 / 1024),
                 total: Math.round(memoryUsage.heapTotal / 1024 / 1024)
             },
-            load: '0%'
+            load: '0%' // Placeholder
         });
     } catch (error) {
         console.error('Health check error:', error);
@@ -967,6 +956,8 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ==================== BULK OPERATIONS ====================
+
+// Bulk delete users
 app.post('/api/users/bulk-delete', async (req, res) => {
     try {
         const { userIds } = req.body;
@@ -997,7 +988,40 @@ app.post('/api/users/bulk-delete', async (req, res) => {
     }
 });
 
+// Bulk delete certificates
+app.post('/api/certificates/bulk-delete', async (req, res) => {
+    try {
+        const { certificateIds } = req.body;
+        
+        if (!Array.isArray(certificateIds) || certificateIds.length === 0) {
+            return res.status(400).json({ message: 'Certificate IDs array is required' });
+        }
+        
+        // Validate all IDs
+        const invalidIds = certificateIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+        if (invalidIds.length > 0) {
+            return res.status(400).json({ 
+                message: `Invalid certificate IDs: ${invalidIds.join(', ')}` 
+            });
+        }
+        
+        const result = await Certificate.deleteMany({
+            _id: { $in: certificateIds }
+        });
+        
+        res.json({
+            message: `Successfully deleted ${result.deletedCount} certificates`,
+            deletedCount: result.deletedCount
+        });
+    } catch (error) {
+        console.error('Bulk delete certificates error:', error);
+        res.status(500).json({ message: 'Server error while deleting certificates' });
+    }
+});
+
 // ==================== FILE UPLOAD ENDPOINTS ====================
+
+// Handle image uploads (for passport photos and signatures)
 app.post('/api/upload/image', async (req, res) => {
     try {
         const { imageData, type } = req.body;
@@ -1011,9 +1035,12 @@ app.post('/api/upload/image', async (req, res) => {
             return res.status(400).json({ message: 'Invalid image type' });
         }
         
+        // Here you could add image processing, validation, etc.
+        // For now, we'll just return the data as-is
+        
         res.json({
             message: 'Image uploaded successfully',
-            imageUrl: imageData
+            imageUrl: imageData // In production, you'd save to cloud storage and return URL
         });
     } catch (error) {
         console.error('Image upload error:', error);
@@ -1021,13 +1048,182 @@ app.post('/api/upload/image', async (req, res) => {
     }
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+// ==================== SEARCH AND FILTER ENDPOINTS ====================
+
+// Advanced search for users
+app.post('/api/users/search', async (req, res) => {
+    try {
+        const { query, filters = {} } = req.body;
+        
+        let searchCriteria = {};
+        
+        // Text search across multiple fields
+        if (query && query.trim()) {
+            const searchRegex = new RegExp(query.trim(), 'i');
+            searchCriteria.$or = [
+                { name: searchRegex },
+                { email: searchRegex },
+                { code: searchRegex },
+                { state: searchRegex },
+                { zone: searchRegex }
+            ];
+        }
+        
+        // Apply filters
+        if (filters.state) {
+            searchCriteria.state = new RegExp(filters.state, 'i');
+        }
+        
+        if (filters.position) {
+            searchCriteria.position = filters.position;
+        }
+        
+        if (filters.zone) {
+            searchCriteria.zone = new RegExp(filters.zone, 'i');
+        }
+        
+        if (filters.isActive !== undefined) {
+            searchCriteria.isActive = filters.isActive;
+        }
+        
+        const users = await User.find(searchCriteria)
+            .select('-password')
+            .sort({ dateAdded: -1 })
+            .limit(100); // Limit results
+        
+        res.json({
+            users,
+            count: users.length,
+            query,
+            filters
+        });
+    } catch (error) {
+        console.error('User search error:', error);
+        res.status(500).json({ message: 'Server error while searching users' });
+    }
 });
 
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+// Advanced search for certificates
+app.post('/api/certificates/search', async (req, res) => {
+    try {
+        const { query, filters = {} } = req.body;
+        
+        let searchCriteria = {};
+        
+        // Text search across multiple fields
+        if (query && query.trim()) {
+            const searchRegex = new RegExp(query.trim(), 'i');
+            searchCriteria.$or = [
+                { number: searchRegex },
+                { recipient: searchRegex },
+                { email: searchRegex },
+                { title: searchRegex },
+                { description: searchRegex }
+            ];
+        }
+        
+        // Apply filters
+        if (filters.status) {
+            searchCriteria.status = filters.status;
+        }
+        
+        if (filters.type) {
+            searchCriteria.type = filters.type;
+        }
+        
+        if (filters.dateFrom) {
+            searchCriteria.issueDate = { $gte: new Date(filters.dateFrom) };
+        }
+        
+        if (filters.dateTo) {
+            if (searchCriteria.issueDate) {
+                searchCriteria.issueDate.$lte = new Date(filters.dateTo);
+            } else {
+                searchCriteria.issueDate = { $lte: new Date(filters.dateTo) };
+            }
+        }
+        
+        const certificates = await Certificate.find(searchCriteria)
+            .populate('userId', 'name email code')
+            .sort({ createdAt: -1 })
+            .limit(100); // Limit results
+        
+        res.json({
+            certificates,
+            count: certificates.length,
+            query,
+            filters
+        });
+    } catch (error) {
+        console.error('Certificate search error:', error);
+        res.status(500).json({ message: 'Server error while searching certificates' });
+    }
 });
+
+// ==================== EXPORT ENDPOINTS ====================
+
+// Export users to CSV format
+app.get('/api/users/export', async (req, res) => {
+    try {
+        const users = await User.find().select('-password').sort({ dateAdded: -1 });
+        
+        // Convert to CSV format
+        const csvHeader = 'Name,Email,Code,Position,State,Zone,Date Added,Active,Card Generated\n';
+        const csvData = users.map(user => {
+            return [
+                user.name,
+                user.email,
+                user.code,
+                user.position,
+                user.state,
+                user.zone,
+                user.dateAdded ? user.dateAdded.toISOString().split('T')[0] : '',
+                user.isActive ? 'Yes' : 'No',
+                user.cardGenerated ? 'Yes' : 'No'
+            ].join(',');
+        }).join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=narap_users.csv');
+        res.send(csvHeader + csvData);
+    } catch (error) {
+        console.error('Export users error:', error);
+        res.status(500).json({ message: 'Server error while exporting users' });
+    }
+});
+
+// Export certificates to CSV format
+app.get('/api/certificates/export', async (req, res) => {
+    try {
+        const certificates = await Certificate.find()
+            .populate('userId', 'name email code')
+            .sort({ createdAt: -1 });
+        
+        // Convert to CSV format
+        const csvHeader = 'Certificate Number,Recipient,Email,Title,Type,Status,Issue Date,Valid Until,Issued By\n';
+        const csvData = certificates.map(cert => {
+            return [
+                cert.number,
+                cert.recipient,
+                cert.email,
+                cert.title,
+                cert.type,
+                cert.status,
+                cert.issueDate ? cert.issueDate.toISOString().split('T')[0] : '',
+                cert.validUntil ? cert.validUntil.toISOString().split('T')[0] : '',
+                cert.issuedBy
+            ].join(',');
+        }).join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=narap_certificates.csv');
+        res.send(csvHeader + csvData);
+    } catch (error) {
+        console.error('Export certificates error:', error);
+        res.status(500).json({ message: 'Server error while exporting certificates' });
+    }
+});
+
 
 // Error Handling
 app.use('/api/*', (req, res) => {
