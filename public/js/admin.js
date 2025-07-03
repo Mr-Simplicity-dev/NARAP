@@ -263,6 +263,16 @@ function getMessageStyle(type) {
 }
 
 
+// Add this to display error messages
+function showErrorMessage(message) {
+  const errorElement = document.getElementById('error-message') || 
+    document.createElement('div');
+  errorElement.id = 'error-message';
+  errorElement.style.color = 'red';
+  errorElement.textContent = message;
+  document.body.prepend(errorElement);
+}
+
 // Corrected login function
 async function login(event) {
     if (event) event.preventDefault();
