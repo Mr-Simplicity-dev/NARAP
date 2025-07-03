@@ -275,79 +275,55 @@ function showErrorMessage(message) {
 
 // Corrected login function
 async function login(event) {
-    if (event) event.preventDefault();
-    
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const loginError = document.getElementById('loginError');
-    
-    // Clear previous errors
-    loginError.innerHTML = '';
-    
-    // Validate input
-    if (!username || !password) {
-        loginError.innerHTML = '<div class="error">Please enter both username and password</div>';
-        return;
+  if (event) event.preventDefault();
+
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const loginError = document.getElementById('loginError');
+  loginError.innerHTML = '';
+
+  if (!username || !password) {
+    loginError.innerHTML = '<div class="error">Please enter both username and password</div>';
+    return;
+  }
+
+  try {
+    showMessage('Logging in...', 'info');
+
+    // ← Here’s the updated fetch: send "email" rather than "username"
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({ email: username, password })
+    });
+
+    console.log('Response status:', res.status);
+    console.log('Response ok:', res.ok);
+
+    if (res.ok) {
+      const data = await res.json();
+      showMessage('Login successful!', 'success');
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('adminSection').style.display = 'block';
+      await loadDashboard();
+    } else {
+      const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
+      const msg = errorData.message || `Server error: ${res.status}`;
+      loginError.innerHTML = `<div class="error">Login failed: ${msg}</div>`;
+      showMessage(`Login failed: ${msg}`, 'error');
     }
-    
-    console.log('🔐 Login attempt:', { username, password: '***' });
-    console.log('Backend URL:', backendUrl);
-    
-        try {
-                showMessage('Logging in...', 'info');
 
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            credentials: 'include',
-            body: JSON.stringify({ email: username, password })
-        });
-
-        console.log('Response status:', res.status);
-        console.log('Response ok:', res.ok);
-
-        
-        if (res.ok) {
-            const data = await res.json();
-            console.log('✅ Login successful:', data);
-            
-            showMessage('Login successful!', 'success');
-            document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('adminSection').style.display = 'block';
-            
-            // Load dashboard
-            try {
-                await loadDashboard();
-            } catch (dashboardError) {
-                console.error('Dashboard load error:', dashboardError);
-                showMessage('Login successful, but failed to load dashboard', 'warning');
-            }
-        } else {
-            const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
-            console.log('❌ Login failed:', errorData);
-            const errorMessage = errorData.message || `Server error: ${res.status}`;
-            loginError.innerHTML = `<div class="error">Login failed: ${errorMessage}</div>`;
-            showMessage(`Login failed: ${errorMessage}`, 'error');
-        }
-        
-        } catch (error) {
-        console.error('❌ Login error:', error);
-        
-        let errorMessage = 'Network error: Please check your connection and try again';
-        
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            errorMessage = 'Cannot connect to server. Please ensure the server is running on port 5000';
-        } else if (error.message.includes('JSON')) {
-            errorMessage = 'Server response error. Please check server logs';
-        }
-        
-        loginError.innerHTML = `<div class="error">${errorMessage}</div>`;
-        showMessage(errorMessage, 'error');
-    }
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    loginError.innerHTML = `<div class="error">Network error. Please try again.</div>`;
+    showMessage('Network error. Please try again.', 'error');
+  }
 }
+
 
 
 // Logout function
