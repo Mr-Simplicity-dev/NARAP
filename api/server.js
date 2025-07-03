@@ -62,9 +62,14 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 // Database Connection
 const connectDB = async () => {
   if (mongoose.connection.readyState === 1) return mongoose.connection;
-  
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
+  if (!uri) {
+    const err = new Error('MONGO_URI or MONGODB_URI environment variable is not defined');
+    console.error(err);
+    throw err;
+  }
   try {
-    await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI, {
+    await mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000
@@ -1267,7 +1272,4 @@ connectDB()
   .catch(err => console.error('❌ MongoDB connect failed (serverless):', err));
 
 // Export the app wrapped by serverless-http
-const handler = serverless(app);
-// Attach connectDB to handler so it can be invoked externally
-handler.connectDB = connectDB;
-module.exports = handler;
+module.exports = { connectDB, handler: serverless(app) };
