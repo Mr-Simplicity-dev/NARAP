@@ -15,16 +15,29 @@ const app = express();
 // Allow your front-end origin(s) to talk to this API
 
 
-app.use(cors({
-  origin: [
-    'https://narapdb.com.ng',         // your production URL
-    'https://www.narapdb.com.ng',     // if you ever use the www variant
-    'http://localhost:3000'           // local dev
-  ],
-  credentials: true,
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization']
-}));
+const allowed = new Set([
+  'https://narapdb.com.ng',
+  'https://www.narapdb.com.ng',
+  'http://localhost:3000'
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowed.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+  );
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type,Authorization'
+  );
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
 
 
 // Middleware
