@@ -524,7 +524,7 @@ async function getMembers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
         
-        const res = await fetch(`${backendUrl}/api/getUsers`, {
+        const res = await fetch(`/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -625,7 +625,7 @@ async function getCertificates() {
         
         // Try to fetch from backend
         try {
-            const res = await fetch(`${backendUrl}/api/certificates`, {
+            const res = await fetch(`/api/certificates`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: {
@@ -1388,7 +1388,7 @@ async function confirmRevocation(certificateId) {
         let backendSuccess = false;
         if (navigator.onLine && certificate.isFromBackend) {
             try {
-                const res = await fetch(`${backendUrl}/api/certificates/${certificateId}`, {
+                const res = await fetch(`/api/certificates/${certificateId}`, {
                     method: 'PUT',
                     credentials: 'include',
                     headers: {
@@ -1467,7 +1467,7 @@ async function deleteCertificate(certificateId) {
         let backendSuccess = false;
         if (navigator.onLine && certificate.isFromBackend) {
             try {
-                const res = await fetch(`${backendUrl}/api/certificates/${certificateId}`, {
+                const res = await fetch(`/api/certificates/${certificateId}`, {
                     method: 'DELETE',
                     credentials: 'include',
                     headers: {
@@ -1940,7 +1940,7 @@ async function addMember(event) {
     try {
         showMessage('Adding member...', 'success');
         
-        const res = await fetch(`${backendUrl}/api/addUser`, {
+        const res = await fetch(`/api/addUser`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -1997,7 +1997,7 @@ async function updateMember(event) {
     try {
         showMessage('Updating member...', 'success');
         
-        const res = await fetch(`${backendUrl}/api/updateUser/${memberId}`, {
+        const res = await fetch(`/api/updateUser/${memberId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -2024,7 +2024,7 @@ async function deleteMember(memberId) {
     }
     
     try {
-        const res = await fetch(`${backendUrl}/api/deleteUser/${memberId}`, {
+        const res = await fetch(`/api/deleteUser/${memberId}`, {
             method: 'DELETE',
             credentials: 'include',
             headers: {
@@ -2162,7 +2162,7 @@ async function issueCertificate(event) {
         let backendSuccess = false;
         if (navigator.onLine) {
             try {
-                const res = await fetch(`${backendUrl}/api/certificates`, {
+                const res = await fetch(`/api/certificates`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -2292,7 +2292,7 @@ function savePendingSync(pendingSync) {
         // Sync certificate creations
         for (const cert of pendingSync.certificateCreations) {
             try {
-                const res = await fetch(`${backendUrl}/api/certificates`, {
+                const res = await fetch(`/api/certificates`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -2312,7 +2312,7 @@ function savePendingSync(pendingSync) {
         // Sync certificate updates
         for (const cert of pendingSync.certificateUpdates) {
             try {
-                const res = await fetch(`${backendUrl}/api/certificates/${cert._id || cert.id}`, {
+                const res = await fetch(`/api/certificates/${cert._id || cert.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -2563,7 +2563,7 @@ async function clearAllData() {
         showMessage('Clearing all data...', 'success');
         
         // Clear backend data
-        const res = await fetch(`${backendUrl}/api/deleteAllUsers`, {
+        const res = await fetch(`/api/deleteAllUsers`, {
             method: 'DELETE',
             credentials: 'include',
             headers: {
@@ -3107,7 +3107,7 @@ async function importData() {
                 }
                 
                 try {
-                    const res = await fetch(`${backendUrl}/api/addUser`, {
+                    const res = await fetch(`/api/addUser`, {
                         method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
@@ -3187,7 +3187,7 @@ async function restoreBackup() {
             if (backupData.members && Array.isArray(backupData.members)) {
                 for (const member of backupData.members) {
                     try {
-                        const res = await fetch(`${backendUrl}/api/addUser`, {
+                        const res = await fetch(`/api/addUser`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             credentials: 'include',
@@ -3448,7 +3448,7 @@ async function verifyCertificate(certificateNumber) {
         
         // Then check backend if online
         if (navigator.onLine) {
-            const res = await fetch(`${backendUrl}/api/verifyCertificate/${certificateNumber}`, {
+            const res = await fetch(`/api/verifyCertificate/${certificateNumber}`, {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -4119,7 +4119,7 @@ async function batchDeleteMembers() {
     
     for (const memberId of selectedMembers) {
         try {
-            const res = await fetch(`${backendUrl}/api/deleteUser/${memberId}`, {
+            const res = await fetch(`/api/deleteUser/${memberId}`, {
                 method: 'DELETE',
                 credentials: 'include'
             });
@@ -5384,7 +5384,7 @@ function showPanel(id) {
 // 1) Members by State
 async function loadByState() {
   try {
-    const res = await fetch(`${backendUrl}/api/members/by-state`, { credentials: 'include' });
+    const res = await fetch(`/api/members/by-state`, { credentials: 'include' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { states } = await res.json();
     const ol = document.getElementById('stateList');
@@ -5409,7 +5409,7 @@ async function loadByState() {
 // 2) Certificates by State
 async function loadCertificatesByState() {
   try {
-    const res = await fetch(`${backendUrl}/api/certificates/by-state`, { credentials: 'include' });
+    const res = await fetch(`/api/certificates/by-state`, { credentials: 'include' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { states } = await res.json();
     const ol = document.getElementById('certStateList');
@@ -5438,7 +5438,7 @@ async function loadCertificatesByState() {
 // 3) Registration Trend
 async function loadRegTrend() {
   try {
-    const res = await fetch(`${backendUrl}/api/members/history`, { credentials: 'include' });
+    const res = await fetch(`/api/members/history`, { credentials: 'include' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (!res.ok) {
     const text = await res.text();
@@ -5467,7 +5467,7 @@ const recs = await res.json();
 // 4) System Health & Clear All Data
 async function loadSystemInfo() {
   try {
-    const res = await fetch(`${backendUrl}/api/system/info`, { credentials: 'include' });
+    const res = await fetch(`/api/system/info`, { credentials: 'include' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (!res.ok) {
     const text = await res.text();
@@ -5539,7 +5539,7 @@ function showPanel(id) {
 
 async function loadByState() {
     try {
-        const res = await fetch(`${backendUrl}/api/members/by-state`, { credentials: 'include' });
+        const res = await fetch(`/api/members/by-state`, { credentials: 'include' });
         if (!res.ok) throw new Error(res.statusText);
         const { states } = await res.json();
         const ol = document.getElementById('stateList');
@@ -5563,7 +5563,7 @@ async function loadByState() {
 
 async function loadCertificatesByState() {
     try {
-        const res = await fetch(`${backendUrl}/api/certificates/by-state`, { credentials: 'include' });
+        const res = await fetch(`/api/certificates/by-state`, { credentials: 'include' });
         if (!res.ok) throw new Error(res.statusText);
         const { states } = await res.json();
         const ol = document.getElementById('certStateList');
@@ -5591,7 +5591,7 @@ async function loadCertificatesByState() {
 
 async function loadRegTrend() {
     try {
-        const res = await fetch(`${backendUrl}/api/members/history`, { credentials: 'include' });
+        const res = await fetch(`/api/members/history`, { credentials: 'include' });
         if (!res.ok) throw new Error(res.statusText);
         if (!res.ok) {
     const text = await res.text();
@@ -5619,7 +5619,7 @@ const recs = await res.json();
 
 async function loadSystemInfo() {
     try {
-        const res = await fetch(`${backendUrl}/api/system/info`, { credentials: 'include' });
+        const res = await fetch(`/api/system/info`, { credentials: 'include' });
         if (!res.ok) throw new Error(res.statusText);
         if (!res.ok) {
     const text = await res.text();
