@@ -11,6 +11,10 @@ require('dotenv').config();
 const app = express();
 
 
+
+// Parse JSON and URL-encoded bodies
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 // Allow your front-end origin(s) to talk to this API
 
 const allowed = new Set([
@@ -180,22 +184,17 @@ app.use((req, res, next) => {
 
 // ==================== AUTHENTICATION ENDPOINTS ====================
 
-// ==================== AUTHENTICATION ENDPOINTS ====================
+
+// ==================== LOGIN ENDPOINT ====================
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-
-        // Validate request body
         if (!email || !password) {
             return res.status(400).json({ message: 'Email and password are required' });
         }
 
-        // Hardcoded credentials for now
-        const validEmail = 'Admin@gmail.com';
-        const validPassword = 'Password';
-        if (email.toLowerCase() === validEmail.toLowerCase() && password === validPassword) {
-            // Optionally generate JWT token
-            // const token = jwt.sign({ userId: 'admin' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        // Hardcoded credentials for demonstration
+        if (email === 'Admin@gmail.com' && password === 'Password') {
             return res.json({ message: 'Login successful' });
         } else {
             return res.status(401).json({ message: 'Invalid credentials' });
@@ -205,6 +204,8 @@ app.post('/api/login', async (req, res) => {
         return res.status(500).json({ message: 'Server error' });
     }
 });
+
+
 
 // ==================== ADMIN PANEL COMPATIBLE ENDPOINTS ====================
 
