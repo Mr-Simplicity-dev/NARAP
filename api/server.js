@@ -155,50 +155,81 @@ app.use((req, res, next) => {
     });
 
 // Authentication Endpoints
+const jwt = require('jsonwebtoken');
+
 app.post('/api/login', async (req, res) => {
   try {
+    // Debugging log
+    console.log('Login attempt received');
+    
     await connectDB();
     const { email, password } = req.body;
 
-    // Check for admin user first (backward compatibility)
+    if (!email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and password are required' 
+      });
+    }
+
+    // Temporary admin bypass (remove in production)
     if (email === 'Admin@gmail.com' && password === 'Password') {
       const token = jwt.sign(
         { userId: 'admin', role: 'admin' },
-        process.env.JWT_SECRET,
+        process.env.JWT_SECRET || 'development-secret',
         { expiresIn: '1h' }
       );
-      return res.json({
-        message: 'Login successful',
+      return res.json({ 
+        success: true,
         token,
         user: { email: 'Admin@gmail.com', role: 'admin' }
       });
     }
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    
+    if (!user) {
+      console.log('User not found:', email);
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!isMatch) {
+      console.log('Password mismatch for:', email);
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
+    }
 
     const token = jwt.sign(
       { userId: user._id, role: user.position },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '6h' }
     );
 
+    console.log('Successful login for:', email);
     res.json({
-      message: 'Login successful',
+      success: true,
       token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        position: user.position
+        role: user.position
       }
     });
+
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({
+      success: false,
+      message: 'Login failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : null
+    });
   }
 });
 
