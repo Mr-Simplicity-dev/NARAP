@@ -10,6 +10,9 @@ require('dotenv').config();
 
 const app = express();
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 
 // Allow your front-end origin(s) to talk to this API
 
@@ -187,19 +190,23 @@ app.use((req, res, next) => {
 
 app.post('/api/login', async (req, res) => {
     try {
-        const { username, password } = req.body;
-        
-        // Hardcoded credentials for now
-        if (username === 'Admin@gmail.com' && password === 'Password') {
-            res.json({ message: 'Login successful' });
-        } else {
-            return res.status(401).json({ message: 'Invalid credentials' });
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password are required" });
         }
+        // Hardcoded admin login
+        if (email === "Admin@gmail.com" && password === "Password") {
+            return res.status(200).json({ message: "Login successful" });
+        }
+        // Optionally add database check for other users here...
+
+        return res.status(401).json({ message: "Invalid credentials" });
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error' });
+        return res.status(500).json({ message: "Server error" });
     }
 });
+
 
 // ==================== ADMIN PANEL COMPATIBLE ENDPOINTS ====================
 
