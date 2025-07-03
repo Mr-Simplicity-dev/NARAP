@@ -170,7 +170,7 @@ app.use((req, res, next) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
     });
 
-    app.get('/admin', authenticate, (req, res) => {
+    app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
     });
 
