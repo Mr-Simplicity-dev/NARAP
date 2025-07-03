@@ -5591,31 +5591,25 @@ async function loadCertificatesByState() {
 }
 
 async function loadRegTrend() {
-    try {
-        const res = await fetch(`/api/members/history`, { credentials: 'include' });
-        if (!res.ok) throw new Error(res.statusText);
-        if (!res.ok) {
-    const text = await res.text();
-    console.error(`Error fetching data: ${res.status}`, text);
-    throw new Error('Failed to fetch valid JSON');
-}
-const recs = await res.json();
-        const tbody = document.getElementById('regTrendTable');
-        tbody.innerHTML = '';
-        recs.forEach(r => {
-            const tr = document.createElement('tr');
-            ['memberId','action','date','details'].forEach(k => {
-                const td = document.createElement('td');
-                td.textContent = r[k] || '';
-                tr.appendChild(td);
-            });
-            tbody.appendChild(tr);
-        });
-        logActivity('Viewed registration trend');
-    } catch (err) {
-        console.error(err);
-        showMessage('Network or server error occurred while loading registration trend','error');
+  try {
+    const response = await fetch('/api/members/history', {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to load registration trend:', error);
+    showErrorMessage('Failed to load data. Please try again later.');
+    return {}; // Return empty object as fallback
+  }
 }
 
 async function loadSystemInfo() {

@@ -1,42 +1,108 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/index.js", "use": "@vercel/node" },
-    { "src": "public/**/*", "use": "@vercel/static" }
+    { 
+      "src": "api/index.js", 
+      "use": "@vercel/node",
+      "config": { 
+        "maxLambdaSize": "15mb",
+        "includeFiles": ["api/server.js", "package.json"]
+      }
+    },
+    { 
+      "src": "public/**/*", 
+      "use": "@vercel/static" 
+    }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
-    { "source": "/admin",   "destination": "/public/admin.html" },
-    { "source": "/",        "destination": "/public/index.html" },
-    { "source": "/(.*)",    "destination": "/public/$1"  }
+    { 
+      "source": "/api/(.*)", 
+      "destination": "/api/index.js" 
+    },
+    { 
+      "source": "/admin",   
+      "destination": "/public/admin.html",
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
+    },
+    { 
+      "source": "/",        
+      "destination": "/public/index.html",
+      "headers": {
+        "Cache-Control": "public, max-age=0, must-revalidate"
+      }
+    },
+    { 
+      "source": "/(.*)",    
+      "destination": "/public/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    }
   ],
   "headers": [
     {
-      "source": "/images/:path*",
+      "source": "/images/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         }
       ]
     },
     {
-      "source": "/js/:path*",
+      "source": "/(.*\\.js|.*\\.css)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
         }
       ]
     },
     {
-      "source": "/css/:path*",
+      "source": "/api/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
+          "value": "no-store, no-cache, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "narapdb.com.ng"
         }
       ]
     }
-  ]
+  ],
+  "routes": [
+    {
+      "src": "/_next/static/(.*)",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      },
+      "continue": true
+    },
+    {
+      "src": "/sw.js",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Service-Worker-Allowed": "/"
+      }
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 }

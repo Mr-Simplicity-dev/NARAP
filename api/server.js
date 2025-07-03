@@ -134,20 +134,25 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+app.use((req, res, next) => {
+  console.log(`Incoming request: ${req.method} ${req.path}`);
+  next();
+});
+
 // ==================== ROUTES ====================
 
 // HTML Routes
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
+    app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+    });
 
-app.get('/admin', authenticate, (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
-});
+    app.get('/admin', authenticate, (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
+    });
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
+    app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+    });
 
 // Authentication Endpoints
 app.post('/api/login', async (req, res) => {
@@ -813,6 +818,48 @@ app.get('/api/analytics/dashboard', async (req, res) => {
     }
 });
 
+app.get('/api/members/history', async (req, res) => {
+  try {
+    // Ensure database connection
+    await connectDB();
+    
+    // Add proper error logging
+    console.log('Fetching member registration history...');
+    
+    const members = await User.find({}, { createdAt: 1 }).lean();
+    
+    if (!members || members.length === 0) {
+      console.warn('No members found in database');
+      return res.json({});
+    }
+
+    const history = members.reduce((acc, user) => {
+      try {
+        const date = new Date(user.createdAt);
+        if (isNaN(date)) throw new Error('Invalid date');
+        
+        const monthYear = `${date.getMonth() + 1}-${date.getFullYear()}`;
+        acc[monthYear] = (acc[monthYear] || 0) + 1;
+        return acc;
+      } catch (err) {
+        console.error('Error processing user:', user._id, err);
+        return acc;
+      }
+    }, {});
+
+    console.log('Successfully generated history:', Object.keys(history).length, 'months');
+    res.json(history);
+    
+  } catch (err) {
+    console.error('CRITICAL ERROR in /api/members/history:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to load member history',
+      error: process.env.NODE_ENV === 'development' ? err.message : null
+    });
+  }
+});
+
 // ==================== SYSTEM HEALTH ENDPOINTS ====================
 app.get('/api/health', async (req, res) => {
     try {
@@ -898,6 +945,13 @@ app.post('/api/upload/image', async (req, res) => {
     }
 });
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
 
 // Error Handling
 app.use('/api/*', (req, res) => {
