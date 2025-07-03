@@ -156,7 +156,6 @@ app.use((req, res, next) => {
 
 // Authentication Endpoints
 
-
 app.post('/api/login', async (req, res) => {
   try {
     // Debugging log
