@@ -225,7 +225,6 @@ app.get('/api/getUsers', authenticate, async (req, res) => {
 });
 
 // [Keep all your existing endpoints exactly as they were, just add authenticate middleware to protected routes]
-// Example:
 // Add user
 app.post('/api/addUser', async (req, res) => {
     try {
