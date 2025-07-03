@@ -64,7 +64,7 @@ const connectDB = async () => {
   if (mongoose.connection.readyState === 1) return mongoose.connection;
   
   try {
-    await mongoose.connect(process.env.MONGO_URI, {
+    await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000
@@ -1267,4 +1267,7 @@ connectDB()
   .catch(err => console.error('❌ MongoDB connect failed (serverless):', err));
 
 // Export the app wrapped by serverless-http
-module.exports = serverless(app);
+const handler = serverless(app);
+// Attach connectDB to handler so it can be invoked externally
+handler.connectDB = connectDB;
+module.exports = handler;
