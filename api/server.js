@@ -52,7 +52,7 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
 
-
+// Catch-all route for frontend (SPA behavior)
 
 
 // Fetch certificate count by state
@@ -938,7 +938,6 @@ if (!process.env.VERCEL) {
 }
 
 // Export the app for serverless
-module.exports = { app, connectDB };
 
 // Endpoint to fetch member registration trend by month/year
 app.get('/api/members/history', async (req, res) => {
@@ -983,3 +982,6 @@ app.get('/api/system/health', async (req, res) => {
     res.status(500).json({ message: 'Error checking system health' });
   }
 });
+
+// Export app and connectDB for serverless index.js
+module.exports = { app, connectDB };
