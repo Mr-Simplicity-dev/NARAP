@@ -10,16 +10,22 @@ require('dotenv').config();
 
 const app = express();
 
-// Allow your Vercel site (and localhost dev) to make requests
+
+// Enable CORS for your front-end and allow credentials
 app.use(cors({
   origin: [
     'https://narap-git-master-abdulkareem-moshoods-projects.vercel.app',
     'https://narapdb.com.ng',
     'http://localhost:3000'
   ],
-  credentials: true,            // so cookies / credentials work
+  credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS']
 }));
+
+// Now your existing JSON/body parsers
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 
 // Middleware
 app.use(cors({
