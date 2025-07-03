@@ -849,40 +849,61 @@ app.get('/api/analytics/dashboard', async (req, res) => {
     }
 });
 
+// Replace the existing /api/members/history endpoint in your server.js with this:
+
 app.get('/api/members/history', async (req, res) => {
   try {
     // Ensure database connection
-    await connectDB();
-    
-    // Add proper error logging
-    console.log('Fetching member registration history...');
-    
-    const members = await User.find({}, { createdAt: 1 }).lean();
-    
-    if (!members || members.length === 0) {
-      console.warn('No members found in database');
-      return res.json({});
+    const db = await connectDB();
+    if (db.readyState !== 1) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Database connection not established'
+      });
     }
 
-    const history = members.reduce((acc, user) => {
-      try {
-        const date = new Date(user.createdAt);
-        if (isNaN(date)) throw new Error('Invalid date');
-        
-        const monthYear = `${date.getMonth() + 1}-${date.getFullYear()}`;
-        acc[monthYear] = (acc[monthYear] || 0) + 1;
-        return acc;
-      } catch (err) {
-        console.error('Error processing user:', user._id, err);
-        return acc;
+    // Get members grouped by month/year
+    const members = await User.aggregate([
+      {
+        $match: {
+          createdAt: { $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { 
+        $sort: { "_id.year": 1, "_id.month": 1 } 
       }
+    ]);
+
+    // Format the data for frontend
+    const history = members.reduce((acc, curr) => {
+      const key = `${curr._id.month}-${curr._id.year}`;
+      acc[key] = curr.count;
+      return acc;
     }, {});
 
-    console.log('Successfully generated history:', Object.keys(history).length, 'months');
-    res.json(history);
-    
+    // Send successful response
+    res.json({
+      success: true,
+      data: history,
+      stats: {
+        totalMonths: members.length,
+        latestDate: members.length > 0 
+          ? `${members[members.length-1]._id.month}-${members[members.length-1]._id.year}`
+          : null
+      }
+    });
+
   } catch (err) {
-    console.error('CRITICAL ERROR in /api/members/history:', err);
+    console.error('❌ Member history error:', err);
     res.status(500).json({ 
       success: false,
       message: 'Failed to load member history',
