@@ -8,6 +8,12 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 require('dotenv').config();
 
+// Add JWT configuration here (right after environment setup)
+const JWT_CONFIG = {
+  expiresIn: '6h',
+  algorithm: 'HS256' // Explicitly specify algorithm
+};
+
 const app = express();
 
 // Middleware
