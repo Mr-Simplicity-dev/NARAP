@@ -11,20 +11,17 @@ require('dotenv').config();
 const app = express();
 
 
-// Enable CORS for your front-end and allow credentials
+
+// Allow your front-end origin(s) to talk to this API
 app.use(cors({
   origin: [
-    'https://narap-git-master-abdulkareem-moshoods-projects.vercel.app',
-    'https://narapdb.com.ng',
+    'https://www.narapdb.com.ng',
     'http://localhost:3000'
   ],
-  credentials: true,
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS']
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
+  credentials: true
 }));
-
-// Now your existing JSON/body parsers
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 
 // Middleware
