@@ -283,21 +283,22 @@ async function login(event) {
     console.log('🔐 Login attempt:', { username, password: '***' });
     console.log('Backend URL:', backendUrl);
     
-    try {
-        showMessage('Logging in...', 'info');
-        
-        const res = await fetch(`/api/login`, { … });
+        try {
+                showMessage('Logging in...', 'info');
+
+        const res = await fetch('/api/login', {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ username, password }),
-            credentials: 'include'
+            credentials: 'include',
+            body: JSON.stringify({ username, password })
         });
-        
+
         console.log('Response status:', res.status);
         console.log('Response ok:', res.ok);
+
         
         if (res.ok) {
             const data = await res.json();
@@ -322,7 +323,7 @@ async function login(event) {
             showMessage(`Login failed: ${errorMessage}`, 'error');
         }
         
-    } catch (error) {
+        } catch (error) {
         console.error('❌ Login error:', error);
         
         let errorMessage = 'Network error: Please check your connection and try again';
