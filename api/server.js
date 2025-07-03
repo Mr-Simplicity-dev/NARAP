@@ -78,6 +78,8 @@ const userSchema = new mongoose.Schema({
   dateAdded: { type: Date, default: Date.now }
 }, { timestamps: true });
 
+userSchema.index({ code: 1 });
+userSchema.index({ email: 1 });
 userSchema.index({ state: 1 });
 userSchema.index({ position: 1 });
 
@@ -108,9 +110,11 @@ certificateSchema.pre('save', function(next) {
   next();
 });
 
+certificateSchema.index({ number: 1 });
 certificateSchema.index({ email: 1 });
 certificateSchema.index({ status: 1 });
 certificateSchema.index({ recipient: 1 });
+certificateSchema.index({ serialNumber: 1 });
 
 const User = mongoose.model('User', userSchema);
 const Certificate = mongoose.model('Certificate', certificateSchema);
@@ -1036,4 +1040,11 @@ if (!process.env.VERCEL) {
     });
 }
 
-module.exports = { app, connectDB };
+
+// Ensure DB connects in serverless (Vercel) environment
+connectDB()
+  .then(() => console.log('💾 MongoDB connected (serverless)'))
+  .catch(err => console.error('❌ MongoDB connect failed (serverless):', err));
+
+// Export the app wrapped by serverless-http
+module.exports = serverless(app);
