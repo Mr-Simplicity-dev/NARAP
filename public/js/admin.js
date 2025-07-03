@@ -286,7 +286,7 @@ async function login(event) {
     try {
         showMessage('Logging in...', 'info');
         
-        const res = await fetch(`${window.location.origin}/api/login`, { … });
+        const res = await fetch(`/api/login`, { … });
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
