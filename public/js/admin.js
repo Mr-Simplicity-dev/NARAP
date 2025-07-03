@@ -292,14 +292,18 @@ async function login(event) {
 
     // ← Here’s the updated fetch: send "email" rather than "username"
     const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({ email: username, password })
-    });
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+  credentials: 'include',
+  body: JSON.stringify({
+    email: document.getElementById('username').value.trim(),
+    password: document.getElementById('password').value
+  })
+});
+
 
     console.log('Response status:', res.status);
     console.log('Response ok:', res.ok);
