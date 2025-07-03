@@ -46,8 +46,7 @@ app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '..', 'public'), {
@@ -188,24 +187,20 @@ app.use((req, res, next) => {
 
 // ==================== AUTHENTICATION ENDPOINTS ====================
 
-app.post('/api/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({ message: "Email and password are required" });
-        }
-        // Hardcoded admin login
-        if (email === "Admin@gmail.com" && password === "Password") {
-            return res.status(200).json({ message: "Login successful" });
-        }
-        // Optionally add database check for other users here...
-
-        return res.status(401).json({ message: "Invalid credentials" });
-    } catch (error) {
-        console.error('Login error:', error);
-        return res.status(500).json({ message: "Server error" });
+// ==================== AUTHENTICATION ENDPOINTS ====================
+app.post('/api/login', (req, res) => {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
     }
+    // Hardcoded admin login
+    if (email === "Admin@gmail.com" && password === "Password") {
+        return res.status(200).json({ message: "Login successful" });
+    }
+    // Optionally: you can add database check for other users here
+    return res.status(401).json({ message: "Invalid credentials" });
 });
+
 
 
 // ==================== ADMIN PANEL COMPATIBLE ENDPOINTS ====================
