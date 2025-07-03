@@ -294,7 +294,8 @@ async function login(event) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ username, password }),
+            // FIXED: Changed username to email
+            body: JSON.stringify({ email: username, password }),
             credentials: 'include'
         });
         
