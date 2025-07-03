@@ -27,19 +27,31 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 
 
 // Function to connect to MongoDB
-const connectDB = async () => {
-  if (mongoose.connection.readyState === 1) {
-    return mongoose.connection;
-  }
-  console.log('Connecting to MongoDB at:', process.env.MONGO_URI);
+async function connectDB() {
+  if (mongoose.connection.readyState === 1) return mongoose.connection;
   await mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    bufferCommands: false,
   });
-  console.log('MongoDB connected successfully.');
+  console.log('MongoDB connected');
   return mongoose.connection;
-};
+}
+
+// Local dev only
+if (!process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      const port = process.env.PORT || 3000;
+      app.listen(port, () =>
+        console.log(`Dev server listening on http://localhost:${port}`)
+      );
+    })
+    .catch(err => {
+      console.error('DB connection error:', err);
+      process.exit(1);
+    });
+}
+
 
 
 
