@@ -1272,5 +1272,6 @@ connectDB()
   .catch(err => console.error('❌ MongoDB connect failed (serverless):', err));
 
 // Export the app wrapped by serverless-http
-module.exports = app;
+module.exports = { app, connectDB };
+
 
