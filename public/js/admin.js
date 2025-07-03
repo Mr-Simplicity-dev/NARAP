@@ -288,21 +288,21 @@ async function login(event) {
   }
 
   try {
-    showMessage('Logging in...', 'info');
+        showMessage('Logging in...', 'info');
 
-    // ← Here’s the updated fetch: send "email" rather than "username"
     const res = await fetch('/api/login', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  },
-  credentials: 'include',
-  body: JSON.stringify({
-    email: document.getElementById('username').value.trim(),
-    password: document.getElementById('password').value
-  })
-});
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        email: username,
+        password
+      })
+    });
+
 
 
     console.log('Response status:', res.status);
