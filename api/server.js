@@ -155,7 +155,7 @@ app.use((req, res, next) => {
     });
 
 // Authentication Endpoints
-const jwt = require('jsonwebtoken');
+
 
 app.post('/api/login', async (req, res) => {
   try {
