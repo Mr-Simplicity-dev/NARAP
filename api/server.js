@@ -165,7 +165,7 @@ app.use((req, res, next) => {
 
 // ==================== ROUTES ====================
 
-// HTML Routes
+// HTML Routess
     app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
     });
