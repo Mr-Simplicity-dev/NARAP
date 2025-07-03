@@ -21,7 +21,7 @@
   ],
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/(.*)",
       "destination": "/api/server.js"
     },
     {
@@ -33,13 +33,13 @@
       "destination": "/public/index.html"
     },
     {
-      "source": "/:path*",
-      "destination": "/public/:path*"
+      "source": "/(.*)",
+      "destination": "/public/$1"
     }
   ],
   "headers": [
     {
-      "source": "/api/:path*",
+      "source": "/api/(.*)",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -72,10 +72,6 @@
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
-        },
-        {
-          "key": "X-DNS-Prefetch-Control",
-          "value": "off"
         }
       ]
     },
