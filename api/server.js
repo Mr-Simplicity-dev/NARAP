@@ -171,66 +171,7 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    // Temporary admin bypass (remove in production)
-    if (email === 'Admin@gmail.com' && password === 'Password') {
-      const token = jwt.sign(
-        { userId: 'admin', role: 'admin' },
-        process.env.JWT_SECRET || 'development-secret',
-        { expiresIn: '1h' }
-      );
-      return res.json({ 
-        success: true,
-        token,
-        user: { email: 'Admin@gmail.com', role: 'admin' }
-      });
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
     
-    if (!user) {
-      console.log('User not found:', email);
-      return res.status(401).json({ 
-        success: false,
-        message: 'Invalid credentials' 
-      });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      console.log('Password mismatch for:', email);
-      return res.status(401).json({ 
-        success: false,
-        message: 'Invalid credentials' 
-      });
-    }
-
-    const token = jwt.sign(
-      { userId: user._id, role: user.position },
-      process.env.JWT_SECRET,
-      { expiresIn: '6h' }
-    );
-
-    console.log('Successful login for:', email);
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.position
-      }
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Login failed',
-      error: process.env.NODE_ENV === 'development' ? error.message : null
-    });
-  }
-});
 
 // Admin Panel Endpoints (protected with authenticate middleware)
 app.get('/api/getUsers', authenticate, async (req, res) => {
