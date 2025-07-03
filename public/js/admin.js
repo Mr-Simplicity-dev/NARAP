@@ -2964,6 +2964,10 @@ function setupPreviewListeners() {
 // Call this when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     setupPreviewListeners();
+
+    // Bind login form submit to login() function
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) loginForm.addEventListener('submit', login);
 });
 
 
