@@ -180,19 +180,29 @@ app.use((req, res, next) => {
 
 // ==================== AUTHENTICATION ENDPOINTS ====================
 
+// ==================== AUTHENTICATION ENDPOINTS ====================
 app.post('/api/login', async (req, res) => {
     try {
-        const { username, password } = req.body;
-        
+        const { email, password } = req.body;
+
+        // Validate request body
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
         // Hardcoded credentials for now
-        if (username === 'Admin@gmail.com' && password === 'Password') {
-            res.json({ message: 'Login successful' });
+        const validEmail = 'Admin@gmail.com';
+        const validPassword = 'Password';
+        if (email.toLowerCase() === validEmail.toLowerCase() && password === validPassword) {
+            // Optionally generate JWT token
+            // const token = jwt.sign({ userId: 'admin' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+            return res.json({ message: 'Login successful' });
         } else {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error' });
+        return res.status(500).json({ message: 'Server error' });
     }
 });
 
