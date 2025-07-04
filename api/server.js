@@ -43,7 +43,7 @@ app.use((req, res, next) => {
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: process.env.CLIENT_URL || 'narapdb.com.ng',
   credentials: true
 }));
 
