@@ -1,5 +1,8 @@
 // Make sure this matches your server port
-const backendUrl = window.location.origin;
+const backendUrl = window.location.origin.includes('localhost')
+    ? 'http://localhost:3000'
+    : window.location.origin;
+
 
 // Add this to verify the URL is correct
 console.log('Admin panel initialized with backend URL:', backendUrl);
