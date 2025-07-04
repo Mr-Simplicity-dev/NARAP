@@ -331,7 +331,7 @@ async function login(event) {
         let errorMessage = 'Network error: Please check your connection and try again';
         
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            errorMessage = 'Cannot connect to server. Please ensure the server is running on port 5000';
+    errorMessage = 'Cannot connect to server. Please check your internet connection or server deployment on Vercel.';
         } else if (error.message.includes('JSON')) {
             errorMessage = 'Server response error. Please check server logs';
         }
