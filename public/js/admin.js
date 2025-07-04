@@ -282,7 +282,7 @@ async function login(event) {
         return;
     }
     
-    console.log('🔐 Login attempt:', { username, password: '***' });
+    console.log('🔐 Login attempt:', { email: username, password: '***' });
     console.log('Backend URL:', backendUrl);
     
     try {
