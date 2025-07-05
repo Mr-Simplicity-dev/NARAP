@@ -64,18 +64,24 @@ const connectDB = async () => {
       console.log('MongoDB connection pending...');
       return mongoose.connection;
     }
-
+    
     const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
     if (!uri) {
       throw new Error('MONGO_URI or MONGODB_URI environment variable is not defined');
     }
-
+    
     console.log('Connecting to MongoDB...');
     await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
-      bufferCommands: false,
-      bufferMaxEntries: 0
+      // ❌ REMOVE these deprecated options:
+      // bufferCommands: false,
+      // bufferMaxEntries: 0
+      
+      // ✅ ADD these modern options instead:
+      maxPoolSize: 10,
+      minPoolSize: 5,
+      maxIdleTimeMS: 30000
     });
     
     console.log('✅ MongoDB connected successfully');
@@ -85,6 +91,7 @@ const connectDB = async () => {
     throw err;
   }
 };
+
 
 // Database Models (keep your existing schemas)
 const userSchema = new mongoose.Schema({
