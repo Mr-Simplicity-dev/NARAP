@@ -71,17 +71,10 @@ const connectDB = async () => {
     }
     
     console.log('Connecting to MongoDB...');
+    
+    // ✅ Minimal serverless configuration
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      // ❌ REMOVE these deprecated options:
-      // bufferCommands: false,
-      // bufferMaxEntries: 0
-      
-      // ✅ ADD these modern options instead:
-      maxPoolSize: 10,
-      minPoolSize: 5,
-      maxIdleTimeMS: 30000
+      serverSelectionTimeoutMS: 5000
     });
     
     console.log('✅ MongoDB connected successfully');
@@ -91,6 +84,7 @@ const connectDB = async () => {
     throw err;
   }
 };
+
 
 
 // Database Models (keep your existing schemas)
@@ -181,6 +175,22 @@ app.use((req, res, next) => {
 
 // ==================== ROUTES ====================
 
+// Add this middleware before your routes
+app.use('/api', async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database connection failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Database connection failed',
+      error: error.message 
+    });
+  }
+});
+
+
 // HTML Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
@@ -194,11 +204,10 @@ app.get('/admin', (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   try {
-    console.log('🔐 Login attempt:', { email: req.body?.email, hasPassword: !!req.body?.password });
+    console.log('🔐 Login attempt received');
     
     const { email, password } = req.body || {};
     
-    // Validate input
     if (!email || !password) {
       console.log('❌ Missing credentials');
       return res.status(400).json({ 
@@ -207,17 +216,13 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    // Ensure database connection
-    await connectDB();
-    
-    // Hardcoded admin login (as per your original code)
+    // Hardcoded admin login
     if (email.toLowerCase().trim() === "admin@gmail.com" && password === "Password") {
       console.log('✅ Admin login successful');
       
-      // Generate JWT token for admin
       const token = jwt.sign(
         { userId: 'admin', email: email.toLowerCase().trim(), role: 'admin' },
-        process.env.JWT_SECRET || 'your-secret-key',
+        process.env.JWT_SECRET || 'fallback-secret-key',
         { expiresIn: '24h' }
       );
       
@@ -232,42 +237,6 @@ app.post('/api/login', async (req, res) => {
       });
     }
     
-    // Database user login (optional - you can remove this if not needed)
-    try {
-      const user = await User.findOne({ 
-        email: email.toLowerCase().trim() 
-      });
-      
-      if (user && await bcrypt.compare(password, user.password)) {
-        console.log('✅ User login successful:', user.email);
-        
-        // Update last login
-        user.lastLogin = new Date();
-        await user.save();
-        
-        const token = jwt.sign(
-          { userId: user._id, email: user.email },
-          process.env.JWT_SECRET || 'your-secret-key',
-          { expiresIn: '24h' }
-        );
-        
-        return res.status(200).json({
-          success: true,
-          message: "Login successful",
-          token,
-          user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            position: user.position
-          }
-        });
-      }
-    } catch (dbError) {
-      console.error('Database login error:', dbError);
-      // Continue to invalid credentials response
-    }
-    
     console.log('❌ Invalid credentials for:', email);
     return res.status(401).json({ 
       success: false,
@@ -279,31 +248,31 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: "Server error during login",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message
     });
   }
 });
 
+
 // Health check endpoint - Add this for debugging
 app.get('/api/health', async (req, res) => {
   try {
-    await connectDB();
     const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
     
     res.json({
       status: 'healthy',
-      timestamp: new Date().toISOString(),
       database: dbStatus,
-      environment: process.env.NODE_ENV || 'development'
+      timestamp: new Date().toISOString(),
+      message: 'Server is running'
     });
   } catch (error) {
-    console.error('Health check error:', error);
     res.status(500).json({
       status: 'unhealthy',
       error: error.message
     });
   }
 });
+
 
 // Authentication Middleware
 const authenticate = async (req, res, next) => {
