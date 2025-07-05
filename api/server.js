@@ -55,35 +55,45 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 // Database Connection - Fixed for Vercel
 const connectDB = async () => {
   try {
+    // Check if already connected
     if (mongoose.connection.readyState === 1) {
-      console.log('MongoDB already connected');
+      console.log('✅ MongoDB already connected');
       return mongoose.connection;
     }
     
+    // Don't wait for pending connections, create new one
     if (mongoose.connection.readyState === 2) {
-      console.log('MongoDB connection pending...');
-      return mongoose.connection;
+      console.log('⚠️ Closing pending connection...');
+      await mongoose.connection.close();
     }
     
     const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
     if (!uri) {
-      throw new Error('MONGO_URI or MONGODB_URI environment variable is not defined');
+      throw new Error('MONGO_URI environment variable is not defined');
     }
     
-    console.log('Connecting to MongoDB...');
+    console.log('🔄 Connecting to MongoDB...');
     
-    // ✅ Minimal serverless configuration
+    // ✅ Aggressive timeouts for serverless
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000
+      serverSelectionTimeoutMS: 3000,  // Reduced from 5000
+      connectTimeoutMS: 3000,          // Added
+      socketTimeoutMS: 3000,           // Reduced from 45000
+      maxPoolSize: 1,                  // Minimal pool for serverless
+      bufferCommands: false,           // Disable buffering
+      bufferMaxEntries: 0              // Disable buffering
     });
     
     console.log('✅ MongoDB connected successfully');
     return mongoose.connection;
+    
   } catch (err) {
-    console.error('❌ MongoDB connection failed:', err);
-    throw err;
+    console.error('❌ MongoDB connection failed:', err.message);
+    // Don't throw, return null to handle gracefully
+    return null;
   }
 };
+
 
 
 
@@ -175,20 +185,28 @@ app.use((req, res, next) => {
 
 // ==================== ROUTES ====================
 
-// Add this middleware before your routes
-app.use('/api', async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error('Database connection failed:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Database connection failed',
-      error: error.message 
-    });
-  }
-});
+// ✅ Add this helper function instead:
+const withDB = (handler) => {
+  return async (req, res) => {
+    try {
+      const connection = await connectDB();
+      if (!connection) {
+        return res.status(503).json({
+          success: false,
+          message: 'Database connection failed'
+        });
+      }
+      return await handler(req, res);
+    } catch (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Database error',
+        error: error.message
+      });
+    }
+  };
+};
 
 
 // HTML Routes
@@ -202,6 +220,7 @@ app.get('/admin', (req, res) => {
 
 // ==================== AUTHENTICATION ENDPOINTS - FIXED ====================
 
+// ✅ Wrap login with database connection
 app.post('/api/login', async (req, res) => {
   try {
     console.log('🔐 Login attempt received');
@@ -216,7 +235,7 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    // Hardcoded admin login
+    // Hardcoded admin login (no DB needed)
     if (email.toLowerCase().trim() === "admin@gmail.com" && password === "Password") {
       console.log('✅ Admin login successful');
       
@@ -254,23 +273,14 @@ app.post('/api/login', async (req, res) => {
 });
 
 
+
 // Health check endpoint - Add this for debugging
-app.get('/api/health', async (req, res) => {
-  try {
-    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-    
-    res.json({
-      status: 'healthy',
-      database: dbStatus,
-      timestamp: new Date().toISOString(),
-      message: 'Server is running'
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'unhealthy',
-      error: error.message
-    });
-  }
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    message: 'Server is running'
+  });
 });
 
 
@@ -299,9 +309,9 @@ const authenticate = async (req, res, next) => {
 
 
 // Get all users (admin panel expects this endpoint)
-app.get('/api/getUsers', async (req, res) => {
+// ✅ Use wrapper for database-dependent routes
+app.get('/api/getUsers', withDB(async (req, res) => {
   try {
-    await connectDB();
     const users = await User.find().select('-password').sort({ dateAdded: -1 });
     
     const formattedUsers = users.map(user => ({
@@ -326,7 +336,8 @@ app.get('/api/getUsers', async (req, res) => {
     console.error('Get users error:', error);
     res.status(500).json({ message: 'Server error while fetching users' });
   }
-});
+}));
+
 
 // Add user (admin panel expects this endpoint)
 app.post('/api/addUser', async (req, res) => {

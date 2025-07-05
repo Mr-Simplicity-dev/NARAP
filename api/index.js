@@ -1,12 +1,7 @@
 const serverless = require('serverless-http');
-const { app, connectDB } = require('./server');
+const { app } = require('./server'); // Remove connectDB import
 
-// Cold-start DB connection with better error handling
-connectDB()
-  .then(() => console.log('✅ MongoDB connected (serverless)'))
-  .catch(err => {
-    console.error('❌ MongoDB connect failed (serverless):', err);
-    // Don't throw here, let individual requests handle connection
-  });
+// ✅ Don't connect to DB on cold start
+console.log('🚀 Serverless function initialized');
 
 module.exports = serverless(app);
