@@ -450,7 +450,9 @@ function switchTab(tabName) {
 async function loadDashboard() {
     try {
         console.log('Loading dashboard...');
+        showMessage('Loading dashboard...', 'info');
         
+        // Load data with timeout protection
         const [members, certificates] = await Promise.all([
             getMembers(),
             getCertificates()
@@ -482,91 +484,410 @@ async function loadDashboard() {
         }
         
         // Load recent activity
-        loadRecentActivity(members, certificates);
+        try {
+            loadRecentActivity(members, certificates);
+        } catch (activityError) {
+            console.error('Failed to load recent activity:', activityError);
+            // Don't fail the entire dashboard for this
+        }
         
-        console.log('Dashboard loaded successfully');
+        // Display members and certificates in their respective tables
+        displayMembers(members);
+        if (typeof displayCertificates === 'function') {
+            displayCertificates(certificates);
+        }
+        
+        console.log('✅ Dashboard loaded successfully');
+        showMessage('Dashboard loaded successfully!', 'success');
         
     } catch (error) {
-        console.error('Dashboard load error:', error);
-        showMessage('Failed to load dashboard data', 'error');
+        console.error('❌ Dashboard load error:', error);
+        
+        let errorMessage = 'Failed to load dashboard data';
+        
+        if (error.name === 'AbortError') {
+            errorMessage = 'Dashboard load timed out. Please try again.';
+        } else if (error.message.includes('getMembers')) {
+            errorMessage = 'Failed to load members data';
+        } else if (error.message.includes('getCertificates')) {
+            errorMessage = 'Failed to load certificates data';
+        } else if (error.message) {
+            errorMessage += ': ' + error.message;
+        }
+        
+        showMessage(errorMessage, 'error');
+        
+        // Try to load partial data if possible
+        try {
+            console.log('Attempting to load partial dashboard data...');
+            
+            // Try to load members only
+            const members = await getMembers();
+            if (members.length > 0) {
+                const totalMembersEl = document.getElementById('totalMembers');
+                if (totalMembersEl) totalMembersEl.textContent = members.length;
+                displayMembers(members);
+                showMessage('Partial dashboard loaded (members only)', 'warning');
+            }
+        } catch (partialError) {
+            console.error('Failed to load partial dashboard:', partialError);
+            showMessage('Complete dashboard load failed', 'error');
+        }
     }
 }
+
 
 // Recent activity function
 function loadRecentActivity(members = [], certificates = []) {
-    const activityDiv = document.getElementById('recentActivity');
-    if (!activityDiv) return;
-    
-    const activities = [];
-    
-    // Add recent members (last 3)
-    const recentMembers = members
-        .filter(m => m.createdAt || m.dateAdded)
-        .sort((a, b) => new Date(b.createdAt || b.dateAdded) - new Date(a.createdAt || a.dateAdded))
-        .slice(0, 3);
-    
-    recentMembers.forEach(member => {
-        activities.push({
-            icon: 'fas fa-user-plus',
-            text: `New member registered: ${member.name}`,
-            time: formatTimeAgo(member.createdAt || member.dateAdded),
-            type: 'member'
-        });
-    });
-    
-    // Add recent certificates (last 2)
-    const recentCertificates = certificates
-        .filter(c => c.createdAt || c.issueDate)
-        .sort((a, b) => new Date(b.createdAt || b.issueDate) - new Date(a.createdAt || a.issueDate))
-        .slice(0, 2);
-    
-    recentCertificates.forEach(cert => {
-        activities.push({
-            icon: 'fas fa-certificate',
-            text: `Certificate issued to: ${cert.recipient}`,
-            time: formatTimeAgo(cert.createdAt || cert.issueDate),
-            type: 'certificate'
-        });
-    });
-    
-    if (activities.length === 0) {
+    try {
+        const activityDiv = document.getElementById('recentActivity');
+        if (!activityDiv) {
+            console.log('Recent activity element not found');
+            return;
+        }
+        
+        // Show loading state
         activityDiv.innerHTML = `
-            <div class="activity-item" style="padding: 20px; text-align: center; color: #666;">
-                <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
-                No recent activity found
+            <div class="activity-loading" style="padding: 20px; text-align: center; color: #666;">
+                <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
+                Loading recent activity...
             </div>
         `;
-        return;
+        
+        const activities = [];
+        
+        // Add recent members (last 3) with error handling
+        try {
+            const recentMembers = members
+                .filter(m => m && (m.createdAt || m.dateAdded))
+                .sort((a, b) => {
+                    const dateA = new Date(a.createdAt || a.dateAdded);
+                    const dateB = new Date(b.createdAt || b.dateAdded);
+                    return dateB - dateA;
+                })
+                .slice(0, 3);
+            
+            recentMembers.forEach(member => {
+                if (member && member.name) {
+                    activities.push({
+                        icon: 'fas fa-user-plus',
+                        text: `New member registered: ${member.name}`,
+                        time: formatTimeAgo(member.createdAt || member.dateAdded),
+                        type: 'member',
+                        date: new Date(member.createdAt || member.dateAdded),
+                        details: `Code: ${member.code || 'N/A'}, State: ${member.state || 'N/A'}`
+                    });
+                }
+            });
+        } catch (memberError) {
+            console.error('Error processing recent members:', memberError);
+        }
+        
+        // Add recent certificates (last 2) with error handling
+        try {
+            const recentCertificates = certificates
+                .filter(c => c && (c.createdAt || c.issueDate))
+                .sort((a, b) => {
+                    const dateA = new Date(a.createdAt || a.issueDate);
+                    const dateB = new Date(b.createdAt || b.issueDate);
+                    return dateB - dateA;
+                })
+                .slice(0, 2);
+            
+            recentCertificates.forEach(cert => {
+                if (cert && cert.recipient) {
+                    activities.push({
+                        icon: 'fas fa-certificate',
+                        text: `Certificate issued to: ${cert.recipient}`,
+                        time: formatTimeAgo(cert.createdAt || cert.issueDate),
+                        type: 'certificate',
+                        date: new Date(cert.createdAt || cert.issueDate),
+                        details: `Number: ${cert.number || 'N/A'}, Title: ${cert.title || 'N/A'}`
+                    });
+                }
+            });
+        } catch (certError) {
+            console.error('Error processing recent certificates:', certError);
+        }
+        
+        // Sort all activities by date (most recent first)
+        activities.sort((a, b) => b.date - a.date);
+        
+        // Display activities or empty state
+        if (activities.length === 0) {
+            activityDiv.innerHTML = `
+                <div class="activity-item" style="padding: 20px; text-align: center; color: #666;">
+                    <i class="fas fa-info-circle" style="margin-right: 8px; font-size: 18px; color: #ccc;"></i>
+                    <div style="margin-top: 8px;">No recent activity found</div>
+                    <div style="font-size: 12px; color: #999; margin-top: 4px;">
+                        Activity will appear here when members register or certificates are issued
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
+        // Render activities with improved styling
+        activityDiv.innerHTML = activities.map(activity => `
+            <div class="activity-item" style="
+                padding: 12px 20px; 
+                border-bottom: 1px solid #eee; 
+                display: flex; 
+                align-items: center; 
+                gap: 12px;
+                transition: background-color 0.2s ease;
+                cursor: pointer;
+            " 
+            onmouseover="this.style.backgroundColor='#f8f9fa'" 
+            onmouseout="this.style.backgroundColor='transparent'"
+            title="${activity.details}">
+                <div class="activity-icon" style="
+                    width: 32px; 
+                    height: 32px; 
+                    border-radius: 50%; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    ${activity.type === 'member' ? 
+                        'background: #e3f2fd; color: #1976d2;' : 
+                        'background: #fff3e0; color: #f57c00;'
+                    }
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                ">
+                    <i class="${activity.icon}" style="font-size: 14px;"></i>
+                </div>
+                <div class="activity-content" style="flex: 1; min-width: 0;">
+                    <div class="activity-text" style="
+                        font-size: 14px; 
+                        color: #333; 
+                        margin-bottom: 2px;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                    ">${activity.text}</div>
+                    <div class="activity-time" style="
+                        font-size: 12px; 
+                        color: #666;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    ">
+                        <i class="fas fa-clock" style="font-size: 10px;"></i>
+                        ${activity.time}
+                    </div>
+                </div>
+                <div class="activity-badge" style="
+                    padding: 2px 8px;
+                    border-radius: 12px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    ${activity.type === 'member' ? 
+                        'background: #e3f2fd; color: #1976d2;' : 
+                        'background: #fff3e0; color: #f57c00;'
+                    }
+                ">
+                    ${activity.type}
+                </div>
+            </div>
+        `).join('');
+        
+        console.log(`✅ Recent activity loaded: ${activities.length} items`);
+        
+    } catch (error) {
+        console.error('❌ Load recent activity error:', error);
+        
+        const activityDiv = document.getElementById('recentActivity');
+        if (activityDiv) {
+            activityDiv.innerHTML = `
+                <div class="activity-item" style="padding: 20px; text-align: center; color: #dc3545;">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 8px; font-size: 18px;"></i>
+                    <div style="margin-top: 8px;">Failed to load recent activity</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                        ${error.message || 'Unknown error occurred'}
+                    </div>
+                    <button onclick="loadDashboard()" style="
+                        margin-top: 10px;
+                        padding: 4px 12px;
+                        background: #007bff;
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        cursor: pointer;
+                    ">
+                        Retry
+                    </button>
+                </div>
+            `;
+        }
+        
+        showMessage('Failed to load recent activity: ' + error.message, 'error');
     }
-    
-    activityDiv.innerHTML = activities.map(activity => `
-        <div class="activity-item" style="padding: 12px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 12px;">
-            <div class="activity-icon" style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; ${activity.type === 'member' ? 'background: #e3f2fd; color: #1976d2;' : 'background: #fff3e0; color: #f57c00;'}">
-                <i class="${activity.icon}" style="font-size: 14px;"></i>
-            </div>
-            <div class="activity-content" style="flex: 1;">
-                <div class="activity-text" style="font-size: 14px; color: #333; margin-bottom: 2px;">${activity.text}</div>
-                <div class="activity-time" style="font-size: 12px; color: #666;">${activity.time}</div>
-            </div>
-        </div>
-    `).join('');
 }
+
 
 // Helper function to format time ago
 function formatTimeAgo(dateString) {
-    if (!dateString) return 'Unknown time';
-    
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
-    
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
-    
-    return formatDate(dateString);
+    try {
+        if (!dateString) return 'Unknown time';
+        
+        const date = new Date(dateString);
+        
+        // Validate date
+        if (isNaN(date.getTime())) {
+            console.warn('Invalid date string:', dateString);
+            return 'Invalid date';
+        }
+        
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+        
+        // Handle future dates
+        if (diffInSeconds < 0) {
+            return 'In the future';
+        }
+        
+        // Less than 1 minute
+        if (diffInSeconds < 60) return 'Just now';
+        
+        // Less than 1 hour
+        if (diffInSeconds < 3600) {
+            const minutes = Math.floor(diffInSeconds / 60);
+            return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+        }
+        
+        // Less than 1 day
+        if (diffInSeconds < 86400) {
+            const hours = Math.floor(diffInSeconds / 3600);
+            return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+        }
+        
+        // Less than 30 days (1 month)
+        if (diffInSeconds < 2592000) {
+            const days = Math.floor(diffInSeconds / 86400);
+            return `${days} day${days !== 1 ? 's' : ''} ago`;
+        }
+        
+        // More than 30 days - use formatted date
+        return formatDate(dateString);
+        
+    } catch (error) {
+        console.error('Error in formatTimeAgo:', error, 'for date:', dateString);
+        return 'Unknown time';
+    }
 }
+
+// ✅ Add the formatDate helper function
+function formatDate(dateString) {
+    try {
+        if (!dateString) return 'Unknown date';
+        
+        const date = new Date(dateString);
+        
+        // Validate date
+        if (isNaN(date.getTime())) {
+            console.warn('Invalid date string in formatDate:', dateString);
+            return 'Invalid date';
+        }
+        
+        // Format options
+        const options = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        };
+        
+        // Check if date is this year
+        const currentYear = new Date().getFullYear();
+        const dateYear = date.getFullYear();
+        
+        if (dateYear === currentYear) {
+            // Same year - don't show year
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        } else {
+            // Different year - show full date
+            return date.toLocaleDateString('en-US', options);
+        }
+        
+    } catch (error) {
+        console.error('Error in formatDate:', error, 'for date:', dateString);
+        return 'Unknown date';
+    }
+}
+
+// ✅ Optional: Add a more detailed date formatter
+function formatDateTime(dateString) {
+    try {
+        if (!dateString) return 'Unknown date/time';
+        
+        const date = new Date(dateString);
+        
+        if (isNaN(date.getTime())) {
+            return 'Invalid date/time';
+        }
+        
+        const now = new Date();
+        const isToday = date.toDateString() === now.toDateString();
+        const isYesterday = date.toDateString() === new Date(now.getTime() - 86400000).toDateString();
+        
+        const timeOptions = {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        };
+        
+        if (isToday) {
+            return `Today at ${date.toLocaleTimeString('en-US', timeOptions)}`;
+        } else if (isYesterday) {
+            return `Yesterday at ${date.toLocaleTimeString('en-US', timeOptions)}`;
+        } else {
+            const dateOptions = {
+                month: 'short',
+                day: 'numeric',
+                year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+            };
+            
+            return `${date.toLocaleDateString('en-US', dateOptions)} at ${date.toLocaleTimeString('en-US', timeOptions)}`;
+        }
+        
+    } catch (error) {
+        console.error('Error in formatDateTime:', error, 'for date:', dateString);
+        return 'Unknown date/time';
+    }
+}
+
+// ✅ Optional: Add relative date formatter for longer periods
+function formatRelativeDate(dateString) {
+    try {
+        if (!dateString) return 'Unknown time';
+        
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Invalid date';
+        
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+        
+        if (diffInSeconds < 0) return 'In the future';
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+        if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+        if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)} weeks ago`;
+        if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`;
+        
+        const years = Math.floor(diffInSeconds / 31536000);
+        return `${years} year${years !== 1 ? 's' : ''} ago`;
+        
+    } catch (error) {
+        console.error('Error in formatRelativeDate:', error);
+        return 'Unknown time';
+    }
+}
+
 
 // Get members function
 async function loadUsers() {
@@ -865,6 +1186,42 @@ async function loadCertificates() {
         showMessage('Failed to load certificates: ' + error.message, 'error');
     }
 }
+
+// ✅ Add this function if it doesn't exist
+function displayCertificates(certificates) {
+    const certificatesTableBody = document.getElementById('certificatesTableBody');
+    if (!certificatesTableBody) {
+        console.log('Certificates table body not found');
+        return;
+    }
+    
+    if (!certificates || certificates.length === 0) {
+        certificatesTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No certificates found</td></tr>';
+        return;
+    }
+    
+    certificatesTableBody.innerHTML = certificates.map(cert => `
+        <tr>
+            <td>${cert.number || 'N/A'}</td>
+            <td>${cert.recipient || 'N/A'}</td>
+            <td>${cert.title || 'N/A'}</td>
+            <td>${cert.type || 'N/A'}</td>
+            <td><span class="badge ${cert.status === 'active' ? 'badge-success' : cert.status === 'revoked' ? 'badge-danger' : 'badge-warning'}">${cert.status || 'N/A'}</span></td>
+            <td>${cert.issueDate ? new Date(cert.issueDate).toLocaleDateString() : (cert.createdAt ? new Date(cert.createdAt).toLocaleDateString() : 'N/A')}</td>
+            <td>
+                <button onclick="viewCertificate('${cert._id}')" class="btn btn-sm btn-info">View</button>
+                ${cert.status === 'active' ? 
+                    `<button onclick="revokeCertificate('${cert._id}')" class="btn btn-sm btn-warning">Revoke</button>` : 
+                    cert.status === 'revoked' ? 
+                    `<button onclick="activateCertificate('${cert._id}')" class="btn btn-sm btn-success">Activate</button>` : 
+                    ''
+                }
+                <button onclick="deleteCertificate('${cert._id}')" class="btn btn-sm btn-danger">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
 
 // Helper function to get status colors
 function getStatusColor(status) {
