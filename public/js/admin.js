@@ -268,6 +268,8 @@ function getMessageStyle(type) {
 }
 
 
+
+// Update your getAuthHeaders function
 function getAuthHeaders() {
     const token = localStorage.getItem('authToken');
     return {
@@ -300,21 +302,21 @@ async function login(event) {
     try {
         showMessage('Logging in...', 'info');
         
-        const res = await fetch(`${backendUrl}/api/login`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ email: username, password }),
-    credentials: 'include'
-});
+        // ✅ Use fetchWithTimeout with 10 second timeout
+        const res = await fetchWithTimeout(`${backendUrl}/api/login`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ email: username, password }),
+            credentials: 'include'
+        }, 10000); // 10 second timeout
         
         console.log('Response status:', res.status);
         console.log('Response ok:', res.ok);
         
-        // ✅ UPDATED: Handle both success and error responses
+        // Handle response
         const data = await res.json();
         console.log('Response data:', data);
         
-        // Check for success field in response
         if (data.success) {
             console.log('✅ Login successful:', data);
             
@@ -336,7 +338,6 @@ async function login(event) {
                 showMessage('Login successful, but failed to load dashboard', 'warning');
             }
         } else {
-            // Handle failed login with success: false
             console.log('❌ Login failed:', data);
             const errorMessage = data.message || 'Login failed';
             loginError.innerHTML = `<div class="error">Login failed: ${errorMessage}</div>`;
@@ -348,7 +349,9 @@ async function login(event) {
         
         let errorMessage = 'Network error: Please check your connection and try again';
         
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out. The server may be slow or unavailable.';
+        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
             errorMessage = 'Cannot connect to server. Please check your internet connection or server deployment on Vercel.';
         } else if (error.message.includes('JSON')) {
             errorMessage = 'Server response error. Please check server logs';
@@ -358,6 +361,7 @@ async function login(event) {
         showMessage(errorMessage, 'error');
     }
 }
+
 
 
 
@@ -546,11 +550,21 @@ async function getMembers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
         
-        const res = await fetch(`${backendUrl}/api/getUsers`, {
+        const res = await fetchWithTimeout(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
-            headers: getAuthHeaders() // ✅ Use the helper function
-        });
+            headers: getAuthHeaders()
+        }, 15000); // 15 second timeout for data loading
+        
+        // Handle token expiration
+        if (res.status === 401) {
+            console.log('🔐 Token expired, redirecting to login');
+            localStorage.removeItem('authToken');
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('adminSection').style.display = 'none';
+            showMessage('Session expired. Please login again.', 'warning');
+            return [];
+        }
         
         if (!res.ok) {
             throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -563,11 +577,18 @@ async function getMembers() {
         
     } catch (error) {
         console.error('❌ Get members error:', error);
-        showMessage('Failed to load members: ' + error.message, 'error');
+        
+        let errorMessage = 'Failed to load members: ' + error.message;
+        if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out while loading members. Please try again.';
+        }
+        
+        showMessage(errorMessage, 'error');
         currentMembers = [];
         return [];
     }
 }
+
 
 
 // Load members tab
@@ -1950,59 +1971,47 @@ function closeConfirmModal() {
 async function addMember(event) {
     event.preventDefault();
     
-    const formData = {
-        name: document.getElementById('memberName').value.trim(),
-        email: document.getElementById('memberEmail').value.trim(),
-        password: document.getElementById('memberPassword').value,
-        code: document.getElementById('memberCode').value.trim(),
-        position: document.getElementById('memberPosition').value,
-        state: document.getElementById('memberState').value.trim(),
-        zone: document.getElementById('memberZone').value.trim()
-    };
+    const formData = new FormData(event.target);
+    const memberData = Object.fromEntries(formData.entries());
     
-    // Validate form data
-    if (!formData.name || !formData.email || !formData.password || !formData.code) {
+    // Validation
+    if (!memberData.name || !memberData.email || !memberData.password || !memberData.code || !memberData.state || !memberData.zone) {
         showMessage('Please fill in all required fields', 'error');
         return;
     }
     
-    // Email validation
-    if (!validateEmail(formData.email)) {
-        showMessage('Please enter a valid email address', 'error');
-        return;
-    }
-    
-    // Password validation
-    const passwordValidation = validatePassword(formData.password);
-    if (!passwordValidation.isValid) {
-        showMessage(passwordValidation.message, 'error');
-        return;
-    }
-    
     try {
-        showMessage('Adding member...', 'success');
+        showMessage('Adding member...', 'info');
         
-        const res = await fetch(`${backendUrl}/api/addUser`, {
+        const res = await fetchWithTimeout(`${backendUrl}/api/addUser`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(formData)
-        });
+            headers: getAuthHeaders(),
+            body: JSON.stringify(memberData),
+            credentials: 'include'
+        }, 15000); // 15 second timeout
+        
+        const data = await res.json();
         
         if (res.ok) {
             showMessage('Member added successfully!', 'success');
-            closeAddMemberModal();
-            await loadMembers();
-            await loadDashboard();
+            event.target.reset();
+            await loadDashboard(); // Refresh the dashboard
         } else {
-            const errorData = await res.json().catch(() => ({}));
-            showMessage('Failed to add member: ' + (errorData.message || 'Unknown error'), 'error');
+            showMessage(data.message || 'Failed to add member', 'error');
         }
+        
     } catch (error) {
         console.error('Add member error:', error);
-        showMessage('Network error while adding member', 'error');
+        
+        let errorMessage = 'Failed to add member: ' + error.message;
+        if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out while adding member. Please try again.';
+        }
+        
+        showMessage(errorMessage, 'error');
     }
 }
+
 
 async function editMember(memberId) {
     const member = currentMembers.find(m => m._id === memberId);
@@ -2060,33 +2069,39 @@ async function updateMember(event) {
     }
 }
 
-async function deleteMember(memberId) {
-    if (!confirm('Are you sure you want to delete this member?\n\nThis action cannot be undone!')) {
-        return;
-    }
+async function deleteMember(id) {
+    if (!confirm('Are you sure you want to delete this member?')) return;
     
     try {
-        const res = await fetch(`${backendUrl}/api/deleteUser/${memberId}`, {
+        showMessage('Deleting member...', 'info');
+        
+        const res = await fetchWithTimeout(`${backendUrl}/api/deleteUser/${id}`, {
             method: 'DELETE',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+            headers: getAuthHeaders(),
+            credentials: 'include'
+        }, 10000);
+        
+        const data = await res.json();
         
         if (res.ok) {
             showMessage('Member deleted successfully!', 'success');
-            await loadMembers();
-            await loadDashboard();
+            await loadDashboard(); // Refresh the dashboard
         } else {
-            const errorData = await res.json().catch(() => ({}));
-                        showMessage('Failed to delete member: ' + (errorData.message || 'Unknown error'), 'error');
+            showMessage(data.message || 'Failed to delete member', 'error');
         }
+        
     } catch (error) {
         console.error('Delete member error:', error);
-        showMessage('Network error while deleting member', 'error');
+        
+        let errorMessage = 'Failed to delete member: ' + error.message;
+        if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out while deleting member. Please try again.';
+        }
+        
+        showMessage(errorMessage, 'error');
     }
 }
+
 
 // Search and filter functions
 function searchMembers(searchTerm) {

@@ -37,8 +37,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-
-
 // Serve static files
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   maxAge: '1d',
@@ -52,7 +50,7 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
   }
 }));
 
-// Database Connection - Fixed for Vercel
+// ✅ FIXED Database Connection - Aggressive timeouts for serverless
 const connectDB = async () => {
   try {
     // Check if already connected
@@ -93,9 +91,6 @@ const connectDB = async () => {
     return null;
   }
 };
-
-
-
 
 // Database Models (keep your existing schemas)
 const userSchema = new mongoose.Schema({
@@ -163,28 +158,6 @@ certificateSchema.index({ recipient: 1 });
 const User = mongoose.model('User', userSchema);
 const Certificate = mongoose.model('Certificate', certificateSchema);
 
-// Middleware to ensure DB connection for each request
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error('Database connection middleware error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Database connection failed' 
-    });
-  }
-});
-
-// Request logging
-app.use((req, res, next) => {
-  console.log(`📨 ${req.method} ${req.path} - ${new Date().toISOString()}`);
-  next();
-});
-
-// ==================== ROUTES ====================
-
 // ✅ Add this helper function instead:
 const withDB = (handler) => {
   return async (req, res) => {
@@ -208,6 +181,13 @@ const withDB = (handler) => {
   };
 };
 
+// Request logging
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.path} - ${new Date().toISOString()}`);
+  next();
+});
+
+// ==================== ROUTES ====================
 
 // HTML Routes
 app.get('/', (req, res) => {
@@ -272,8 +252,6 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
-
 // Health check endpoint - Add this for debugging
 app.get('/api/health', (req, res) => {
   res.json({
@@ -282,7 +260,6 @@ app.get('/api/health', (req, res) => {
     message: 'Server is running'
   });
 });
-
 
 // Authentication Middleware
 const authenticate = async (req, res, next) => {
@@ -306,7 +283,6 @@ const authenticate = async (req, res, next) => {
 };
 
 // ==================== KEEP ALL YOUR EXISTING ENDPOINTS ====================
-
 
 // Get all users (admin panel expects this endpoint)
 // ✅ Use wrapper for database-dependent routes
@@ -338,12 +314,9 @@ app.get('/api/getUsers', withDB(async (req, res) => {
   }
 }));
 
-
 // Add user (admin panel expects this endpoint)
-app.post('/api/addUser', async (req, res) => {
+app.post('/api/addUser', withDB(async (req, res) => {
   try {
-    await connectDB();
-    
     const {
       name,
       email,
@@ -384,7 +357,7 @@ app.post('/api/addUser', async (req, res) => {
       password: hashedPassword,
       code: code.toUpperCase().trim(),
       position,
-           state: state.trim(),
+      state: state.trim(),
       zone: zone.trim(),
       dateAdded: new Date(),
       cardGenerated: !!(passportPhoto && signature)
@@ -420,12 +393,11 @@ app.post('/api/addUser', async (req, res) => {
       res.status(500).json({ message: 'Server error while adding user' });
     }
   }
-});
+}));
 
 // Delete single user (admin panel expects this endpoint)
-app.delete('/api/deleteUser/:id', async (req, res) => {
+app.delete('/api/deleteUser/:id', withDB(async (req, res) => {
   try {
-    await connectDB();
     const { id } = req.params;
     
     // Validate ObjectId format
@@ -443,12 +415,11 @@ app.delete('/api/deleteUser/:id', async (req, res) => {
     console.error('Delete user error:', error);
     res.status(500).json({ message: 'Server error while deleting user' });
   }
-});
+}));
 
 // Delete all users (admin panel expects this endpoint)
-app.delete('/api/deleteAllUsers', async (req, res) => {
+app.delete('/api/deleteAllUsers', withDB(async (req, res) => {
   try {
-    await connectDB();
     const result = await User.deleteMany({});
     
     res.json({ 
@@ -459,12 +430,11 @@ app.delete('/api/deleteAllUsers', async (req, res) => {
     console.error('Delete all users error:', error);
     res.status(500).json({ message: 'Server error while deleting all users' });
   }
-});
+}));
 
 // Update user (admin panel expects this endpoint)
-app.put('/api/updateUser/:id', async (req, res) => {
+app.put('/api/updateUser/:id', withDB(async (req, res) => {
   try {
-    await connectDB();
     const { id } = req.params;
     const updateData = req.body;
     
@@ -518,14 +488,13 @@ app.put('/api/updateUser/:id', async (req, res) => {
       res.status(500).json({ message: 'Server error while updating user' });
     }
   }
-});
+}));
 
 // ==================== FRONTEND VERIFICATION ENDPOINTS ====================
 
 // Member verification endpoint for public frontend
-app.post('/api/members/verify', async (req, res) => {
+app.post('/api/members/verify', withDB(async (req, res) => {
   try {
-    await connectDB();
     const { code } = req.body;
     
     console.log('🔍 Frontend verification request for code:', code);
@@ -581,12 +550,11 @@ app.post('/api/members/verify', async (req, res) => {
       message: 'Server error while verifying member' 
     });
   }
-});
+}));
 
 // Certificate verification endpoint for public frontend
-app.post('/api/certificates/verify', async (req, res) => {
+app.post('/api/certificates/verify', withDB(async (req, res) => {
   try {
-    await connectDB();
     const { certificateNumber } = req.body;
     
     console.log('🔍 Frontend certificate verification request for:', certificateNumber);
@@ -646,12 +614,11 @@ app.post('/api/certificates/verify', async (req, res) => {
       message: 'Server error while verifying certificate' 
     });
   }
-});
+}));
 
 // Legacy searchUser endpoint for backward compatibility
-app.post('/api/searchUser', async (req, res) => {
+app.post('/api/searchUser', withDB(async (req, res) => {
   try {
-    await connectDB();
     const { code } = req.body;
     
     console.log('🔍 Legacy searchUser request for code:', code);
@@ -688,14 +655,13 @@ app.post('/api/searchUser', async (req, res) => {
     console.error('Legacy searchUser error:', error);
     res.status(500).json({ message: 'Server error' });
   }
-});
+}));
 
 // ==================== CERTIFICATE MANAGEMENT ENDPOINTS ====================
 
 // Get all certificates
-app.get('/api/certificates', async (req, res) => {
+app.get('/api/certificates', withDB(async (req, res) => {
   try {
-    await connectDB();
     const certificates = await Certificate.find()
       .populate('userId', 'name email code')
       .sort({ createdAt: -1 });
@@ -705,12 +671,11 @@ app.get('/api/certificates', async (req, res) => {
     console.error('Get certificates error:', error);
     res.status(500).json({ message: 'Server error while fetching certificates' });
   }
-});
+}));
 
 // Issue new certificate
-app.post('/api/certificates', async (req, res) => {
+app.post('/api/certificates', withDB(async (req, res) => {
   try {
-    await connectDB();
     const {
       number,
       recipient,
@@ -770,12 +735,11 @@ app.post('/api/certificates', async (req, res) => {
       res.status(500).json({ message: 'Server error while issuing certificate' });
     }
   }
-});
+}));
 
 // Revoke certificate endpoint
-app.put('/api/certificates/:id/revoke', async (req, res) => {
+app.put('/api/certificates/:id/revoke', withDB(async (req, res) => {
   try {
-    await connectDB();
     const { id } = req.params;
     const { reason, revokedBy = 'Admin' } = req.body;
     
@@ -823,17 +787,16 @@ app.put('/api/certificates/:id/revoke', async (req, res) => {
       message: 'Server error while revoking certificate' 
     });
   }
-});
+}));
 
 // Delete certificate endpoint
-app.delete('/api/certificates/:id', async (req, res) => {
+app.delete('/api/certificates/:id', withDB(async (req, res) => {
   try {
-    await connectDB();
     const { id } = req.params;
     
     console.log(`🗑️ Deleting certificate ${id}`);
     
-        if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Invalid certificate ID format' });
     }
     
@@ -865,19 +828,17 @@ app.delete('/api/certificates/:id', async (req, res) => {
       message: 'Server error while deleting certificate' 
     });
   }
-});
+}));
 
 // ==================== ANALYTICS ENDPOINTS ====================
 
 // Get dashboard statistics
-app.get('/api/analytics/dashboard', async (req, res) => {
+app.get('/api/analytics/dashboard', withDB(async (req, res) => {
   try {
-    await connectDB();
-    
     const totalMembers = await User.countDocuments();
     const totalCertificates = await Certificate.countDocuments();
     const activeCertificates = await Certificate.countDocuments({ status: 'active' });
-    const revokedCertificates = await Certificate.countDocuments({ status: 'revoked' });
+        const revokedCertificates = await Certificate.countDocuments({ status: 'revoked' });
     
     // Members added this month
     const thisMonth = new Date();
@@ -914,14 +875,13 @@ app.get('/api/analytics/dashboard', async (req, res) => {
     console.error('Analytics error:', error);
     res.status(500).json({ message: 'Server error while fetching analytics' });
   }
-});
+}));
 
 // ==================== BULK OPERATIONS ====================
 
 // Bulk delete users
-app.post('/api/users/bulk-delete', async (req, res) => {
+app.post('/api/users/bulk-delete', withDB(async (req, res) => {
   try {
-    await connectDB();
     const { userIds } = req.body;
     
     if (!Array.isArray(userIds) || userIds.length === 0) {
@@ -948,14 +908,185 @@ app.post('/api/users/bulk-delete', async (req, res) => {
     console.error('Bulk delete error:', error);
     res.status(500).json({ message: 'Server error while deleting users' });
   }
+}));
+
+// Bulk delete certificates
+app.post('/api/certificates/bulk-delete', withDB(async (req, res) => {
+  try {
+    const { certificateIds } = req.body;
+    
+    if (!Array.isArray(certificateIds) || certificateIds.length === 0) {
+      return res.status(400).json({ message: 'Certificate IDs array is required' });
+    }
+    
+    // Validate all IDs
+    const invalidIds = certificateIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({ 
+        message: `Invalid certificate IDs: ${invalidIds.join(', ')}` 
+      });
+    }
+    
+    const result = await Certificate.deleteMany({
+      _id: { $in: certificateIds }
+    });
+    
+    res.json({
+      message: `Successfully deleted ${result.deletedCount} certificates`,
+      deletedCount: result.deletedCount
+    });
+  } catch (error) {
+    console.error('Bulk delete certificates error:', error);
+    res.status(500).json({ message: 'Server error while deleting certificates' });
+  }
+}));
+
+// ==================== FILE UPLOAD ENDPOINTS ====================
+
+// Handle image uploads (for passport photos and signatures)
+app.post('/api/upload/image', async (req, res) => {
+  try {
+    const { imageData, type } = req.body;
+    
+    if (!imageData || !type) {
+      return res.status(400).json({ message: 'Image data and type are required' });
+    }
+    
+    // Validate image type
+    if (!['passport', 'signature'].includes(type)) {
+      return res.status(400).json({ message: 'Invalid image type' });
+    }
+    
+    // Here you could add image processing, validation, etc.
+    // For now, we'll just return the data as-is
+    
+    res.json({
+      message: 'Image uploaded successfully',
+      imageUrl: imageData // In production, you'd save to cloud storage and return URL
+    });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ message: 'Server error while uploading image' });
+  }
 });
+
+// ==================== SEARCH AND FILTER ENDPOINTS ====================
+
+// Advanced search for users
+app.post('/api/users/search', withDB(async (req, res) => {
+  try {
+    const { query, filters = {} } = req.body;
+    
+    let searchCriteria = {};
+    
+    // Text search across multiple fields
+    if (query && query.trim()) {
+      const searchRegex = new RegExp(query.trim(), 'i');
+      searchCriteria.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { code: searchRegex },
+        { state: searchRegex },
+        { zone: searchRegex }
+      ];
+    }
+    
+    // Apply filters
+    if (filters.state) {
+      searchCriteria.state = new RegExp(filters.state, 'i');
+    }
+    
+    if (filters.position) {
+      searchCriteria.position = filters.position;
+    }
+    
+    if (filters.zone) {
+      searchCriteria.zone = new RegExp(filters.zone, 'i');
+    }
+    
+    if (filters.isActive !== undefined) {
+      searchCriteria.isActive = filters.isActive;
+    }
+    
+    const users = await User.find(searchCriteria)
+      .select('-password')
+      .sort({ dateAdded: -1 })
+      .limit(100); // Limit results
+    
+    res.json({
+      users,
+      count: users.length,
+      query,
+      filters
+    });
+  } catch (error) {
+    console.error('User search error:', error);
+    res.status(500).json({ message: 'Server error while searching users' });
+  }
+}));
+
+// Advanced search for certificates
+app.post('/api/certificates/search', withDB(async (req, res) => {
+  try {
+    const { query, filters = {} } = req.body;
+    
+    let searchCriteria = {};
+    
+    // Text search across multiple fields
+    if (query && query.trim()) {
+      const searchRegex = new RegExp(query.trim(), 'i');
+      searchCriteria.$or = [
+        { number: searchRegex },
+        { recipient: searchRegex },
+        { email: searchRegex },
+        { title: searchRegex },
+        { description: searchRegex }
+      ];
+    }
+    
+    // Apply filters
+    if (filters.status) {
+      searchCriteria.status = filters.status;
+    }
+    
+    if (filters.type) {
+      searchCriteria.type = filters.type;
+    }
+    
+    if (filters.dateFrom) {
+      searchCriteria.issueDate = { $gte: new Date(filters.dateFrom) };
+    }
+    
+    if (filters.dateTo) {
+      if (searchCriteria.issueDate) {
+        searchCriteria.issueDate.$lte = new Date(filters.dateTo);
+      } else {
+        searchCriteria.issueDate = { $lte: new Date(filters.dateTo) };
+      }
+    }
+    
+    const certificates = await Certificate.find(searchCriteria)
+      .populate('userId', 'name email code')
+      .sort({ createdAt: -1 })
+      .limit(100); // Limit results
+    
+    res.json({
+      certificates,
+      count: certificates.length,
+      query,
+      filters
+    });
+  } catch (error) {
+    console.error('Certificate search error:', error);
+    res.status(500).json({ message: 'Server error while searching certificates' });
+  }
+}));
 
 // ==================== EXPORT ENDPOINTS ====================
 
 // Export users to CSV format
-app.get('/api/users/export', async (req, res) => {
+app.get('/api/users/export', withDB(async (req, res) => {
   try {
-    await connectDB();
     const users = await User.find().select('-password').sort({ dateAdded: -1 });
     
     // Convert to CSV format
@@ -981,12 +1112,11 @@ app.get('/api/users/export', async (req, res) => {
     console.error('Export users error:', error);
     res.status(500).json({ message: 'Server error while exporting users' });
   }
-});
+}));
 
 // Export certificates to CSV format
-app.get('/api/certificates/export', async (req, res) => {
+app.get('/api/certificates/export', withDB(async (req, res) => {
   try {
-    await connectDB();
     const certificates = await Certificate.find()
       .populate('userId', 'name email code')
       .sort({ createdAt: -1 });
@@ -1013,6 +1143,35 @@ app.get('/api/certificates/export', async (req, res) => {
   } catch (error) {
     console.error('Export certificates error:', error);
     res.status(500).json({ message: 'Server error while exporting certificates' });
+  }
+}));
+
+// ==================== DEBUG ENDPOINT ====================
+
+// Add this temporary debug endpoint
+app.get('/api/debug', async (req, res) => {
+  const start = Date.now();
+  try {
+    console.log('Debug: Starting connection test...');
+    const connection = await connectDB();
+    const duration = Date.now() - start;
+    
+    res.json({
+      success: !!connection,
+      duration: `${duration}ms`,
+      readyState: mongoose.connection.readyState,
+      host: mongoose.connection.host,
+      name: mongoose.connection.name,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    const duration = Date.now() - start;
+    res.json({
+      success: false,
+      error: error.message,
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
@@ -1041,7 +1200,20 @@ app.use((error, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-
+// Local development server
+if (!process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      const PORT = process.env.PORT || 3000;
+      app.listen(PORT, () =>
+        console.log(`🛡️  Local server listening on http://localhost:${PORT}`)
+      );
+    })
+    .catch(err => {
+      console.error('DB connection failed:', err);
+      process.exit(1);
+    });
+}
 
 // Export for Vercel
 module.exports = { app, connectDB };
