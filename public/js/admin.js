@@ -888,7 +888,6 @@ function formatRelativeDate(dateString) {
     }
 }
 
-
 // Get members function
 async function loadUsers() {
     try {
