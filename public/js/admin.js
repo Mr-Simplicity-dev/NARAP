@@ -569,7 +569,7 @@ function formatTimeAgo(dateString) {
 }
 
 // Get members function
-async function getMembers() {
+async function loadUsers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
         
@@ -627,7 +627,7 @@ async function loadMembers() {
         console.log('Loading members...');
         tableBody.innerHTML = '<tr><td colspan="7" class="loading">Loading members...</td></tr>';
         
-        const members = await getMembers();
+        const members = await loadUsers();
         
         // Clear the table
         tableBody.innerHTML = '';
@@ -2435,7 +2435,7 @@ function savePendingSync(pendingSync) {
 // Export functions
 async function exportMembers(format = 'csv') {
     try {
-        const members = currentMembers.length > 0 ? currentMembers : await getMembers();
+        const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
         
         if (format === 'csv') {
             const csvContent = convertToCSV(members);
@@ -2575,7 +2575,7 @@ async function createBackup() {
     try {
         showMessage('Creating backup...', 'success');
         
-        const members = currentMembers.length > 0 ? currentMembers : await getMembers();
+        const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
         const certificates = currentCertificates.length > 0 ? currentCertificates : await getCertificates();
         
         const backupData = {
@@ -2601,7 +2601,7 @@ async function exportAllData() {
     try {
         showMessage('Exporting all data...', 'success');
         
-        const members = currentMembers.length > 0 ? currentMembers : await getMembers();
+        const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
         const certificates = currentCertificates.length > 0 ? currentCertificates : await getCertificates();
         
         const allData = {
@@ -4274,7 +4274,7 @@ async function loadAnalytics() {
         showMessage('Loading analytics...', 'success');
         
         // Ensure we have current data
-        if (currentMembers.length === 0) await getMembers();
+        if (currentMembers.length === 0) await loadUsers();
         if (currentCertificates.length === 0) await getCertificates();
         
         // Display analytics
@@ -4579,7 +4579,7 @@ async function exportData(type, format = 'json') {
         
         switch(type) {
             case 'members':
-                data = currentMembers.length > 0 ? currentMembers : await getMembers();
+                data = currentMembers.length > 0 ? currentMembers : await loadUsers();
                 filename = `narap_members_${new Date().toISOString().split('T')[0]}`;
                 break;
                 
@@ -4589,7 +4589,7 @@ async function exportData(type, format = 'json') {
                 break;
                 
             case 'all':
-                const members = currentMembers.length > 0 ? currentMembers : await getMembers();
+                const members = currentMembers.length > 0 ? currentMembers : await loadUsers();
                 const certificates = currentCertificates.length > 0 ? currentCertificates : await getCertificates();
                 data = { members, certificates, exportDate: new Date().toISOString() };
                 filename = `narap_complete_export_${new Date().toISOString().split('T')[0]}`;
@@ -4952,7 +4952,7 @@ async function getCachedMembers(forceRefresh = false) {
     }
     
     try {
-        const members = await getMembers();
+        const members = await loadUsers();
         dataCache.set(cacheKey, members);
         return members;
     } catch (error) {
