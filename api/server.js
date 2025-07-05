@@ -124,7 +124,7 @@ const certificateSchema = new mongoose.Schema({
   type: { type: String, required: true, enum: { values: ['membership', 'training', 'achievement', 'recognition', 'service'], message: 'Invalid certificate type' }, default: 'membership' },
   description: { type: String, trim: true },
   issueDate: { type: Date, required: [true, 'Issue date is required'], default: Date.now },
-  validUntil: { type: Date, validate: { validator: v => !v || v > this.issueDate, message: 'Valid until date must be after issue date' } },
+  validUntil: { type: Date, validate: { validator: function(v) { return !v || v > this.issueDate; }, message: 'Valid until date must be after issue date'}},
   status: { type: String, enum: { values: ['active', 'revoked', 'expired'], message: 'Invalid certificate status' }, default: 'active' },
   revokedAt: { type: Date },
   revokedBy: { type: String },
