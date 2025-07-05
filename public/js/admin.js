@@ -4,6 +4,29 @@ const backendUrl = window.location.origin.includes('localhost')
     : window.location.origin;
 
 
+    // Add after backendUrl declaration
+function fetchWithTimeout(url, options = {}, timeout = 10000) {
+    return new Promise((resolve, reject) => {
+        const controller = new AbortController();
+        options.signal = controller.signal;
+        
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+            reject(new DOMException("Request timed out", "AbortError"));
+        }, timeout);
+
+        fetch(url, options)
+            .then(response => {
+                clearTimeout(timeoutId);
+                resolve(response);
+            })
+            .catch(error => {
+                clearTimeout(timeoutId);
+                reject(error);
+            });
+    });
+}
+
 // Add this to verify the URL is correct
 console.log('Admin panel initialized with backend URL:', backendUrl);
 
@@ -303,7 +326,7 @@ async function login(event) {
         showMessage('Logging in...', 'info');
         
         // ✅ Use fetchWithTimeout with 10 second timeout
-        const res = await fetchWithTimeout(`${backendUrl}/api/login`, {
+        const res = await fetch(`${backendUrl}/api/login`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({ email: username, password }),
@@ -550,7 +573,7 @@ async function getMembers() {
     try {
         console.log('Fetching members from:', `${backendUrl}/api/getUsers`);
         
-        const res = await fetchWithTimeout(`${backendUrl}/api/getUsers`, {
+        const res = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
             headers: getAuthHeaders()
@@ -1071,7 +1094,7 @@ async function revokeCertificate(certificateId) {
                     <h3 style="color: #dc3545;">
                         <i class="fas fa-ban"></i> Revoke Certificate
                     </h3>
-                    <span class="close" onclick="closeRevocationModal()">&times;</span>
+                    <span class="close" onclick="window.closeRevocationModal()">&times;</span>
                 </div>
                 <div class="modal-body">
                     <div class="certificate-info" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
@@ -1983,7 +2006,7 @@ async function addMember(event) {
     try {
         showMessage('Adding member...', 'info');
         
-        const res = await fetchWithTimeout(`${backendUrl}/api/addUser`, {
+        const res = await fetch(`${backendUrl}/api/addUser`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify(memberData),
@@ -3573,7 +3596,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (cardDiv) {
             // Now you can safely use cardDiv
-            cardDiv.innerHTML = 'something';
+           if(cardDiv) cardDiv.innerHTM = 'something';
             // or
             cardDiv.style.display = 'block';
         } else {
