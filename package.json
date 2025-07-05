@@ -1,13 +1,14 @@
 {
   "name": "narap-backend",
   "version": "1.0.0",
-  "main": "api/server.js",
+  "main": "api/index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node api/server.js",
+    "start": "node dev.js",
+    "dev": "NODE_ENV=development nodemon dev.js",
     "vercel-build": "npm install --production",
-    "dev": "NODE_ENV=development nodemon api/server.js",
-    "test": "jest --watchAll"
+    "test": "jest --watchAll",
+    "server": "node api/server.js"
   },
   "dependencies": {
     "archiver": "^6.0.0",

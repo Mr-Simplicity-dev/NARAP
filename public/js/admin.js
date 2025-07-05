@@ -268,6 +268,15 @@ function getMessageStyle(type) {
 }
 
 
+function getAuthHeaders() {
+    const token = localStorage.getItem('authToken');
+    return {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+}
+
 // Corrected login function
 async function login(event) {
     if (event) event.preventDefault();
@@ -292,22 +301,28 @@ async function login(event) {
         showMessage('Logging in...', 'info');
         
         const res = await fetch(`${backendUrl}/api/login`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            // FIXED: Changed username to email
-            body: JSON.stringify({ email: username, password }),
-            credentials: 'include'
-        });
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ email: username, password }),
+    credentials: 'include'
+});
         
         console.log('Response status:', res.status);
         console.log('Response ok:', res.ok);
         
-        if (res.ok) {
-            const data = await res.json();
+        // ✅ UPDATED: Handle both success and error responses
+        const data = await res.json();
+        console.log('Response data:', data);
+        
+        // Check for success field in response
+        if (data.success) {
             console.log('✅ Login successful:', data);
+            
+            // Store token if provided
+            if (data.token) {
+                localStorage.setItem('authToken', data.token);
+                console.log('🔑 Token stored');
+            }
             
             showMessage('Login successful!', 'success');
             document.getElementById('loginSection').style.display = 'none';
@@ -321,9 +336,9 @@ async function login(event) {
                 showMessage('Login successful, but failed to load dashboard', 'warning');
             }
         } else {
-            const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
-            console.log('❌ Login failed:', errorData);
-            const errorMessage = errorData.message || `Server error: ${res.status}`;
+            // Handle failed login with success: false
+            console.log('❌ Login failed:', data);
+            const errorMessage = data.message || 'Login failed';
             loginError.innerHTML = `<div class="error">Login failed: ${errorMessage}</div>`;
             showMessage(`Login failed: ${errorMessage}`, 'error');
         }
@@ -334,7 +349,7 @@ async function login(event) {
         let errorMessage = 'Network error: Please check your connection and try again';
         
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
-    errorMessage = 'Cannot connect to server. Please check your internet connection or server deployment on Vercel.';
+            errorMessage = 'Cannot connect to server. Please check your internet connection or server deployment on Vercel.';
         } else if (error.message.includes('JSON')) {
             errorMessage = 'Server response error. Please check server logs';
         }
@@ -343,6 +358,7 @@ async function login(event) {
         showMessage(errorMessage, 'error');
     }
 }
+
 
 
 // Logout function
@@ -533,9 +549,7 @@ async function getMembers() {
         const res = await fetch(`${backendUrl}/api/getUsers`, {
             method: 'GET',
             credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders() // ✅ Use the helper function
         });
         
         if (!res.ok) {
@@ -544,15 +558,17 @@ async function getMembers() {
         
         const members = await res.json();
         currentMembers = Array.isArray(members) ? members : [];
+        console.log('✅ Members loaded successfully:', currentMembers.length, 'members');
         return currentMembers;
         
     } catch (error) {
-        console.error('Get members error:', error);
+        console.error('❌ Get members error:', error);
         showMessage('Failed to load members: ' + error.message, 'error');
         currentMembers = [];
         return [];
     }
 }
+
 
 // Load members tab
 async function loadMembers() {

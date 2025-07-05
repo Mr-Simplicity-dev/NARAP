@@ -30,5 +30,8 @@
       "dest": "/public/$1"
     }
   ],
+  "env": {
+    "NODE_ENV": "production"
+  },
   "regions": ["dub1"]
 }

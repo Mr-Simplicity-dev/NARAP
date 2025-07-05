@@ -1054,23 +1054,9 @@ app.use((error, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-// Local development server
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
-  connectDB()
-    .then(() => {
-      const PORT = process.env.PORT || 3000;
-      app.listen(PORT, () =>
-        console.log(`🛡️  Local server listening on http://localhost:${PORT}`)
-      );
-    })
-    .catch(err => {
-      console.error('DB connection failed:', err);
-      process.exit(1);
-    });
-}
+
 
 // Export for Vercel
-module.exports = app;
-module.exports.handler = serverless(app);
+module.exports = { app, connectDB };
 
 
