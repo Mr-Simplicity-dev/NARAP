@@ -1248,5 +1248,6 @@ if (!process.env.VERCEL) {
 }
 
 // Export for Vercel
-module.exports = { app, connectDB };
+module.exports = serverless(app);
+
 
