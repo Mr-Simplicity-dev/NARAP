@@ -13,30 +13,62 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS Configuration - Fixed
-const allowedOrigins = [
-  'https://narapdb.com.ng',
-  'https://www.narapdb.com.ng',
-  'http://localhost:3000',
-  'https://your-vercel-domain.vercel.app' // Add your Vercel domain
-];
+// ──────────────────────────────────────────────────────────
+// CORS CONFIGURATION (updated 2025‑07‑06)
+// Runs before any route so every request — including OPTIONS
+// — gets the correct Access‑Control headers.
+//
+// 1. Reads ALLOWED_ORIGINS env var if provided, else falls back
+//    to sensible defaults for localhost dev, production domain
+//    with or without www, and *any* Vercel preview.
+// 2. Supports strings and RegExp entries in the whitelist.
+// 3. Allows requests that send no Origin header (curl / server‑to‑server).
+// ──────────────────────────────────────────────────────────
+const buildAllowedOrigins = () => {
+  if (process.env.ALLOWED_ORIGINS) {
+    return process.env.ALLOWED_ORIGINS
+      .split(',')
+      .map(o => o.trim())
+      .filter(Boolean)
+      .map(o => {
+        // convert '*.example.com' style to RegExp
+        if (o.includes('*')) {
+          const regex = '^' + o
+            .replace('.', '\.')
+            .replace('*.', '([^.]+\.)?') + '$';
+          return new RegExp(regex);
+        }
+        return o;
+      });
+  }
+  // default list
+  return [
+    /^https?:\/\/localhost:(3000|5173)$/,          // dev servers
+    /^https?:\/\/([^.]+\.)?narapdb\.com\.ng$/,  // prod with/without www
+    /^https:\/\/([^.]+\.)?vercel\.app$/          // any Vercel preview
+  ];
+};
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+const allowedOrigins = buildAllowedOrigins();
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow non-browser
+    const ok = allowedOrigins.some(rule =>
+      typeof rule === 'string' ? rule === origin : rule.test(origin)
+    );
+    return ok ? callback(null, true) : callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+};
 
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+// ──────────────────────────────────────────────────────────
+
+  
 // Serve static files
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   maxAge: '1d',
