@@ -66,9 +66,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-// ──────────────────────────────────────────────────────────
 
-  
 // Serve static files
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   maxAge: '1d',
@@ -1249,5 +1247,4 @@ if (!process.env.VERCEL) {
 
 // Export for Vercel
 module.exports = { app, connectDB };
-
 
