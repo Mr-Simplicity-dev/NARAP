@@ -61,10 +61,12 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type','Authorization','Accept','X-Requested-With'],
 };
 
 app.use(cors(corsOptions));
+
+app.options(\'*\', cors(corsOptions));
 app.options('*', cors(corsOptions));
 
 // Serve static files
