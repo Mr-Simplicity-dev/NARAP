@@ -1189,690 +1189,842 @@ body {
   <script>
     let currentVerificationType = 'member';
 
-    // Skip intro function
-    function skipIntro() {
-      const welcomeOverlay = document.getElementById('welcomeOverlay');
-      welcomeOverlay.style.animation = 'none';
-      welcomeOverlay.style.opacity = '0';
-      welcomeOverlay.style.visibility = 'hidden';
-      
-      const mainContent = document.querySelector('.main-content');
-      mainContent.style.animation = 'mainContentFadeIn 0.5s ease-out forwards';
-    }
-
-    // Switch between verification types
-    function switchTab(type) {
-      currentVerificationType = type;
-      
-      // Update tab buttons
-      document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      event.target.classList.add('active');
-      
-      // Show/hide forms
-      if (type === 'member') {
-        document.getElementById('memberVerification').style.display = 'block';
-        document.getElementById('certificateVerification').style.display = 'none';
-        setTimeout(() => document.getElementById('memberCode').focus(), 100);
-      } else {
-        document.getElementById('memberVerification').style.display = 'none';
-        document.getElementById('certificateVerification').style.display = 'block';
-        setTimeout(() => document.getElementById('certificateNumber').focus(), 100);
-      }
-      
-      // Clear any previous results
-      hideError();
-      closeModal();
-    }
-
-    // Updated member search function to work with your backend
-    async function searchUser(event) {
-      event.preventDefault();
-      
-      const code = document.getElementById('memberCode').value.trim();
-      const searchBtn = document.getElementById('memberSearchBtn');
-      const loading = document.getElementById('loading');
-      
-      if (!code) {
-        showError('Please enter a NARAP code');
-        document.getElementById('memberCode').focus();
-        return;
-      }
-      
-      if (code.length < 3) {
-        showError('NARAP code must be at least 3 characters long');
-        document.getElementById('memberCode').focus();
-        return;
-      }
-      
-      // Show loading state
-      searchBtn.disabled = true;
-      searchBtn.innerHTML = '<span style="animation: spin 1s linear infinite;">⏳</span> Searching...';
-      loading.style.display = 'block';
-      hideError();
-      
-      try {
-        // First try the backend API
-        let response = await fetch('/api/members/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ code: code })
-        });
-        
-        let data = await response.json();
-        
-        if (response.ok && data.success && data.member) {
-          displayMemberResult(data.member);
-          showTemporaryMessage('Member found successfully! ✅', 'success');
-          return;
-        }
-        
-        // Updated member search function to work with your backend
-async function searchUser(event) {
-    event.preventDefault();
-    
-    const code = document.getElementById('memberCode').value.trim();
-    const searchBtn = document.getElementById('memberSearchBtn');
-    const loading = document.getElementById('loading');
-    
-    if (!code) {
-        showError('Please enter a NARAP code');
-        document.getElementById('memberCode').focus();
-        return;
-    }
-    
-    if (code.length < 3) {
-        showError('NARAP code must be at least 3 characters long');
-        document.getElementById('memberCode').focus();
-        return;
-    }
-    
-    // Show loading state
-    searchBtn.disabled = true;
-    searchBtn.innerHTML = '<span style="animation: spin 1s linear infinite;">⏳</span> Searching...';
-    loading.style.display = 'block';
-    hideError();
-    
-    try {
-        console.log('🔍 Searching for member with code:', code);
-        
-        // Try the main verification API first
-        let response = await fetch('/api/members/verify', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code: code })
-        });
-        
-        console.log('API Response status:', response.status);
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('API Response data:', data);
-            
-            if (data.success && data.member) {
-                displayMemberResult(data.member);
-                showTemporaryMessage('Member found successfully! ✅', 'success');
-                return;
-            }
-        }
-        
-        // If main API fails, try legacy API
-        try {
-            const legacyResponse = await fetch('/api/searchUser', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ code: code })
-            });
-            
-            if (legacyResponse.ok) {
-                const legacyData = await legacyResponse.json();
-                console.log('Legacy API Response:', legacyData);
-                
-                if (legacyData.user) {
-                    displayMemberResult({
-                        ...legacyData.user,
-                        passportPhoto: legacyData.user.passportPhoto || legacyData.user.passport,
-                        dateAdded: legacyData.user.createdAt || legacyData.user.dateAdded
-                    });
-                    showTemporaryMessage('Member found successfully! ✅', 'success');
-                    return;
-                }
-            }
-        } catch (legacyError) {
-            console.log('Legacy API also failed:', legacyError);
-        }
-        
-        // If both APIs fail, show error
-        const errorData = await response.json().catch(() => ({}));
-        showError(errorData.message || 'Member not found with this code. Please verify the code and try again.');
-        
-    } catch (error) {
-        console.error('Search error:', error);
-        
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            showError('Unable to connect to the server. Please check your internet connection and try again.');
-        } else {
-            showError('An unexpected error occurred. Please try again later.');
-        }
-    } finally {
-        // Reset button state
-        searchBtn.disabled = false;
-        searchBtn.innerHTML = '🔍 Verify';
-        loading.style.display = 'none';
-    }
+// Skip intro function
+function skipIntro() {
+  const welcomeOverlay = document.getElementById('welcomeOverlay');
+  welcomeOverlay.style.animation = 'none';
+  welcomeOverlay.style.opacity = '0';
+  welcomeOverlay.style.visibility = 'hidden';
+  
+  const mainContent = document.querySelector('.main-content');
+  mainContent.style.animation = 'mainContentFadeIn 0.5s ease-out forwards';
 }
 
-        
-        // If all methods fail, show error
-        showError(data.message || 'Member not found with this code. Please verify the code and try again.');
-        
-      } catch (error) {
-        console.error('Search error:', error);
-        
-        // Try localStorage as final fallback
-        try {
-          const localUsers = JSON.parse(localStorage.getItem('narapUsers') || '[]');
-          const user = localUsers.find(u => u.code && u.code.toUpperCase() === code.toUpperCase());
-          
-          if (user) {
-            displayMemberResult({
-              ...user,
-              passportPhoto: user.passport || user.passportPhoto,
-              dateAdded: user.dateAdded || user.createdAt || new Date().toISOString()
-            });
-            showTemporaryMessage('Member found in local database! ✅', 'success');
-            return;
-          }
-        } catch (localError) {
-          console.log('localStorage search failed:', localError);
-        }
-        
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
-          showError('Unable to connect to the server. Please check your internet connection and try again.');
-        } else {
-          showError('An unexpected error occurred. Please try again later.');
-        }
-      } finally {
-        // Reset button state
-        searchBtn.disabled = false;
-        searchBtn.innerHTML = '🔍 Verify Member';
-        loading.style.display = 'none';
+// Switch between verification types
+function switchTab(type) {
+  currentVerificationType = type;
+  
+  // Update tab buttons
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  event.target.classList.add('active');
+  
+  // Show/hide forms
+  if (type === 'member') {
+    document.getElementById('memberVerification').style.display = 'block';
+    document.getElementById('certificateVerification').style.display = 'none';
+    setTimeout(() => document.getElementById('memberCode').focus(), 100);
+  } else {
+    document.getElementById('memberVerification').style.display = 'none';
+    document.getElementById('certificateVerification').style.display = 'block';
+    setTimeout(() => document.getElementById('certificateNumber').focus(), 100);
+  }
+  
+  // Clear any previous results
+  hideError();
+  closeModal();
+}
+
+// Enhanced getData function with error handling and caching
+async function getData(endpoint = '', options = {}) {
+  const defaultOptions = {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    ...options
+  };
+  
+  try {
+    // Use your existing retry mechanism
+    const response = await makeRequest(
+      `https://narap-backend.onrender.com/api/data${endpoint}`, 
+      defaultOptions
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Data fetched successfully:', data);
+    
+    // Cache the data for offline use
+    if (endpoint) {
+      localStorage.setItem(`narap_cache_${endpoint.replace(/\//g, '_')}`, JSON.stringify({
+        data,
+        timestamp: Date.now(),
+        ttl: 5 * 60 * 1000 // 5 minutes TTL
+      }));
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    
+    // Try to get cached data if available
+    if (endpoint) {
+      const cached = getCachedData(endpoint);
+      if (cached) {
+        console.log('Using cached data due to network error');
+        return cached;
       }
     }
+    
+    throw error;
+  }
+}
 
-    // Certificate search function (placeholder - you can implement this later)
-    async function searchCertificate(event) {
-      event.preventDefault();
+// Helper function to get cached data
+function getCachedData(endpoint) {
+  try {
+    const cached = localStorage.getItem(`narap_cache_${endpoint.replace(/\//g, '_')}`);
+    if (cached) {
+      const { data, timestamp, ttl } = JSON.parse(cached);
+      if (Date.now() - timestamp < ttl) {
+        return data;
+      }
+    }
+  } catch (error) {
+    console.log('Error reading cached data:', error);
+  }
+  return null;
+}
+
+// Updated member search function with Render backend integration
+async function searchUser(event) {
+  event.preventDefault();
+  
+  const code = document.getElementById('memberCode').value.trim();
+  const searchBtn = document.getElementById('memberSearchBtn');
+  const loading = document.getElementById('loading');
+  
+  if (!code) {
+    showError('Please enter a NARAP code');
+    document.getElementById('memberCode').focus();
+    return;
+  }
+  
+  if (code.length < 3) {
+    showError('NARAP code must be at least 3 characters long');
+    document.getElementById('memberCode').focus();
+    return;
+  }
+  
+  // Show loading state
+  searchBtn.disabled = true;
+  searchBtn.innerHTML = '<span style="animation: spin 1s linear infinite;">⏳</span> Searching...';
+  loading.style.display = 'block';
+  hideError();
+  
+  try {
+    console.log('🔍 Searching for member with code:', code);
+    
+    // Try the main Render backend API first
+    let response = await fetch('https://narap-backend.onrender.com/api/members/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code: code })
+    });
+    
+    console.log('API Response status:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('API Response data:', data);
       
-      const certificateNumber = document.getElementById('certificateNumber').value.trim();
-      const searchBtn = document.getElementById('certificateSearchBtn');
-      const loading = document.getElementById('loading');
-      
-      if (!certificateNumber) {
-        showError('Please enter a certificate number');
-        document.getElementById('certificateNumber').focus();
+      if (data.success && data.member) {
+        displayMemberResult(data.member);
+        showTemporaryMessage('Member found successfully! ✅', 'success');
+        trackUsage('member', 'verification_success');
         return;
       }
+    }
+    
+    // If main API fails, try legacy API fallback
+    try {
+      const legacyResponse = await fetch('https://narap-backend.onrender.com/api/searchUser', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: code })
+      });
       
-      if (certificateNumber.length < 5) {
-        showError('Certificate number must be at least 5 characters long');
-        document.getElementById('certificateNumber').focus();
-        return;
+      if (legacyResponse.ok) {
+        const legacyData = await legacyResponse.json();
+        console.log('Legacy API Response:', legacyData);
+        
+        if (legacyData.user) {
+          displayMemberResult({
+            ...legacyData.user,
+            passportPhoto: legacyData.user.passportPhoto || legacyData.user.passport,
+            dateAdded: legacyData.user.createdAt || legacyData.user.dateAdded
+          });
+          showTemporaryMessage('Member found successfully! ✅', 'success');
+          trackUsage('member', 'verification_success_legacy');
+          return;
+        }
       }
+    } catch (legacyError) {
+      console.log('Legacy API also failed:', legacyError);
+    }
+    
+    // If both APIs fail, try localStorage as final fallback
+    try {
+      const localUsers = JSON.parse(localStorage.getItem('narapUsers') || '[]');
+      const user = localUsers.find(u => u.code && u.code.toUpperCase() === code.toUpperCase());
       
-      // Show loading state
-      searchBtn.disabled = true;
-      searchBtn.innerHTML = '<span style="animation: spin 1s linear infinite;">⏳</span> Verifying...';
-      loading.style.display = 'block';
-      hideError();
-      
-      try {
-        const response = await fetch('/api/certificates/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ certificateNumber: certificateNumber })
+      if (user) {
+        displayMemberResult({
+          ...user,
+          passportPhoto: user.passport || user.passportPhoto,
+          dateAdded: user.dateAdded || user.createdAt || new Date().toISOString()
         });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.success && data.certificate) {
-          displayCertificateResult(data.certificate, data.message);
-          showTemporaryMessage('Certificate verified successfully! ✅', 'success');
-        } else {
-          // For now, show a placeholder message since certificate verification isn't implemented yet
-          showError('Certificate verification is not yet available. Please contact support for manual verification.');
-        }
-      } catch (error) {
-        console.error('Certificate verification error:', error);
-        showError('Certificate verification is currently unavailable. Please contact support for manual verification.');
-      } finally {
-        // Reset button state
-        searchBtn.disabled = false;
-        searchBtn.innerHTML = '🔍 Verify';
-        loading.style.display = 'none';
+        showTemporaryMessage('Member found in local database! ✅', 'success');
+        trackUsage('member', 'verification_success_local');
+        return;
       }
+    } catch (localError) {
+      console.log('localStorage search failed:', localError);
     }
+    
+    // If all methods fail, show error
+    const errorData = await response.json().catch(() => ({}));
+    showError(errorData.message || 'Member not found with this code. Please verify the code and try again.');
+    trackUsage('member', 'verification_failed');
+    
+  } catch (error) {
+    console.error('Search error:', error);
+    
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      showError('Unable to connect to the server. Please check your internet connection and try again.');
+    } else {
+      showError('An unexpected error occurred. Please try again later.');
+    }
+    trackUsage('member', 'verification_error');
+  } finally {
+    // Reset button state
+    searchBtn.disabled = false;
+    searchBtn.innerHTML = '🔍 Verify Member';
+    loading.style.display = 'none';
+  }
+}
 
-    // Display member result
-    function displayMemberResult(member) {
-      const modalTitle = document.getElementById('modalTitle');
-      const resultContent = document.getElementById('resultContent');
+// Updated certificate search function with Render backend
+async function searchCertificate(event) {
+  event.preventDefault();
+  
+  const certificateNumber = document.getElementById('certificateNumber').value.trim();
+  const searchBtn = document.getElementById('certificateSearchBtn');
+  const loading = document.getElementById('loading');
+  
+  if (!certificateNumber) {
+    showError('Please enter a certificate number');
+    document.getElementById('certificateNumber').focus();
+    return;
+  }
+  
+  if (certificateNumber.length < 5) {
+    showError('Certificate number must be at least 5 characters long');
+    document.getElementById('certificateNumber').focus();
+    return;
+  }
+  
+  // Show loading state
+  searchBtn.disabled = true;
+  searchBtn.innerHTML = '<span style="animation: spin 1s linear infinite;">⏳</span> Verifying...';
+  loading.style.display = 'block';
+  hideError();
+  
+  try {
+    const response = await fetch('https://narap-backend.onrender.com/api/certificates/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ certificateNumber: certificateNumber })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok && data.success && data.certificate) {
+      displayCertificateResult(data.certificate, data.message);
+      showTemporaryMessage('Certificate verified successfully! ✅', 'success');
+      trackUsage('certificate', 'verification_success');
+    } else {
+      showError(data.message || 'Certificate not found. Please verify the number and try again.');
+      trackUsage('certificate', 'verification_failed');
+    }
+  } catch (error) {
+    console.error('Certificate verification error:', error);
+    showError('Certificate verification is currently unavailable. Please contact support for manual verification.');
+    trackUsage('certificate', 'verification_error');
+  } finally {
+    // Reset button state
+    searchBtn.disabled = false;
+    searchBtn.innerHTML = '🔍 Verify';
+    loading.style.display = 'none';
+  }
+}
+
+// Display member result
+function displayMemberResult(member) {
+  const modalTitle = document.getElementById('modalTitle');
+  const resultContent = document.getElementById('resultContent');
+  
+  modalTitle.textContent = 'Member Verification Result';
+  
+  resultContent.innerHTML = `
+    <div class="details-container">
+      <div class="personal-details-section">
+        <h4 style="color: #667eea; margin-bottom: 20px; font-size: 18px;">📋 Personal Details</h4>
+        <div class="details-grid">
+          <div class="detail-item">
+            <strong>Full Name</strong>
+            <span>${member.name || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>Email Address</strong>
+            <span>${member.email || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>NARAP Code</strong>
+            <span>${member.code || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>Position</strong>
+            <span>${member.position || 'MEMBER'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>State</strong>
+            <span>${member.state || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>Zone</strong>
+            <span>${member.zone || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>Member Since</strong>
+            <span>${member.dateAdded ? new Date(member.dateAdded).toLocaleDateString() : 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>Status</strong>
+            <span style="color: ${member.isActive !== false ? '#28a745' : '#dc3545'};">
+              ${member.isActive !== false ? '✅ Active' : '❌ Inactive'}
+            </span>
+          </div>
+        </div>
+      </div>
       
-      modalTitle.textContent = 'Member Verification Result';
-      
-      resultContent.innerHTML = `
-        <div class="details-container">
-          <div class="personal-details-section">
-            <h4 style="color: #667eea; margin-bottom: 20px; font-size: 18px;">📋 Personal Details</h4>
-            <div class="details-grid">
-              <div class="detail-item">
-                <strong>Full Name</strong>
+      <div class="id-card-section">
+        <h4 style="color: #667eea; margin-bottom: 20px; font-size: 18px;">🆔 ID Card Preview</h4>
+        
+        <div class="id-card">
+          <div class="card-header">
+            <div class="card-title">Nigerian Association Of Refregiration And Air Conditioning Practitioners</div>
+            <div class="card-subtitle">(NARAP) - IDENTITY CARD</div>
+          </div>
+          
+          <div class="card-body">
+            <div class="card-photo">
+              ${member.passportPhoto ?
+                `<img src="${member.passportPhoto}" alt="Passport Photo" class="passport-photo">` :
+                `<div class="passport-photo" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa; color: #666; font-size: 12px; text-align: center;">No Photo Available</div>`
+              }
+            </div>
+            
+            <div class="card-details">
+              <div class="card-field">
+                <strong>Name:</strong>
                 <span>${member.name || 'N/A'}</span>
               </div>
-              <div class="detail-item">
-                <strong>Email Address</strong>
-                <span>${member.email || 'N/A'}</span>
-              </div>
-              <div class="detail-item">
-                <strong>NARAP Code</strong>
-                <span>${member.code || 'N/A'}</span>
-              </div>
-              <div class="detail-item">
-                <strong>Position</strong>
+              <div class="card-field">
+                <strong>Position:</strong>
                 <span>${member.position || 'MEMBER'}</span>
               </div>
-              <div class="detail-item">
-                <strong>State</strong>
+              <div class="card-field">
+                <strong>State:</strong>
                 <span>${member.state || 'N/A'}</span>
               </div>
-              <div class="detail-item">
-                <strong>Zone</strong>
+              <div class="card-field">
+                <strong>Zone:</strong>
                 <span>${member.zone || 'N/A'}</span>
               </div>
-              <div class="detail-item">
-                <strong>Member Since</strong>
-                <span>${member.dateAdded ? new Date(member.dateAdded).toLocaleDateString() : 'N/A'}</span>
-              </div>
-              <div class="detail-item">
-                <strong>Status</strong>
-                <span style="color: ${member.isActive !== false ? '#28a745' : '#dc3545'};">
-                  ${member.isActive !== false ? '✅ Active' : '❌ Inactive'}
-                </span>
+              <div class="card-field">
+                <strong>Code:</strong>
+                <span>${member.code || 'N/A'}</span>
               </div>
             </div>
           </div>
           
-          <div class="id-card-section">
-            <h4 style="color: #667eea; margin-bottom: 20px; font-size: 18px;">🆔 ID Card Preview</h4>
-                        <div class="id-card">
-              <div class="card-header">
-                <div class="card-title">Nigerian Association Of Refregiration And Air Conditioning Practitioners</div>
-                <div class="card-subtitle">(NARAP) - IDENTITY CARD</div>
-              </div>
-              
-              <div class="card-body">
-                <div class="card-photo">
-                  ${member.passportPhoto ? 
-                    `<img src="${member.passportPhoto}" alt="Passport Photo" class="passport-photo">` : 
-                    `<div class="passport-photo" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa; color: #666; font-size: 12px; text-align: center;">No Photo Available</div>`
-                  }
-                </div>
-                
-                <div class="card-details">
-                  <div class="card-field">
-                    <strong>Name:</strong>
-                    <span>${member.name || 'N/A'}</span>
-                  </div>
-                  <div class="card-field">
-                    <strong>Position:</strong>
-                    <span>${member.position || 'MEMBER'}</span>
-                  </div>
-                  <div class="card-field">
-                    <strong>State:</strong>
-                    <span>${member.state || 'N/A'}</span>
-                  </div>
-                  <div class="card-field">
-                    <strong>Zone:</strong>
-                    <span>${member.zone || 'N/A'}</span>
-                  </div>
-                  <div class="card-field">
-                    <strong>Code:</strong>
-                    <span>${member.code || 'N/A'}</span>
-                  </div>
-                </div>
-              </div>
-              
-              ${member.signature ? `
-                <div class="card-signature">
-                  <img src="${member.signature}" alt="Signature" class="signature-image">
-                </div>
-              ` : ''}
+          ${member.signature ? `
+            <div class="card-signature">
+              <img src="${member.signature}" alt="Signature" class="signature-image">
             </div>
-          </div>
-        </div>
-        
-        <div style="background: #e8f5e8; padding: 20px; border-radius: 12px; margin-top: 25px; border-left: 4px solid #28a745;">
-          <strong style="color: #155724; display: flex; align-items: center; margin-bottom: 10px;">
-            ✅ Verification Successful
-          </strong>
-          <p style="margin: 0; color: #155724; line-height: 1.5;">
-            This member has been successfully verified in the NARAP database. 
-            All information displayed is authentic and up-to-date as of ${new Date().toLocaleDateString()}.
-          </p>
-        </div>
-      `;
-      
-      document.getElementById('resultModal').style.display = 'block';
-    }
-
-    // Display certificate result
-    function displayCertificateResult(certificate, message = '') {
-      const modalTitle = document.getElementById('modalTitle');
-      const resultContent = document.getElementById('resultContent');
-      
-      modalTitle.textContent = 'Certificate Verification Result';
-      
-      // Determine certificate status
-      let statusClass = 'status-active';
-      let statusIcon = '✅';
-      let statusText = 'Valid & Active';
-      
-      if (certificate.status === 'expired') {
-        statusClass = 'status-expired';
-        statusIcon = '⚠️';
-        statusText = 'Expired';
-      } else if (certificate.status === 'revoked') {
-        statusClass = 'status-revoked';
-        statusIcon = '❌';
-        statusText = 'Revoked';
-      }
-      
-      resultContent.innerHTML = `
-        <div class="certificate-details">
-          <div class="certificate-header">
-            <div class="certificate-title">${certificate.title || 'NARAP Certificate'}</div>
-            <div class="certificate-number">Certificate No: ${certificate.certificateNumber}</div>
-          </div>
-          
-          <div class="certificate-body">
-            <div class="certificate-field">
-              <strong>Issued To</strong>
-              <span>${certificate.recipientName}</span>
-            </div>
-            <div class="certificate-field">
-              <strong>Issue Date</strong>
-              <span>${new Date(certificate.dateIssued).toLocaleDateString()}</span>
-            </div>
-            ${certificate.validUntil ? `
-            <div class="certificate-field">
-              <strong>Valid Until</strong>
-              <span>${new Date(certificate.validUntil).toLocaleDateString()}</span>
-            </div>
-            ` : ''}
-            <div class="certificate-field">
-              <strong>Issued By</strong>
-              <span>${certificate.issuedBy || 'NARAP Authority'}</span>
-            </div>
-          </div>
-          
-          ${certificate.description ? `
-          <div class="certificate-field" style="grid-column: 1/-1; margin-top: 15px;">
-            <strong>Description</strong>
-            <span>${certificate.description}</span>
-          </div>
           ` : ''}
-          
-          <div class="certificate-status ${statusClass}">
-            ${statusIcon} ${statusText}
-          </div>
         </div>
-        
-        ${message ? `
-        <div style="background: #e3f2fd; padding: 15px; border-radius: 10px; margin-top: 20px; border-left: 4px solid #2196f3;">
-          <strong style="color: #1976d2;">ℹ️ Additional Information:</strong>
-          <p style="margin: 5px 0 0 0; color: #1565c0;">${message}</p>
+      </div>
+    </div>
+    
+    <div style="background: #e8f5e8; padding: 20px; border-radius: 12px; margin-top: 25px; border-left: 4px solid #28a745;">
+      <strong style="color: #155724; display: flex; align-items: center; margin-bottom: 10px;">
+        ✅ Verification Successful
+      </strong>
+      <p style="margin: 0; color: #155724; line-height: 1.5;">
+        This member has been successfully verified in the NARAP database.
+        All information displayed is authentic and up-to-date as of ${new Date().toLocaleDateString()}.
+      </p>
+    </div>
+  `;
+  
+  document.getElementById('resultModal').style.display = 'block';
+}
+
+// Display certificate result (continued)
+function displayCertificateResult(certificate, message = '') {
+  const modalTitle = document.getElementById('modalTitle');
+  const resultContent = document.getElementById('resultContent');
+  
+  modalTitle.textContent = 'Certificate Verification Result';
+  
+  // Determine certificate status
+  let statusClass = 'status-active';
+  let statusIcon = '✅';
+  let statusText = 'Valid & Active';
+  
+  if (certificate.status === 'expired') {
+    statusClass = 'status-expired';
+    statusIcon = '⚠️';
+    statusText = 'Expired';
+  } else if (certificate.status === 'revoked') {
+    statusClass = 'status-revoked';
+    statusIcon = '❌';
+    statusText = 'Revoked';
+  }
+  
+  resultContent.innerHTML = `
+    <div class="certificate-details">
+      <div class="certificate-header">
+        <div class="certificate-title">${certificate.title || 'NARAP Certificate'}</div>
+        <div class="certificate-number">Certificate No: ${certificate.certificateNumber}</div>
+      </div>
+      
+      <div class="certificate-body">
+        <div class="certificate-field">
+          <strong>Issued To</strong>
+          <span>${certificate.recipientName}</span>
+        </div>
+        <div class="certificate-field">
+          <strong>Issue Date</strong>
+          <span>${new Date(certificate.dateIssued).toLocaleDateString()}</span>
+        </div>
+        ${certificate.validUntil ? `
+        <div class="certificate-field">
+          <strong>Valid Until</strong>
+          <span>${new Date(certificate.validUntil).toLocaleDateString()}</span>
         </div>
         ` : ''}
-      `;
+        <div class="certificate-field">
+          <strong>Issued By</strong>
+          <span>${certificate.issuedBy || 'NARAP Authority'}</span>
+        </div>
+      </div>
       
-      document.getElementById('resultModal').style.display = 'block';
-    }
-
-    // Show error message
-    function showError(message) {
-      const errorDiv = document.getElementById('errorMessage');
-      errorDiv.textContent = message;
-      errorDiv.style.display = 'block';
+      ${certificate.description ? `
+      <div class="certificate-field" style="grid-column: 1/-1; margin-top: 15px;">
+        <strong>Description</strong>
+        <span>${certificate.description}</span>
+      </div>
+      ` : ''}
       
-      // Auto-hide after 5 seconds
-      setTimeout(() => {
-        hideError();
-      }, 5000);
-    }
-
-    // Hide error message
-    function hideError() {
-      document.getElementById('errorMessage').style.display = 'none';
-    }
-
-    // Modal functions
-    function closeModal() {
-      document.getElementById('resultModal').style.display = 'none';
-    }
-
-    function showHelp() {
-      document.getElementById('helpModal').style.display = 'block';
-    }
-
-    function closeHelp() {
-      document.getElementById('helpModal').style.display = 'none';
-    }
-
-    function showContact() {
-      document.getElementById('contactModal').style.display = 'block';
-    }
-
-    function closeContact() {
-      document.getElementById('contactModal').style.display = 'none';
-    }
-
-    // Print function
-    function printResult() {
-      window.print();
-    }
-
-    // Close modals when clicking outside
-    window.onclick = function(event) {
-      const resultModal = document.getElementById('resultModal');
-      const helpModal = document.getElementById('helpModal');
-      const contactModal = document.getElementById('contactModal');
-      
-      if (event.target === resultModal) {
-        closeModal();
-      }
-      if (event.target === helpModal) {
-        closeHelp();
-      }
-      if (event.target === contactModal) {
-        closeContact();
-      }
-    }
-
-    // Keyboard shortcuts
-    document.addEventListener('keydown', function(event) {
-      // Escape key to close modals
-      if (event.key === 'Escape') {
-        closeModal();
-        closeHelp();
-        closeContact();
-      }
-      
-      // Enter key to search when input is focused
-      if (event.key === 'Enter') {
-        if (currentVerificationType === 'member' && document.getElementById('memberCode') === document.activeElement) {
-          event.preventDefault();
-          searchUser(event);
-        } else if (currentVerificationType === 'certificate' && document.getElementById('certificateNumber') === document.activeElement) {
-          event.preventDefault();
-          searchCertificate(event);
-        }
-      }
-      
-      // Ctrl+P to print result
-      if (event.ctrlKey && event.key === 'p' && document.getElementById('resultModal').style.display === 'block') {
-        event.preventDefault();
-        printResult();
-      }
-    });
-
-    // Input formatting and validation
-    document.getElementById('memberCode').addEventListener('input', function(e) {
-      // Convert to uppercase and remove special characters except hyphens and slashes
-      let value = e.target.value.toUpperCase().replace(/[^A-Z0-9\-\/]/g, '');
-      e.target.value = value;
-    });
-
-    document.getElementById('certificateNumber').addEventListener('input', function(e) {
-      // Convert to uppercase and allow alphanumeric, hyphens, and underscores
-      let value = e.target.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '');
-      e.target.value = value;
-    });
-
-    // Show temporary success message
-    function showTemporaryMessage(message, type = 'info') {
-      const messageDiv = document.createElement('div');
-      messageDiv.className = `temporary-message ${type}`;
-      messageDiv.textContent = message;
-      messageDiv.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${type === 'success' ? '#d4edda' : '#d1ecf1'};
-        color: ${type === 'success' ? '#155724' : '#0c5460'};
-        padding: 15px 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        z-index: 1001;
-        animation: slideInRight 0.3s ease-out;
-      `;
-      
-      document.body.appendChild(messageDiv);
-      
-      setTimeout(() => {
-        messageDiv.style.animation = 'slideOutRight 0.3s ease-in';
-        setTimeout(() => messageDiv.remove(), 300);
-      }, 3000);
-    }
-
-    // Add CSS animations for temporary messages
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slideInRight {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-      
-      @keyframes slideOutRight {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-      }
-      
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(style);
-
-    // Connection status checker
-    let isOnline = navigator.onLine;
+      <div class="certificate-status ${statusClass}">
+        ${statusIcon} ${statusText}
+      </div>
+    </div>
     
-    window.addEventListener('online', function() {
-      isOnline = true;
-      hideError();
-      showTemporaryMessage('Connection restored! ✅', 'success');
-    });
-    
-    window.addEventListener('offline', function() {
-      isOnline = false;
-      showError('No internet connection. Please check your connection and try again.');
-    });
+    ${message ? `
+    <div style="background: #e3f2fd; padding: 15px; border-radius: 10px; margin-top: 20px; border-left: 4px solid #2196f3;">
+      <strong style="color: #1976d2;">ℹ️ Additional Information:</strong>
+      <p style="margin: 5px 0 0 0; color: #1565c0;">${message}</p>
+    </div>
+    ` : ''}
+  `;
+  
+  document.getElementById('resultModal').style.display = 'block';
+}
 
-    // Enhanced error handling with retry functionality
-    async function makeRequest(url, options, retries = 3) {
-      for (let i = 0; i < retries; i++) {
-        try {
-          const response = await fetch(url, options);
-          return response;
-        } catch (error) {
-          if (i === retries - 1) throw error;
-          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
-        }
-      }
+// Show error message
+function showError(message) {
+  const errorDiv = document.getElementById('errorMessage');
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
+  
+  // Auto-hide after 5 seconds
+  setTimeout(() => {
+    hideError();
+  }, 5000);
+}
+
+// Hide error message
+function hideError() {
+  document.getElementById('errorMessage').style.display = 'none';
+}
+
+// Modal functions
+function closeModal() {
+  document.getElementById('resultModal').style.display = 'none';
+}
+
+function showHelp() {
+  document.getElementById('helpModal').style.display = 'block';
+}
+
+function closeHelp() {
+  document.getElementById('helpModal').style.display = 'none';
+}
+
+function showContact() {
+  document.getElementById('contactModal').style.display = 'block';
+}
+
+function closeContact() {
+  document.getElementById('contactModal').style.display = 'none';
+}
+
+// Print function
+function printResult() {
+  window.print();
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+  const resultModal = document.getElementById('resultModal');
+  const helpModal = document.getElementById('helpModal');
+  const contactModal = document.getElementById('contactModal');
+  
+  if (event.target === resultModal) {
+    closeModal();
+  }
+  if (event.target === helpModal) {
+    closeHelp();
+  }
+  if (event.target === contactModal) {
+    closeContact();
+  }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(event) {
+  // Escape key to close modals
+  if (event.key === 'Escape') {
+    closeModal();
+    closeHelp();
+    closeContact();
+  }
+  
+  // Enter key to search when input is focused
+  if (event.key === 'Enter') {
+    if (currentVerificationType === 'member' && document.getElementById('memberCode') === document.activeElement) {
+      event.preventDefault();
+      searchUser(event);
+    } else if (currentVerificationType === 'certificate' && document.getElementById('certificateNumber') === document.activeElement) {
+      event.preventDefault();
+      searchCertificate(event);
     }
+  }
+  
+  // Ctrl+P to print result
+  if (event.ctrlKey && event.key === 'p' && document.getElementById('resultModal').style.display === 'block') {
+    event.preventDefault();
+    printResult();
+  }
+});
 
-    // Initialize the application
-    document.addEventListener('DOMContentLoaded', function() {
-      // Focus on the first input field after welcome screen
-      setTimeout(() => {
-        document.getElementById('memberCode').focus();
-      }, 15500); // After welcome screen animation
-      
-      // Check initial connection status
-      if (!navigator.onLine) {
-        showError('No internet connection detected. Please check your connection.');
-      }
-      
-      // Add service worker for offline functionality (if available)
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(err => {
-          console.log('Service Worker registration failed:', err);
-        });
-      }
-    });
+// Input formatting and validation
+document.getElementById('memberCode').addEventListener('input', function(e) {
+  // Convert to uppercase and remove special characters except hyphens and slashes
+  let value = e.target.value.toUpperCase().replace(/[^A-Z0-9\-\/]/g, '');
+  e.target.value = value;
+});
 
-    // Analytics and usage tracking (optional)
-    function trackUsage(type, action) {
-      try {
-        // You can implement analytics here
-        console.log(`Usage: ${type} - ${action}`);
-      } catch (error) {
-        // Silently fail if analytics is not available
-      }
-    }
+document.getElementById('certificateNumber').addEventListener('input', function(e) {
+  // Convert to uppercase and allow alphanumeric, hyphens, and underscores
+  let value = e.target.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '');
+  e.target.value = value;
+});
 
-    // Performance monitoring
-    const performanceObserver = new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        if (entry.entryType === 'navigation') {
-          console.log(`Page load time: ${entry.loadEventEnd - entry.loadEventStart}ms`);
-        }
-      }
-    });
+// Show temporary success message
+function showTemporaryMessage(message, type = 'info') {
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `temporary-message ${type}`;
+  messageDiv.textContent = message;
+  messageDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'success' ? '#d4edda' : '#d1ecf1'};
+    color: ${type === 'success' ? '#155724' : '#0c5460'};
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    z-index: 1001;
+    animation: slideInRight 0.3s ease-out;
+  `;
+  
+  document.body.appendChild(messageDiv);
+  
+  setTimeout(() => {
+    messageDiv.style.animation = 'slideOutRight 0.3s ease-in';
+    setTimeout(() => messageDiv.remove(), 300);
+  }, 3000);
+}
 
+// Add CSS animations for temporary messages
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  
+  @keyframes slideOutRight {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(style);
+
+// Connection status checker
+let isOnline = navigator.onLine;
+
+window.addEventListener('online', function() {
+  isOnline = true;
+  hideError();
+  showTemporaryMessage('Connection restored! ✅', 'success');
+  
+  // Try to sync any pending data when connection is restored
+  syncPendingData();
+});
+
+window.addEventListener('offline', function() {
+  isOnline = false;
+  showError('No internet connection. Please check your connection and try again.');
+});
+
+// Enhanced error handling with retry functionality
+async function makeRequest(url, options, retries = 3) {
+  for (let i = 0; i < retries; i++) {
     try {
-      performanceObserver.observe({ entryTypes: ['navigation'] });
+      const response = await fetch(url, options);
+      return response;
     } catch (error) {
-      // Performance API not supported
+      if (i === retries - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
     }
+  }
+}
 
-    console.log('NARAP Verification System Initialized');
-    console.log('Available features:');
-    console.log('- Member verification via NARAP code');
-    console.log('- Certificate verification via certificate number');
-    console.log('- Offline detection and handling');
-    console.log('- Print functionality');
-    console.log('- Keyboard shortcuts (Escape, Enter, Ctrl+P)');
-    console.log('- Multiple fallback methods for data retrieval');
+// Preload member data function
+async function preloadMemberData() {
+  try {
+    showTemporaryMessage('Loading latest member data...', 'info');
+    const memberData = await getData('/members');
+    
+    // Store in localStorage for offline access
+    localStorage.setItem('narapMembersCache', JSON.stringify({
+      data: memberData,
+      timestamp: Date.now(),
+      ttl: 30 * 60 * 1000 // 30 minutes TTL
+    }));
+    
+    console.log('Member data cached successfully');
+    showTemporaryMessage('Member data loaded successfully! ✅', 'success');
+  } catch (error) {
+    console.log('Failed to preload member data:', error);
+    showTemporaryMessage('Using cached data', 'info');
+  }
+}
+
+// Sync pending data when connection is restored
+async function syncPendingData() {
+  try {
+    const pendingData = localStorage.getItem('narapPendingSync');
+    if (pendingData) {
+      const data = JSON.parse(pendingData);
+      console.log('Syncing pending data:', data);
+      
+      // Attempt to sync with backend
+      await fetch('https://narap-backend.onrender.com/api/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+      
+      // Clear pending data after successful sync
+      localStorage.removeItem('narapPendingSync');
+      showTemporaryMessage('Data synchronized successfully! ✅', 'success');
+    }
+  } catch (error) {
+    console.log('Failed to sync pending data:', error);
+  }
+}
+
+// Analytics and usage tracking
+function trackUsage(type, action) {
+  try {
+    const usageData = {
+      type,
+      action,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    };
+    
+    console.log(`Usage: ${type} - ${action}`, usageData);
+    
+    // Store usage data for later sync
+    const existingUsage = JSON.parse(localStorage.getItem('narapUsageData') || '[]');
+    existingUsage.push(usageData);
+    
+    // Keep only last 100 entries
+    if (existingUsage.length > 100) {
+      existingUsage.splice(0, existingUsage.length - 100);
+    }
+    
+    localStorage.setItem('narapUsageData', JSON.stringify(existingUsage));
+    
+    // Try to send usage data to backend if online
+    if (isOnline) {
+      fetch('https://narap-backend.onrender.com/api/analytics', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(usageData)
+      }).catch(error => {
+        console.log('Failed to send analytics:', error);
+      });
+    }
+  } catch (error) {
+    console.log('Analytics tracking failed:', error);
+  }
+}
+
+// Performance monitoring
+const performanceObserver = new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    if (entry.entryType === 'navigation') {
+      console.log(`Page load time: ${entry.loadEventEnd - entry.loadEventStart}ms`);
+      trackUsage('performance', `page_load_${Math.round(entry.loadEventEnd - entry.loadEventStart)}ms`);
+    }
+  }
+});
+
+try {
+  performanceObserver.observe({ entryTypes: ['navigation'] });
+} catch (error) {
+  console.log('Performance API not supported');
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', async function() {
+  // Focus on the first input field after welcome screen
+  setTimeout(() => {
+    document.getElementById('memberCode').focus();
+  }, 15500); // After welcome screen animation
+  
+  // Check initial connection status
+  if (!navigator.onLine) {
+    showError('No internet connection detected. Please check your connection.');
+  } else {
+    // Initialize data from Render backend
+    try {
+      await preloadMemberData();
+      trackUsage('app', 'initialized_online');
+    } catch (error) {
+      console.log('Failed to load initial data:', error);
+      showTemporaryMessage('Using cached data', 'info');
+      trackUsage('app', 'initialized_offline');
+    }
+  }
+  
+  // Add service worker for offline functionality (if available)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(err => {
+      console.log('Service Worker registration failed:', err);
+    });
+  }
+  
+  // Track app initialization
+  trackUsage('app', 'dom_loaded');
+});
+
+// Health check function for backend
+async function checkBackendHealth() {
+  try {
+    const response = await fetch('https://narap-backend.onrender.com/api/health', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Backend health check:', data);
+      return data;
+    }
+  } catch (error) {
+    console.log('Backend health check failed:', error);
+    return null;
+  }
+}
+
+// Periodic health check (every 5 minutes)
+setInterval(async () => {
+  if (isOnline) {
+    const health = await checkBackendHealth();
+    if (!health) {
+      showTemporaryMessage('Backend service may be experiencing issues', 'info');
+    }
+  }
+}, 5 * 60 * 1000);
+
+// Export functions for testing (if needed)
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    searchUser,
+    searchCertificate,
+    getData,
+    getCachedData,
+    trackUsage,
+    checkBackendHealth
+  };
+}
+
+console.log('NARAP Verification System Initialized with Render Backend');
+console.log('Backend URL: https://narap-backend.onrender.com');
+console.log('Available features:');
+console.log('- Member verification via NARAP code');
+console.log('- Certificate verification via certificate number');
+console.log('- Offline detection and handling');
+console.log('- Data caching and synchronization');
+console.log('- Print functionality');
+console.log('- Keyboard shortcuts (Escape, Enter, Ctrl+P)');
+console.log('- Multiple fallback methods for data retrieval');
+console.log('- Analytics and usage tracking');
+console.log('- Backend health monitoring');
   </script>
 </body>
 </html>
