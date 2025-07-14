@@ -1490,24 +1490,25 @@ function displayMemberResult(member) {
                        null;
   
   console.log('Member data received:', member);
-  console.log('Passport photo URL found:', passportPhoto);
+  console.log('Passport photo field found:', passportPhoto);
   
-  // Validate and fix photo URL if needed
+  // Fix photo URL construction
   let validPhotoUrl = null;
   if (passportPhoto) {
-    // Check if it's a valid URL
     try {
       if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://')) {
         validPhotoUrl = passportPhoto;
-      } else if (passportPhoto.startsWith('/')) {
-        // Relative URL - prepend backend domain
-        validPhotoUrl = `https://narap-backend.onrender.com${passportPhoto}`;
       } else if (passportPhoto.startsWith('data:')) {
         // Base64 image
         validPhotoUrl = passportPhoto;
+      } else if (passportPhoto.startsWith('uploads/')) {
+        // This is the key fix - your backend saves as 'uploads/passports/filename'
+        validPhotoUrl = `https://narap-backend.onrender.com/${passportPhoto}`;
+      } else if (passportPhoto.startsWith('/uploads/')) {
+        validPhotoUrl = `https://narap-backend.onrender.com${passportPhoto}`;
       } else {
-        // Assume it's a filename on the backend
-        validPhotoUrl = `https://narap-backend.onrender.com/uploads/${passportPhoto}`;
+        // Fallback - assume it's just a filename
+        validPhotoUrl = `https://narap-backend.onrender.com/uploads/passports/${passportPhoto}`;
       }
       console.log('Processed photo URL:', validPhotoUrl);
     } catch (error) {
@@ -1684,27 +1685,17 @@ function tryAlternativeImageUrls(img, originalUrl) {
   // Extract filename if possible
   const filename = originalUrl.split('/').pop();
   
-  // Try different possible paths
+  // Try different possible paths based on your server structure
   alternativeUrls.push(
-    `https://narap-backend.onrender.com/uploads/images/${filename}`,
-    `https://narap-backend.onrender.com/public/uploads/${filename}`,
-    `https://narap-backend.onrender.com/assets/images/${filename}`,
-    `https://narap-backend.onrender.com/static/uploads/${filename}`,
-    `https://narap-backend.onrender.com/files/${filename}`,
-    `https://narap-backend.onrender.com/media/${filename}`
+    `https://narap-backend.onrender.com/uploads/passports/${filename}`,
+    `https://narap-backend.onrender.com/api/uploads/passports/${filename}`,
+    `https://narap-backend.onrender.com/uploads/${filename}`,
+    `https://narap-backend.onrender.com/api/uploads/${filename}`,
+    originalUrl.replace('uploads/passports/', 'uploads/'),
+    originalUrl.replace('uploads/', 'api/uploads/')
   );
   
-  // Try each alternative URL
-  let currentIndex = 0;
-  
-  function tryNext() {
-    if (currentIndex >= alternativeUrls.length) {
-      console.log('All alternative URLs failed');
-      return;
-    }
-    
-    const testUrl = alternativeUrls[currentIndex];
-    console.log(`Trying alternative URL ${currentIndex + 1}:`, testUrl);
+  console.log('Trying alternative URLs:', alternativeUrls);
     
     const testImg = new Image();
     testImg.onload = function() {
