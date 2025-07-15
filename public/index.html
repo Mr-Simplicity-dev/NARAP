@@ -1626,14 +1626,7 @@ function displayMemberResult(member) {
         All information displayed is authentic and up-to-date as of ${new Date().toLocaleDateString()}.
       </p>
     </div>
-    
-    ${validPhotoUrl ? `
-    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ffc107; font-size: 14px;">
-      <strong style="color: #856404;">📸 Photo Debug Info:</strong><br>
-      <span style="color: #856404;">Original URL: ${passportPhoto}</span><br>
-      <span style="color: #856404;">Processed URL: ${validPhotoUrl}</span>
-    </div>
-    ` : ''}
+        
   `;
   
   document.getElementById('resultModal').style.display = 'block';
@@ -1717,15 +1710,15 @@ function retryImageLoad(img, originalUrl, fallback) {
 }
 
 // Debugging utilities
-function debugPhotoIssue(member) {
-  console.log('=== PHOTO DEBUGGING ===', member);
-  ['passportPhoto', 'passport', 'photo', 'profilePhoto', 'image', 'avatar'].forEach(field => {
-    if (member[field]) {
-      console.log(`${field}:`, member[field]);
-      getPhotoMetadata(member[field]).then(console.log);
-    }
-  });
-}
+//function debugPhotoIssue(member) {
+ //console.log('=== PHOTO DEBUGGING ===', member);
+  //['passportPhoto', 'passport', 'photo', 'profilePhoto', 'image', 'avatar'].forEach(field => {
+    //if (member[field]) {
+      //console.log(`${field}:`, member[field]);
+     // getPhotoMetadata(member[field]).then(console.log);
+    //}
+  //});
+//}
 
 async function checkPhotoEndpoints() {
   const endpoints = [
