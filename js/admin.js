@@ -454,7 +454,7 @@ async function exportMembers(format = 'csv') {
         // Try to get members from backend first
         let members = null;
         try {
-            const response = await fetch(`${backendUrl}/api/getUsers`);
+            const response = await fetch(`${backendUrl}/api/users/getUsers`);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -589,7 +589,7 @@ async function exportAllData(format = 'json') {
         showMessage('Preparing complete data export...', 'info');
         
         const [members, certificates] = await Promise.all([
-            fetch(`${backendUrl}/api/getUsers`).then(res => res.json()).catch(() => []),
+            fetch(`${backendUrl}/api/users/getUsers`).then(res => res.json()).catch(() => []),
             getCertificates()
         ]);
         
@@ -724,7 +724,7 @@ async function syncPendingChanges() {
                     
                 }
                 
-                const response = await fetch(`${backendUrl}/api/addUser`, {
+                const response = await fetch(`${backendUrl}/api/users/addUser`, {
                     method: 'POST',
                     body: formData // Don't set Content-Type header for FormData
                 });
@@ -773,7 +773,7 @@ async function syncPendingChanges() {
                     
                 }
                 
-                const response = await fetch(`${backendUrl}/api/updateUser/${member._id || member.id}`, {
+                const response = await fetch(`${backendUrl}/api/users/updateUser/${member._id || member.id}`, {
                     method: 'PUT',
                     body: formData // Don't set Content-Type header for FormData
                 });
@@ -795,7 +795,7 @@ async function syncPendingChanges() {
         
         for (const member of pendingSync.memberDeletions) {
             try {
-                const response = await fetch(`${backendUrl}/api/deleteUser/${member._id || member.id}`, {
+                const response = await fetch(`${backendUrl}/api/users/deleteUser/${member._id || member.id}`, {
                     method: 'DELETE'
                 });
                 
@@ -892,7 +892,7 @@ async function createBackup() {
         showMessage('Creating backup...', 'info');
         
         const [members, certificates] = await Promise.all([
-            fetch(`${backendUrl}/api/getUsers`).then(res => res.json()).catch(() => []),
+            fetch(`${backendUrl}/api/users/getUsers`).then(res => res.json()).catch(() => []),
             getCertificates()
         ]);
         
@@ -2239,7 +2239,7 @@ async function createBackup() {
         showMessage('Creating backup...', 'info');
         
         const [members, certificates] = await Promise.all([
-            fetch(`${backendUrl}/api/getUsers`).then(res => res.json()).catch(() => []),
+            fetch(`${backendUrl}/api/users/getUsers`).then(res => res.json()).catch(() => []),
             getCertificates()
         ]);
         
@@ -2316,7 +2316,7 @@ async function exportAllData() {
         
         // Get all data
         const [members, certificates] = await Promise.all([
-            fetch(`${backendUrl}/api/getUsers`).then(res => res.json()).catch(() => getLocalMembers()),
+            fetch(`${backendUrl}/api/users/getUsers`).then(res => res.json()).catch(() => getLocalMembers()),
             getCertificates()
         ]);
         
@@ -2369,7 +2369,7 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
         // Try to fetch from backend if online
         if (navigator.onLine) {
             try {
-                const response = await fetch(`${backendUrl}/api/members`);
+                const response = await fetch(`${backendUrl}/api/users/members`);
                 
                 if (response.ok) {
                     const data = await response.json();
@@ -2519,7 +2519,7 @@ async function addMember(event) {
         // Try to add to backend if online
         if (isOnline) {
             try {
-                const response = await fetch(`${backendUrl}/api/addUser`, {
+                const response = await fetch(`${backendUrl}/api/users/addUser`, {
                     method: 'POST',
                     body: formDataObj // Don't set Content-Type header for FormData
                 });
@@ -3125,7 +3125,7 @@ async function deleteMember(memberId) {
         if (isOnline && memberToDelete.isFromBackend && !memberToDelete._id.startsWith('local_')) {
             try {
 
-                const response = await fetch(`${backendUrl}/api/deleteUser/${memberToDelete._id}`, {
+                const response = await fetch(`${backendUrl}/api/users/deleteUser/${memberToDelete._id}`, {
                     method: 'DELETE'
                 });
                 
@@ -3371,7 +3371,7 @@ async function editMember(event) {
         let backendResponse = null;
         if (isOnline && originalMember.isFromBackend && !originalMember._id.startsWith('local_')) {
             try {
-                const response = await fetch(`${backendUrl}/api/updateUser/${memberId}`, {
+                const response = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
                     method: 'PUT',
                     body: formDataObj // Don't set Content-Type header for FormData
                 });
@@ -4484,7 +4484,7 @@ async function autoFillCertificateFields() {
         if (!member && navigator.onLine) {
             try {
                 
-                const response = await fetch(`${backendUrl}/api/getUsers`);
+                const response = await fetch(`${backendUrl}/api/users/getUsers`);
                 if (response.ok) {
                     const result = await response.json();
                     let backendMembers = [];
