@@ -1358,7 +1358,7 @@ body {
               type="text" 
               id="certificateNumber" 
               class="code-input" 
-              placeholder="Enter Certificate Number (e.g., CERT-2024-001)" 
+              placeholder="Enter Certificate Number (e.g., N/825/KWA/004)" 
               required
               autocomplete="off"
             >
@@ -1422,7 +1422,7 @@ body {
 
         <h4>Certificate Verification:</h4>
         <ul>
-          <li>Enter the certificate number (e.g., CERT-2024-001)</li>
+          <li>Enter the certificate number (e.g., N/825/KWA/004)</li>
           <li>Click "Verify Certificate" to check authenticity</li>
           <li>View certificate details and validation status</li>
         </ul>
@@ -3175,8 +3175,8 @@ document.getElementById('memberCode').addEventListener('input', function(e) {
 });
 
 document.getElementById('certificateNumber').addEventListener('input', function(e) {
-  // Convert to uppercase and allow alphanumeric, hyphens, and underscores
-  let value = e.target.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '');
+  // Convert to uppercase and allow alphanumeric, hyphens, underscores, and slashes
+  let value = e.target.value.toUpperCase().replace(/[^A-Z0-9\-_\/]/g, '');
   e.target.value = value;
 });
 

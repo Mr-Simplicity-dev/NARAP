@@ -1,0 +1,5931 @@
+// ==================== UTILITY CLASSES ====================
+
+// Performance Monitor Class
+class PerformanceMonitor {
+    constructor() {
+        this.startTime = Date.now();
+        this.metrics = {};
+    }
+    
+    start(label = 'default') {
+        this.metrics[label] = Date.now();
+        return this;
+    }
+    
+    end(label = 'default') {
+        if (this.metrics[label]) {
+            return Date.now() - this.metrics[label];
+        }
+        return 0;
+    }
+    
+    log(message, label = 'default') {
+        const duration = this.end(label);
+        return duration;
+    }
+    
+    reset() {
+        this.metrics = {};
+        this.startTime = Date.now();
+    }
+}
+
+// Notification Manager Class
+class NotificationManager {
+    constructor() {
+        this.container = null;
+    }
+
+    createContainer() {
+        if (this.container) return;
+        
+        if (!document.body) {
+            setTimeout(() => this.createContainer(), 100);
+            return;
+        }
+        
+        this.container = document.createElement('div');
+        this.container.id = 'notification-container';
+        this.container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+        `;
+        document.body.appendChild(this.container);
+    }
+
+    show(message, type = 'info', duration = 5000) {
+        this.createContainer();
+        
+        if (!this.container) {
+            this.showFallback(message, type, duration);
+            return;
+        }
+        
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.style.cssText = `
+            background: ${this.getBackgroundColor(type)};
+            color: white;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        `;
+        
+        notification.innerHTML = `
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()" style="
+                background: none;
+                border: none;
+                color: white;
+                cursor: pointer;
+                font-size: 18px;
+                margin-left: 8px;
+            ">&times;</button>
+        `;
+        
+        this.container.appendChild(notification);
+        
+        if (duration > 0) {
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, duration);
+        }
+    }
+
+    showFallback(message, type = 'info', duration = 5000) {
+        const style = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${this.getBackgroundColor(type)};
+            color: white;
+            padding: 12px 16px;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 9999;
+            max-width: 400px;
+            font-family: Arial, sans-serif;
+        `;
+        
+        const notification = document.createElement('div');
+        notification.style.cssText = style;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        if (duration > 0) {
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, duration);
+        }
+    }
+
+    getBackgroundColor(type) {
+        switch (type) {
+            case 'success': return '#28a745';
+            case 'error': return '#dc3545';
+            case 'warning': return '#ffc107';
+            case 'info': 
+            default: return '#17a2b8';
+        }
+    }
+}
+
+// Data Cache Class
+class DataCache {
+    constructor() {
+        this.cache = new Map();
+        this.defaultTTL = 5 * 60 * 1000; // 5 minutes
+    }
+
+    set(key, data, ttl = this.defaultTTL) {
+        const expiry = Date.now() + ttl;
+        this.cache.set(key, { data, expiry });
+    }
+
+    get(key) {
+        const item = this.cache.get(key);
+        if (!item) return null;
+        
+        if (Date.now() > item.expiry) {
+            this.cache.delete(key);
+            return null;
+        }
+        
+        return item.data;
+    }
+
+    has(key) {
+        const item = this.cache.get(key);
+        if (!item) return false;
+        
+        if (Date.now() > item.expiry) {
+            this.cache.delete(key);
+            return false;
+        }
+        
+        return true;
+    }
+
+    delete(key) {
+        return this.cache.delete(key);
+    }
+
+    clear() {
+        this.cache.clear();
+    }
+
+    size() {
+        return this.cache.size;
+    }
+}
+
+// ==================== GLOBAL CONSTANTS AND STATE ====================
+
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K';
+
+// Global state
+window.appState = {
+    members: [],
+    certificates: [],
+    isAuthenticated: false
+};
+
+// ==================== BACKEND URL CONFIGURATION ====================
+
+function getBackendUrl() {
+    if (window.BACKEND_URL) {
+        return window.BACKEND_URL;
+    }
+    
+    const customBackendUrl = localStorage.getItem('narap_backend_url');
+    if (customBackendUrl) {
+        return customBackendUrl;
+    }
+    
+    const currentOrigin = window.location.origin;
+    
+    if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+        const currentPort = window.location.port;
+        if (currentPort && currentPort !== '3000') {
+            return `http://localhost:5000`;
+        }
+        return 'http://localhost:5000';
+    }
+    
+    return 'https://narap-backend.onrender.com';
+}
+
+const backendUrl = getBackendUrl();
+window.backendUrl = backendUrl;
+
+
+
+function updateBackendUrl(newUrl) {
+    if (!newUrl || typeof newUrl !== 'string') {
+        
+        return false;
+    }
+    
+    try {
+        new URL(newUrl);
+    } catch (error) {
+        
+        return false;
+    }
+    
+    window.backendUrl = newUrl;
+    localStorage.setItem('narap_backend_url', newUrl);
+    
+    testBackendConnection(newUrl);
+    return true;
+}
+
+async function testBackendConnection(url = backendUrl) {
+    try {
+        
+        
+        const response = await fetch(`${url}/api/health`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 5000
+        });
+        
+        if (response.ok) {
+            
+            return true;
+        } else {
+            
+            return false;
+        }
+    } catch (error) {
+        
+        return false;
+    }
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function showMessage(message, type = 'info') {
+    if (notificationManager) {
+        notificationManager.show(message, type);
+    } else {
+        // Fallback to alert if notification manager is not available
+        alert(`${type.toUpperCase()}: ${message}`);
+    }
+}
+
+function convertToCSV(data) {
+    // Validate input data
+    if (!data) {
+        
+        return '';
+    }
+    
+    if (!Array.isArray(data)) {
+        
+        return '';
+    }
+    
+    if (data.length === 0) {
+        
+        return '';
+    }
+    
+    // Ensure first item is an object
+    if (!data[0] || typeof data[0] !== 'object') {
+        
+        return '';
+    }
+    
+    const headers = Object.keys(data[0]);
+    if (headers.length === 0) {
+        
+        return '';
+    }
+    
+    const csvRows = [headers.join(',')];
+    
+    for (const row of data) {
+        if (!row || typeof row !== 'object') {
+            
+            continue;
+        }
+        
+        const values = headers.map(header => {
+            const value = row[header];
+            if (value === null || value === undefined) {
+                return '';
+            }
+            return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
+        });
+        csvRows.push(values.join(','));
+    }
+    
+    return csvRows.join('\n');
+}
+
+function downloadFile(content, filename, contentType) {
+    const blob = new Blob([content], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function checkPasswordStrength(password) {
+    if (!password) return { strength: 0, message: 'No password entered' };
+    
+    let strength = 0;
+    let message = '';
+    
+    if (password.length >= 8) strength += 1;
+    if (password.length >= 12) strength += 1;
+    if (/[a-z]/.test(password)) strength += 1;
+    if (/[A-Z]/.test(password)) strength += 1;
+    if (/[0-9]/.test(password)) strength += 1;
+    if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+    
+    if (strength <= 2) {
+        message = 'Weak password';
+    } else if (strength <= 4) {
+        message = 'Fair password';
+    } else if (strength <= 5) {
+        message = 'Good password';
+    } else {
+        message = 'Strong password';
+    }
+    
+    return { strength, message };
+}
+
+// ==================== LOCAL STORAGE FUNCTIONS ====================
+
+function getLocalCertificates() {
+    try {
+        const certificates = localStorage.getItem('narap_certificates');
+        if (certificates) {
+            return JSON.parse(certificates);
+        }
+    } catch (error) {
+        
+    }
+    return [];
+}
+
+function saveLocalCertificates(certificates) {
+    try {
+        localStorage.setItem('narap_certificates', JSON.stringify(certificates));
+    } catch (error) {
+        
+    }
+}
+
+function getLocalMembers() {
+    try {
+        const members = localStorage.getItem('narap_members');
+        if (members) {
+            return JSON.parse(members);
+        }
+    } catch (error) {
+        
+    }
+    return [];
+}
+
+function saveLocalMembers(members) {
+    try {
+        localStorage.setItem('narap_members', JSON.stringify(members));
+        
+    } catch (error) {
+        
+    }
+}
+
+function getPendingSync() {
+    try {
+        const pendingSync = localStorage.getItem('narap_pending_sync');
+        if (pendingSync) {
+            return JSON.parse(pendingSync);
+        }
+    } catch (error) {
+        
+    }
+    
+    return {
+        certificateCreations: [],
+        certificateUpdates: [],
+        certificateDeletions: [],
+        memberCreations: [],
+        memberUpdates: [],
+        memberDeletions: []
+    };
+}
+
+function savePendingSync(pendingSync) {
+    try {
+        localStorage.setItem('narap_pending_sync', JSON.stringify(pendingSync));
+    } catch (error) {
+        
+    }
+}
+
+// ==================== EXPORT FUNCTIONS ====================
+
+async function exportMembers(format = 'csv') {
+    try {
+        showMessage('Preparing member export...', 'info');
+        
+        // Try to get members from backend first
+        let members = null;
+        try {
+            const response = await fetch(`${backendUrl}/api/getUsers`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const responseData = await response.json();
+            
+            // Handle different response formats
+            if (Array.isArray(responseData)) {
+                members = responseData;
+            } else if (responseData && Array.isArray(responseData.data)) {
+                members = responseData.data;
+            } else if (responseData && responseData.success && Array.isArray(responseData.success.data)) {
+                members = responseData.success.data;
+            } else {
+                
+                members = [];
+            }
+        } catch (apiError) {
+            
+            // Fallback to local storage
+            members = getLocalMembers();
+        }
+        
+        // Validate members data
+        if (!members) {
+            
+            showMessage('No member data available for export', 'error');
+            return;
+        }
+        
+        if (!Array.isArray(members)) {
+            
+            showMessage('Invalid member data format', 'error');
+            return;
+        }
+        
+        if (members.length === 0) {
+            showMessage('No members to export', 'warning');
+            return;
+        }
+        
+        
+        
+        let content, filename, contentType;
+        
+        if (format === 'csv') {
+            content = convertToCSV(members);
+            if (!content) {
+                showMessage('Failed to convert members to CSV format', 'error');
+                return;
+            }
+            filename = `members_${new Date().toISOString().split('T')[0]}.csv`;
+            contentType = 'text/csv';
+        } else if (format === 'json') {
+            content = JSON.stringify(members, null, 2);
+            filename = `members_${new Date().toISOString().split('T')[0]}.json`;
+            contentType = 'application/json';
+        } else {
+            showMessage('Unsupported export format', 'error');
+            return;
+        }
+        
+        downloadFile(content, filename, contentType);
+        showMessage(`Members exported successfully as ${format.toUpperCase()}!`, 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to export members: ' + error.message, 'error');
+    }
+}
+
+async function exportCertificates(format = 'csv') {
+    try {
+        showMessage('Preparing certificate export...', 'info');
+        
+        const certificates = await getCertificates();
+        
+        // Validate certificates data
+        if (!certificates) {
+            
+            showMessage('No certificate data available for export', 'error');
+            return;
+        }
+        
+        if (!Array.isArray(certificates)) {
+            
+            showMessage('Invalid certificate data format', 'error');
+            return;
+        }
+        
+        if (certificates.length === 0) {
+            showMessage('No certificates to export', 'warning');
+            return;
+        }
+        
+        
+        
+        let content, filename, contentType;
+        
+        if (format === 'csv') {
+            content = convertToCSV(certificates);
+            if (!content) {
+                showMessage('Failed to convert certificates to CSV format', 'error');
+                return;
+            }
+            filename = `certificates_${new Date().toISOString().split('T')[0]}.csv`;
+            contentType = 'text/csv';
+        } else if (format === 'json') {
+            content = JSON.stringify(certificates, null, 2);
+            filename = `certificates_${new Date().toISOString().split('T')[0]}.json`;
+            contentType = 'application/json';
+        } else {
+            showMessage('Unsupported export format', 'error');
+            return;
+        }
+        
+        downloadFile(content, filename, contentType);
+        showMessage(`Certificates exported successfully as ${format.toUpperCase()}!`, 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to export certificates: ' + error.message, 'error');
+    }
+}
+
+// Overload for the button that doesn't pass format parameter
+function exportCertificatesButton() {
+    exportCertificates('csv');
+}
+
+async function exportAllData(format = 'json') {
+    try {
+        showMessage('Preparing complete data export...', 'info');
+        
+        const [members, certificates] = await Promise.all([
+            fetch(`${backendUrl}/api/getUsers`).then(res => res.json()).catch(() => []),
+            getCertificates()
+        ]);
+        
+        if ((!members || members.length === 0) && (!certificates || certificates.length === 0)) {
+            showMessage('No data to export', 'warning');
+            return;
+        }
+        
+        const allData = {
+            exportDate: new Date().toISOString(),
+            version: '1.0',
+            members: members || [],
+            certificates: certificates || [],
+            pendingSync: getPendingSync(),
+            metadata: {
+                totalMembers: members ? members.length : 0,
+                totalCertificates: certificates ? certificates.length : 0,
+                exportFormat: format
+            }
+        };
+        
+        let content, filename, contentType;
+        
+        if (format === 'json') {
+            content = JSON.stringify(allData, null, 2);
+            filename = `narap_complete_export_${new Date().toISOString().split('T')[0]}.json`;
+            contentType = 'application/json';
+        } else if (format === 'csv') {
+            const memberCSV = convertToCSV(members || []);
+            const certificateCSV = convertToCSV(certificates || []);
+            
+            const zipContent = `=== NARAP COMPLETE EXPORT ===
+Export Date: ${new Date().toISOString()}
+Total Members: ${members ? members.length : 0}
+Total Certificates: ${certificates ? certificates.length : 0}
+
+=== MEMBERS DATA ===
+${memberCSV}
+
+=== CERTIFICATES DATA ===
+${certificateCSV}`;
+            
+            content = zipContent;
+            filename = `narap_complete_export_${new Date().toISOString().split('T')[0]}.txt`;
+            contentType = 'text/plain';
+        } else {
+            showMessage('Unsupported export format', 'error');
+            return;
+        }
+        
+        downloadFile(content, filename, contentType);
+        showMessage(`Complete data exported successfully as ${format.toUpperCase()}!`, 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to export complete data: ' + error.message, 'error');
+    }
+}
+
+// ==================== SYNC FUNCTIONS ====================
+
+async function syncPendingChanges() {
+    try {
+        const pendingSync = getPendingSync();
+        let syncedCount = 0;
+        
+        // Sync certificate changes
+        for (const cert of pendingSync.certificateCreations) {
+            try {
+                // Ensure certificate has proper certificate number before syncing
+                const certificateToSync = { ...cert };
+                if (!certificateToSync.number || certificateToSync.number.trim() === '') {
+                    certificateToSync.number = generateUniqueCertificateNumber();
+                }
+                if (!certificateToSync.certificateNumber || certificateToSync.certificateNumber.trim() === '') {
+                    certificateToSync.certificateNumber = certificateToSync.number;
+                }
+                
+                const response = await fetch(`${backendUrl}/api/certificates`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(certificateToSync)
+                });
+                
+                if (response.ok) {
+                    syncedCount++;
+                }
+            } catch (error) {
+                
+            }
+        }
+        
+        for (const cert of pendingSync.certificateUpdates) {
+            try {
+                const response = await fetch(`${backendUrl}/api/certificates/${cert._id || cert.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cert)
+                });
+                
+                if (response.ok) {
+                    syncedCount++;
+                }
+            } catch (error) {
+                
+            }
+        }
+        
+        // Sync member changes
+        for (const member of pendingSync.memberCreations) {
+            try {
+                // Create FormData for file upload
+                const formData = new FormData();
+                
+                // Add text fields
+                formData.append('name', member.name);
+                formData.append('email', member.email);
+                formData.append('password', member.password || '');
+                formData.append('code', member.code);
+                formData.append('position', member.position);
+                formData.append('state', member.state);
+                formData.append('zone', member.zone);
+                
+                // Handle file data - use stored file references
+                if (member.passportFile) {
+                    formData.append('passportPhoto', member.passportFile);
+                    
+                }
+                
+                if (member.signatureFile) {
+                    formData.append('signature', member.signatureFile);
+                    
+                }
+                
+                const response = await fetch(`${backendUrl}/api/addUser`, {
+                    method: 'POST',
+                    body: formData // Don't set Content-Type header for FormData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    // Update local member with backend ID
+                    if (result.data && result.data._id) {
+                        const currentMembers = window.currentMembers || [];
+                        const memberIndex = currentMembers.findIndex(m => m._id === member._id);
+                        if (memberIndex !== -1) {
+                            currentMembers[memberIndex]._id = result.data._id;
+                            currentMembers[memberIndex].isFromBackend = true;
+                            currentMembers[memberIndex].pendingSync = false;
+                            saveLocalMembers(currentMembers);
+                        }
+                    }
+                    syncedCount++;
+                }
+            } catch (error) {
+                
+            }
+        }
+        
+        for (const member of pendingSync.memberUpdates) {
+            try {
+                // Create FormData for file upload
+                const formData = new FormData();
+                
+                // Add text fields
+                formData.append('name', member.name);
+                formData.append('email', member.email);
+                formData.append('code', member.code);
+                formData.append('position', member.position);
+                formData.append('state', member.state);
+                formData.append('zone', member.zone);
+                
+                // Handle file data - use stored file references
+                if (member.passportFile) {
+                    formData.append('passportPhoto', member.passportFile);
+                    
+                }
+                
+                if (member.signatureFile) {
+                    formData.append('signature', member.signatureFile);
+                    
+                }
+                
+                const response = await fetch(`${backendUrl}/api/updateUser/${member._id || member.id}`, {
+                    method: 'PUT',
+                    body: formData // Don't set Content-Type header for FormData
+                });
+                
+                if (response.ok) {
+                    // Update local member
+                    const currentMembers = window.currentMembers || [];
+                    const memberIndex = currentMembers.findIndex(m => m._id === member._id);
+                    if (memberIndex !== -1) {
+                        currentMembers[memberIndex].pendingSync = false;
+                        saveLocalMembers(currentMembers);
+                    }
+                    syncedCount++;
+                }
+            } catch (error) {
+                
+            }
+        }
+        
+        for (const member of pendingSync.memberDeletions) {
+            try {
+                const response = await fetch(`${backendUrl}/api/deleteUser/${member._id || member.id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    // Member was successfully deleted from backend
+                    syncedCount++;
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMessage = errorData.message || `HTTP ${response.status}`;
+                    
+                    // If the user doesn't exist in the backend, that's actually a successful sync
+                    // because the goal (user not in backend) is already achieved
+                    if (errorMessage.toLowerCase().includes('not found') || 
+                        errorMessage.toLowerCase().includes('user not found') ||
+                        response.status === 404) {
+                        
+                        syncedCount++;
+                    } else {
+                        
+                    }
+                }
+            } catch (error) {
+                
+            }
+        }
+        
+        if (syncedCount > 0) {
+            // Clear all synced items (since we process them all in one go)
+            pendingSync.certificateCreations = [];
+            pendingSync.certificateUpdates = [];
+            pendingSync.memberCreations = [];
+            pendingSync.memberUpdates = [];
+            pendingSync.memberDeletions = [];
+            savePendingSync(pendingSync);
+            
+            showMessage(`Synced ${syncedCount} pending changes`, 'success');
+            updateSyncStatus();
+        } else {
+            // Check if there are any pending changes that couldn't be synced
+            const totalPending = 
+                pendingSync.memberCreations.length +
+                pendingSync.memberUpdates.length +
+                pendingSync.memberDeletions.length +
+                pendingSync.certificateCreations.length +
+                pendingSync.certificateUpdates.length;
+            
+            if (totalPending > 0) {
+                
+            }
+        }
+    } catch (error) {
+        
+        showMessage('Failed to sync pending changes', 'error');
+    }
+}
+
+// Function to clear problematic pending deletions
+function clearPendingDeletions() {
+    const pendingSync = getPendingSync();
+    const deletionCount = pendingSync.memberDeletions.length;
+    
+    if (deletionCount > 0) {
+        pendingSync.memberDeletions = [];
+        savePendingSync(pendingSync);
+        updateSyncStatus();
+        showMessage(`Cleared ${deletionCount} pending deletions`, 'info');
+        
+    } else {
+        showMessage('No pending deletions to clear', 'info');
+    }
+}
+
+async function syncWithBackend() {
+    try {
+        showMessage('Syncing with backend...', 'info');
+        
+        await syncPendingChanges();
+        
+        if (typeof loadMembers === 'function') await loadMembers();
+        if (typeof loadCertificates === 'function') await loadCertificates();
+        
+        showMessage('Backend sync completed successfully!', 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to sync with backend: ' + error.message, 'error');
+    }
+}
+
+// ==================== BACKUP FUNCTIONS ====================
+
+async function createBackup() {
+    try {
+        showMessage('Creating backup...', 'info');
+        
+        const [members, certificates] = await Promise.all([
+            fetch(`${backendUrl}/api/getUsers`).then(res => res.json()).catch(() => []),
+            getCertificates()
+        ]);
+        
+        const pendingSync = getPendingSync();
+        
+        const backup = {
+            timestamp: new Date().toISOString(),
+            version: '1.0',
+            members: members || [],
+            certificates: certificates || [],
+            pendingSync: pendingSync,
+            metadata: {
+                totalMembers: members ? members.length : 0,
+                totalCertificates: certificates ? certificates.length : 0,
+                pendingChanges: pendingSync.certificateCreations.length + 
+                               pendingSync.certificateUpdates.length + 
+                               pendingSync.certificateDeletions.length
+            }
+        };
+        
+        const content = JSON.stringify(backup, null, 2);
+        const filename = `narap_backup_${new Date().toISOString().split('T')[0]}_${Date.now()}.json`;
+        
+        downloadFile(content, filename, 'application/json');
+        showMessage('Backup created successfully!', 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to create backup: ' + error.message, 'error');
+    }
+}
+
+async function clearAllData() {
+    if (!confirm('Are you sure you want to clear ALL data? This action cannot be undone!')) {
+        return;
+    }
+    
+    try {
+        showMessage('Clearing all data...', 'info');
+        
+        localStorage.removeItem('narap_certificates');
+        localStorage.removeItem('narap_pending_sync');
+        localStorage.removeItem('narap_members');
+        
+        if (typeof window.currentCertificates !== 'undefined') window.currentCertificates = [];
+        if (typeof window.currentMembers !== 'undefined') window.currentMembers = [];
+        
+        savePendingSync({
+            certificateCreations: [],
+            certificateUpdates: [],
+            certificateDeletions: [],
+            memberCreations: [],
+            memberUpdates: [],
+            memberDeletions: []
+        });
+        
+        if (typeof loadMembers === 'function') await loadMembers();
+        if (typeof loadCertificates === 'function') await loadCertificates();
+        if (typeof loadDashboard === 'function') await loadDashboard();
+        
+        showMessage('All data cleared successfully!', 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to clear data: ' + error.message, 'error');
+    }
+}
+
+// ==================== LOGIN FUNCTIONS ====================
+
+function login(event) {
+    event.preventDefault();
+    
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    if (username && password) {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('adminSection').style.display = 'block';
+        
+        localStorage.setItem('narap_logged_in', 'true');
+        
+        
+        showMessage('Login successful! Welcome to NARAP Admin Panel.', 'success');
+        
+        setTimeout(() => {
+            if (typeof loadDashboard === 'function') {
+                loadDashboard();
+            }
+        }, 500);
+    } else {
+        
+        const errorDiv = document.getElementById('loginError');
+        if (errorDiv) {
+            errorDiv.innerHTML = '<div class="error">Please enter both username and password</div>';
+        }
+    }
+}
+
+function fillAdminCredentials() {
+    
+    
+    const usernameField = document.getElementById('username');
+    const passwordField = document.getElementById('password');
+    
+    if (usernameField && passwordField) {
+        usernameField.value = 'admin@narap.org';
+        passwordField.value = 'admin123';
+        
+    } else {
+        
+    }
+}
+
+function clearLoginForm() {
+    
+    
+    const usernameField = document.getElementById('username');
+    const passwordField = document.getElementById('password');
+    const errorDiv = document.getElementById('loginError');
+    
+    if (usernameField) usernameField.value = '';
+    if (passwordField) passwordField.value = '';
+    if (errorDiv) errorDiv.innerHTML = '';
+    
+    
+}
+
+function logout() {
+    
+    
+    document.getElementById('adminSection').style.display = 'none';
+    document.getElementById('loginSection').style.display = 'flex';
+    
+    localStorage.removeItem('narap_logged_in');
+    
+    clearLoginForm();
+    
+    
+    showMessage('Logged out successfully', 'info');
+}
+
+// ==================== DASHBOARD FUNCTIONS ====================
+
+async function loadDashboardStats() {
+    try {
+        
+        
+        // Get data from local storage first
+        const localMembers = getLocalMembers();
+        const localCertificates = getLocalCertificates();
+        
+        // Calculate statistics from local data
+        const totalMembers = localMembers ? localMembers.length : 0;
+        const totalCertificates = localCertificates ? localCertificates.length : 0;
+        
+        // Calculate new members this month
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const newThisMonth = localMembers ? localMembers.filter(member => {
+            if (!member.createdAt && !member.dateAdded) return false;
+            const memberDate = new Date(member.createdAt || member.dateAdded);
+            return memberDate.getMonth() === currentMonth && memberDate.getFullYear() === currentYear;
+        }).length : 0;
+        
+        // Try to get additional stats from backend if available
+        let backendStats = null;
+        if (navigator.onLine) {
+            try {
+                const response = await fetch(`${backendUrl}/api/analytics/dashboard`);
+                if (response.ok) {
+                    const stats = await response.json();
+                    if (stats && stats.success) {
+                        backendStats = stats;
+                    }
+                }
+            } catch (error) {
+                
+            }
+        }
+        
+        // Update dashboard elements
+        const totalMembersEl = document.getElementById('totalMembers');
+        const totalCertificatesEl = document.getElementById('totalCertificates');
+        const newThisMonthEl = document.getElementById('newThisMonth');
+        const systemUptimeEl = document.getElementById('systemUptime');
+        
+        if (totalMembersEl) totalMembersEl.textContent = backendStats ? (backendStats.totalMembers || totalMembers) : totalMembers;
+        if (totalCertificatesEl) totalCertificatesEl.textContent = backendStats ? (backendStats.totalCertificates || totalCertificates) : totalCertificates;
+        if (newThisMonthEl) newThisMonthEl.textContent = backendStats ? (backendStats.newThisMonth || newThisMonth) : newThisMonth;
+        
+        if (systemUptimeEl) {
+            // Calculate system uptime (days since epoch)
+            const uptimeDays = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+            systemUptimeEl.textContent = uptimeDays + 'd';
+        }
+        
+        
+        
+        
+        return {
+            totalMembers: backendStats ? (backendStats.totalMembers || totalMembers) : totalMembers,
+            totalCertificates: backendStats ? (backendStats.totalCertificates || totalCertificates) : totalCertificates,
+            newThisMonth: backendStats ? (backendStats.newThisMonth || newThisMonth) : newThisMonth
+        };
+        
+    } catch (error) {
+        
+        
+        // Fallback to local data only
+        const localMembers = getLocalMembers();
+        const localCertificates = getLocalCertificates();
+        
+        const totalMembersEl = document.getElementById('totalMembers');
+        const totalCertificatesEl = document.getElementById('totalCertificates');
+        const newThisMonthEl = document.getElementById('newThisMonth');
+        const systemUptimeEl = document.getElementById('systemUptime');
+        
+        if (totalMembersEl) totalMembersEl.textContent = localMembers ? localMembers.length : 0;
+        if (totalCertificatesEl) totalCertificatesEl.textContent = localCertificates ? localCertificates.length : 0;
+        if (newThisMonthEl) newThisMonthEl.textContent = '0';
+        if (systemUptimeEl) systemUptimeEl.textContent = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) + 'd';
+        
+        return null;
+    }
+}
+
+async function loadDashboard() {
+    try {
+        
+        
+        await loadDashboardStats();
+        await loadRecentActivity();
+        
+        
+        
+    } catch (error) {
+        
+        showMessage('Failed to load dashboard: ' + error.message, 'error');
+    }
+}
+
+async function loadRecentActivity() {
+    try {
+        
+        
+        const recentActivityEl = document.getElementById('recentActivity');
+        if (!recentActivityEl) {
+            
+            return;
+        }
+        
+        // Get recent activities from local storage and pending sync
+        const localMembers = getLocalMembers();
+        const localCertificates = getLocalCertificates();
+        const pendingSync = getPendingSync();
+        
+        const activities = [];
+        
+        // Add recent member activities
+        if (localMembers && Array.isArray(localMembers) && localMembers.length > 0) {
+            const recentMembers = localMembers
+                .sort((a, b) => {
+                    const dateA = new Date(a.createdAt || a.dateAdded || a.updatedAt || 0);
+                    const dateB = new Date(b.createdAt || b.dateAdded || b.updatedAt || 0);
+                    return dateB - dateA;
+                })
+                .slice(0, 5);
+            
+            recentMembers.forEach(member => {
+                const date = new Date(member.createdAt || member.dateAdded || member.updatedAt);
+                activities.push({
+                    type: 'member',
+                    action: member.createdAt ? 'Added' : 'Updated',
+                    name: member.name || member.fullName || 'Unknown Member',
+                    date: date,
+                    description: `${member.createdAt ? 'Added' : 'Updated'} member: ${member.name || member.fullName}`
+                });
+            });
+        }
+        
+        // Add recent certificate activities
+        if (localCertificates && Array.isArray(localCertificates) && localCertificates.length > 0) {
+            const recentCertificates = localCertificates
+                .sort((a, b) => {
+                    const dateA = new Date(a.createdAt || a.issueDate || a.updatedAt || 0);
+                    const dateB = new Date(b.createdAt || b.issueDate || b.updatedAt || 0);
+                    return dateB - dateA;
+                })
+                .slice(0, 3);
+            
+            recentCertificates.forEach(certificate => {
+                const date = new Date(certificate.createdAt || certificate.issueDate || certificate.updatedAt);
+                activities.push({
+                    type: 'certificate',
+                    action: 'Issued',
+                    name: certificate.memberName || certificate.recipientName || 'Unknown',
+                    date: date,
+                    description: `Certificate issued to: ${certificate.memberName || certificate.recipientName}`
+                });
+            });
+        }
+        
+        // Add pending sync activities
+        const pendingCount = 
+            (pendingSync.memberCreations?.length || 0) +
+            (pendingSync.memberUpdates?.length || 0) +
+            (pendingSync.memberDeletions?.length || 0) +
+            (pendingSync.certificateCreations?.length || 0) +
+            (pendingSync.certificateUpdates?.length || 0);
+        
+        if (pendingCount > 0) {
+            activities.push({
+                type: 'sync',
+                action: 'Pending',
+                name: `${pendingCount} changes`,
+                date: new Date(),
+                description: `${pendingCount} changes pending sync with backend`
+            });
+        }
+        
+        // Sort all activities by date (most recent first)
+        activities.sort((a, b) => b.date - a.date);
+        
+        // Display activities
+        if (!activities || activities.length === 0) {
+            recentActivityEl.innerHTML = '<p class="text-muted">No recent activity</p>';
+        } else {
+            const activityHTML = activities.slice(0, 8).map(activity => {
+                const timeAgo = getTimeAgo(activity.date);
+                const icon = getActivityIcon(activity.type);
+                const color = getActivityColor(activity.type);
+                
+                return `
+                    <div class="activity-item" style="margin-bottom: 15px; padding: 10px; border-left: 3px solid ${color}; background: rgba(0,0,0,0.02);">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="color: ${color}; font-size: 16px;">${icon}</span>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500; color: #333;">${activity.description}</div>
+                                <div style="font-size: 12px; color: #666;">${timeAgo}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            recentActivityEl.innerHTML = activityHTML;
+        }
+        
+        
+        
+    } catch (error) {
+        
+        const recentActivityEl = document.getElementById('recentActivity');
+        if (recentActivityEl) {
+            recentActivityEl.innerHTML = '<p class="text-muted">Failed to load recent activity</p>';
+        }
+    }
+}
+
+function getTimeAgo(date) {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    
+    return date.toLocaleDateString();
+}
+
+function getActivityIcon(type) {
+    switch (type) {
+        case 'member': return '👤';
+        case 'certificate': return '📜';
+        case 'sync': return '🔄';
+        default: return '📝';
+    }
+}
+
+function getActivityColor(type) {
+    switch (type) {
+        case 'member': return '#007bff';
+        case 'certificate': return '#28a745';
+        case 'sync': return '#ffc107';
+        default: return '#6c757d';
+    }
+}
+
+// ==================== ANALYTICS FUNCTIONS ====================
+
+async function loadAnalytics() {
+    try {
+        
+        
+        // Show loading state
+        showAnalyticsLoading();
+        
+        // Get analytics data
+        const analyticsData = await getAnalyticsData();
+        
+        // Render charts and statistics
+        renderAnalyticsCharts(analyticsData);
+        renderAnalyticsStats(analyticsData);
+        
+        
+        
+    } catch (error) {
+        
+        showAnalyticsError();
+    }
+}
+
+async function getAnalyticsData() {
+    try {
+        // Try to get data from backend first
+        if (navigator.onLine) {
+            
+            const response = await fetch(`${backendUrl}/api/analytics/dashboard`);
+            
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                
+                if (data && data.success) {
+                    
+                    return data.data;
+                } else {
+                    
+                }
+            } else {
+                
+            }
+        }
+        
+        // Fallback to local data
+        
+        return generateLocalAnalyticsData();
+        
+    } catch (error) {
+        
+        return generateLocalAnalyticsData();
+    }
+}
+
+function generateLocalAnalyticsData() {
+    const localMembers = getLocalMembers();
+    const localCertificates = getLocalCertificates();
+    
+    // Calculate basic statistics
+    const totalMembers = localMembers ? localMembers.length : 0;
+    const totalCertificates = localCertificates ? localCertificates.length : 0;
+    
+    // Calculate active and revoked certificates
+    const activeCertificates = localCertificates ? localCertificates.filter(cert => 
+        cert.status === 'active' || !cert.status
+    ).length : 0;
+    const revokedCertificates = localCertificates ? localCertificates.filter(cert => 
+        cert.status === 'revoked'
+    ).length : 0;
+    
+    // Calculate revoked certificates analytics
+    const revokedAnalytics = calculateRevokedCertificateAnalytics(localCertificates);
+    
+    // Calculate new members this month
+    const currentMonth = new Date();
+    currentMonth.setDate(1);
+    currentMonth.setHours(0, 0, 0, 0);
+    
+    const newThisMonth = localMembers ? localMembers.filter(member => {
+        const memberDate = new Date(member.createdAt || member.dateAdded || Date.now());
+        return memberDate >= currentMonth;
+    }).length : 0;
+    
+    // Calculate members by state
+    const membersByState = {};
+    if (localMembers) {
+        localMembers.forEach(member => {
+            const state = member.state || 'Unknown';
+            membersByState[state] = (membersByState[state] || 0) + 1;
+        });
+    }
+    
+    // Calculate members by position
+    const membersByPosition = {};
+    if (localMembers) {
+        localMembers.forEach(member => {
+            const position = member.position || 'Unknown';
+            membersByPosition[position] = (membersByPosition[position] || 0) + 1;
+        });
+    }
+    
+    // Calculate certificate types distribution
+    const certificateTypes = {};
+    if (localCertificates) {
+        localCertificates.forEach(cert => {
+            const type = cert.type || cert.certificateType || 'Unknown';
+            certificateTypes[type] = (certificateTypes[type] || 0) + 1;
+        });
+    }
+    
+    return {
+        totalMembers,
+        totalCertificates,
+        activeCertificates,
+        revokedCertificates,
+        newThisMonth,
+        membersByState: Object.entries(membersByState).map(([state, count]) => ({ _id: state, count })),
+        membersByPosition: Object.entries(membersByPosition).map(([position, count]) => ({ _id: position, count })),
+        certificateTypes: Object.entries(certificateTypes).map(([type, count]) => ({ _id: type, count })),
+        revokedAnalytics
+    };
+}
+
+function calculateRevokedCertificateAnalytics(certificates) {
+    if (!certificates || certificates.length === 0) {
+        return {
+            totalRevoked: 0,
+            revocationRate: 0,
+            revocationTrend: [],
+            revokedByType: [],
+            revokedByMonth: [],
+            averageTimeToRevocation: 0,
+            recentRevocations: []
+        };
+    }
+    
+    const revokedCerts = certificates.filter(cert => cert.status === 'revoked');
+    const totalRevoked = revokedCerts.length;
+    const totalCerts = certificates.length;
+    const revocationRate = totalCerts > 0 ? (totalRevoked / totalCerts * 100).toFixed(1) : 0;
+    
+    // Calculate revocation trend (last 6 months)
+    const revocationTrend = calculateRevocationTrend(revokedCerts);
+    
+    // Calculate revoked certificates by type
+    const revokedByType = {};
+    revokedCerts.forEach(cert => {
+        const type = cert.type || cert.certificateType || 'Unknown';
+        revokedByType[type] = (revokedByType[type] || 0) + 1;
+    });
+    
+    // Calculate revoked certificates by month
+    const revokedByMonth = {};
+    revokedCerts.forEach(cert => {
+        const revokedDate = new Date(cert.revokedAt || cert.updatedAt || Date.now());
+        const monthKey = `${revokedDate.getFullYear()}-${String(revokedDate.getMonth() + 1).padStart(2, '0')}`;
+        revokedByMonth[monthKey] = (revokedByMonth[monthKey] || 0) + 1;
+    });
+    
+    // Calculate average time to revocation
+    const timeToRevocation = revokedCerts.map(cert => {
+        const issueDate = new Date(cert.issueDate || cert.createdAt || Date.now());
+        const revokedDate = new Date(cert.revokedAt || cert.updatedAt || Date.now());
+        return (revokedDate - issueDate) / (1000 * 60 * 60 * 24); // Days
+    }).filter(days => days > 0);
+    
+    const averageTimeToRevocation = timeToRevocation.length > 0 
+        ? Math.round(timeToRevocation.reduce((sum, days) => sum + days, 0) / timeToRevocation.length)
+        : 0;
+    
+    // Get recent revocations (last 5)
+    const recentRevocations = revokedCerts
+        .sort((a, b) => new Date(b.revokedAt || b.updatedAt) - new Date(a.revokedAt || a.updatedAt))
+        .slice(0, 5)
+        .map(cert => ({
+            id: cert._id || cert.id,
+            recipientName: cert.recipientName || cert.name,
+            certificateNumber: cert.certificateNumber || cert.number,
+            revokedAt: cert.revokedAt || cert.updatedAt,
+            type: cert.type || cert.certificateType
+        }));
+    
+    return {
+        totalRevoked,
+        revocationRate,
+        revocationTrend,
+        revokedByType: Object.entries(revokedByType).map(([type, count]) => ({ _id: type, count })),
+        revokedByMonth: Object.entries(revokedByMonth).map(([month, count]) => ({ _id: month, count })),
+        averageTimeToRevocation,
+        recentRevocations
+    };
+}
+
+function calculateRevocationTrend(revokedCerts) {
+    const trend = [];
+    const now = new Date();
+    
+    // Calculate last 6 months
+    for (let i = 5; i >= 0; i--) {
+        const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+        const monthName = month.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        
+        const count = revokedCerts.filter(cert => {
+            const revokedDate = new Date(cert.revokedAt || cert.updatedAt || Date.now());
+            return revokedDate.getFullYear() === month.getFullYear() && 
+                   revokedDate.getMonth() === month.getMonth();
+        }).length;
+        
+        trend.push({ month: monthName, count });
+    }
+    
+    return trend;
+}
+
+function showAnalyticsLoading() {
+    const systemHealth = document.getElementById('systemHealth');
+    if (systemHealth) {
+        systemHealth.innerHTML = '<div class="loading">Loading analytics data...</div>';
+    }
+}
+
+function showAnalyticsError() {
+    const systemHealth = document.getElementById('systemHealth');
+    if (systemHealth) {
+        systemHealth.innerHTML = '<div class="error">Failed to load analytics data</div>';
+    }
+}
+
+function renderAnalyticsCharts(data) {
+    renderMemberChart(data);
+    renderCertificateChart(data);
+    renderStateChart(data);
+    renderSystemHealth(data);
+}
+
+function renderAnalyticsStats(data) {
+    // Calculate average members per month (last 6 months)
+    const avgMembersPerMonth = calculateAverageMembersPerMonth();
+    
+    // Update basic statistics
+    updateStatElement('avgMembersPerMonth', avgMembersPerMonth);
+    updateStatElement('activeCertificates', data.activeCertificates);
+    updateStatElement('revokedCertificates', data.revokedCertificates);
+    updateStatElement('systemLoad', calculateSystemLoad());
+    
+    // Update revoked certificate statistics
+    if (data.revokedAnalytics) {
+        const revokedAnalytics = data.revokedAnalytics;
+        
+        // Update summary cards
+        updateStatElement('totalRevokedCertificates', revokedAnalytics.totalRevoked || 0);
+        updateStatElement('revocationRate', `${revokedAnalytics.revocationRate || 0}%`);
+        updateStatElement('avgTimeToRevocation', `${revokedAnalytics.averageTimeToRevocation || 0} days`);
+        
+        // Update revocation trend summary
+        const recentTrend = revokedAnalytics.revocationTrend || [];
+        const lastMonthRevocations = recentTrend.length > 0 ? recentTrend[recentTrend.length - 1].count : 0;
+        updateStatElement('lastMonthRevocations', lastMonthRevocations);
+        
+        // Update trend indicators
+        updateRevocationTrendIndicators(revokedAnalytics);
+        
+        // Update chart counts
+        updateStatElement('trendCount', recentTrend.reduce((sum, item) => sum + item.count, 0));
+        updateStatElement('typeCount', revokedAnalytics.revokedByType ? revokedAnalytics.revokedByType.length : 0);
+        
+        // Update certificate type distribution
+        if (data.certificateTypes) {
+            const totalByType = data.certificateTypes.reduce((sum, type) => sum + type.count, 0);
+            updateStatElement('totalCertificatesByType', totalByType);
+        }
+    }
+}
+
+function updateRevocationTrendIndicators(revokedAnalytics) {
+    // Update trend indicators with meaningful data
+    const trendElement = document.getElementById('revocationTrend');
+    const rateElement = document.getElementById('rateTrend');
+    const timeElement = document.getElementById('timeTrend');
+    const monthElement = document.getElementById('monthTrend');
+    
+    if (trendElement) {
+        const totalRevoked = revokedAnalytics.totalRevoked || 0;
+        if (totalRevoked === 0) {
+            trendElement.textContent = 'No revocations';
+            trendElement.className = 'revoked-summary-trend';
+        } else {
+            trendElement.textContent = `${totalRevoked} total`;
+            trendElement.className = 'revoked-summary-trend negative';
+        }
+    }
+    
+    if (rateElement) {
+        const rate = parseFloat(revokedAnalytics.revocationRate || 0);
+        if (rate === 0) {
+            rateElement.textContent = 'Perfect';
+            rateElement.className = 'revoked-summary-trend positive';
+        } else if (rate < 5) {
+            rateElement.textContent = 'Low';
+            rateElement.className = 'revoked-summary-trend positive';
+        } else if (rate < 15) {
+            rateElement.textContent = 'Moderate';
+            rateElement.className = 'revoked-summary-trend';
+        } else {
+            rateElement.textContent = 'High';
+            rateElement.className = 'revoked-summary-trend negative';
+        }
+    }
+    
+    if (timeElement) {
+        const avgTime = revokedAnalytics.averageTimeToRevocation || 0;
+        if (avgTime === 0) {
+            timeElement.textContent = 'No data';
+            timeElement.className = 'revoked-summary-trend';
+        } else if (avgTime < 30) {
+            timeElement.textContent = 'Quick';
+            timeElement.className = 'revoked-summary-trend negative';
+        } else if (avgTime < 90) {
+            timeElement.textContent = 'Normal';
+            timeElement.className = 'revoked-summary-trend';
+        } else {
+            timeElement.textContent = 'Slow';
+            timeElement.className = 'revoked-summary-trend positive';
+        }
+    }
+    
+    if (monthElement) {
+        const recentTrend = revokedAnalytics.revocationTrend || [];
+        if (recentTrend.length >= 2) {
+            const currentMonth = recentTrend[recentTrend.length - 1].count;
+            const previousMonth = recentTrend[recentTrend.length - 2].count;
+            const change = currentMonth - previousMonth;
+            
+            if (change === 0) {
+                monthElement.textContent = 'No change';
+                monthElement.className = 'revoked-summary-trend';
+            } else if (change > 0) {
+                monthElement.textContent = `+${change} more`;
+                monthElement.className = 'revoked-summary-trend negative';
+            } else {
+                monthElement.textContent = `${change} less`;
+                monthElement.className = 'revoked-summary-trend positive';
+            }
+        } else {
+            monthElement.textContent = 'No trend';
+            monthElement.className = 'revoked-summary-trend';
+        }
+    }
+}
+
+function updateStatElement(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = value;
+    }
+}
+
+function calculateAverageMembersPerMonth() {
+    const localMembers = getLocalMembers();
+    if (!localMembers || localMembers.length === 0) return 0;
+    
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    const recentMembers = localMembers.filter(member => {
+        const memberDate = new Date(member.createdAt || member.dateAdded || Date.now());
+        return memberDate >= sixMonthsAgo;
+    });
+    
+    return Math.round(recentMembers.length / 6);
+}
+
+function calculateSystemLoad() {
+    // Simulate system load based on data size and pending sync
+    const localMembers = getLocalMembers();
+    const localCertificates = getLocalCertificates();
+    const pendingSync = getPendingSync();
+    
+    const totalItems = (localMembers ? localMembers.length : 0) + 
+                      (localCertificates ? localCertificates.length : 0);
+    const pendingItems = (pendingSync.memberCreations ? pendingSync.memberCreations.length : 0) +
+                        (pendingSync.memberUpdates ? pendingSync.memberUpdates.length : 0) +
+                        (pendingSync.memberDeletions ? pendingSync.memberDeletions.length : 0);
+    
+    const loadPercentage = Math.min(100, Math.round((totalItems + pendingItems) / 10));
+    return loadPercentage + '%';
+}
+
+function renderMemberChart(data) {
+    const canvas = document.getElementById('memberChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Generate member registration trend (last 6 months)
+    const months = [];
+    const counts = [];
+    
+    for (let i = 5; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        months.push(date.toLocaleDateString('en-US', { month: 'short' }));
+        
+        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        
+        const localMembers = getLocalMembers();
+        const monthCount = localMembers ? localMembers.filter(member => {
+            const memberDate = new Date(member.createdAt || member.dateAdded || Date.now());
+            return memberDate >= monthStart && memberDate <= monthEnd;
+        }).length : 0;
+        
+        counts.push(monthCount);
+    }
+    
+    // Create simple chart using canvas
+    drawSimpleChart(ctx, months, counts, 'Member Registrations', '#007bff');
+}
+
+function renderCertificateChart(data) {
+    const canvas = document.getElementById('certificateChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Certificate status distribution with enhanced revoked analytics
+    const labels = ['Active', 'Revoked', 'Pending'];
+    const values = [
+        data.activeCertificates || 0,
+        data.revokedCertificates || 0,
+        (data.totalCertificates || 0) - (data.activeCertificates || 0) - (data.revokedCertificates || 0)
+    ];
+    
+    // Create simple chart using canvas
+    drawSimpleChart(ctx, labels, values, 'Certificate Status Distribution', '#28a745');
+    
+    // Render additional revoked certificate analytics
+    renderRevokedCertificateAnalytics(data.revokedAnalytics);
+}
+
+function renderRevokedCertificateAnalytics(revokedAnalytics) {
+    if (!revokedAnalytics) return;
+    
+    // Update revoked certificate statistics
+    updateStatElement('totalRevokedCertificates', revokedAnalytics.totalRevoked || 0);
+    updateStatElement('revocationRate', `${revokedAnalytics.revocationRate || 0}%`);
+    updateStatElement('avgTimeToRevocation', `${revokedAnalytics.averageTimeToRevocation || 0} days`);
+    
+    // Render revocation trend chart
+    renderRevocationTrendChart(revokedAnalytics.revocationTrend);
+    
+    // Render revoked certificates by type chart
+    renderRevokedByTypeChart(revokedAnalytics.revokedByType);
+    
+    // Render recent revocations list
+    renderRecentRevocationsList(revokedAnalytics.recentRevocations);
+}
+
+function renderRevocationTrendChart(trendData) {
+    const canvas = document.getElementById('revocationTrendChart');
+    if (!canvas || !trendData || trendData.length === 0) return;
+    
+    const ctx = canvas.getContext('2d');
+    const labels = trendData.map(item => item.month);
+    const values = trendData.map(item => item.count);
+    
+    drawSimpleChart(ctx, labels, values, 'Revocation Trend (Last 6 Months)', '#dc3545');
+}
+
+function renderRevokedByTypeChart(revokedByType) {
+    const canvas = document.getElementById('revokedByTypeChart');
+    if (!canvas || !revokedByType || revokedByType.length === 0) return;
+    
+    const ctx = canvas.getContext('2d');
+    const labels = revokedByType.map(item => item._id);
+    const values = revokedByType.map(item => item.count);
+    
+    drawSimpleChart(ctx, labels, values, 'Revoked Certificates by Type', '#fd7e14');
+}
+
+function renderRecentRevocationsList(recentRevocations) {
+    const container = document.getElementById('recentRevocationsList');
+    if (!container) return;
+    
+    if (!recentRevocations || recentRevocations.length === 0) {
+        container.innerHTML = '<div class="no-data">No recent revocations</div>';
+        return;
+    }
+    
+    const revocationsHTML = recentRevocations.map(revocation => {
+        const revokedDate = new Date(revocation.revokedAt);
+        const timeAgo = getTimeAgo(revokedDate);
+        
+        return `
+            <div class="recent-revocation-item">
+                <div class="revocation-info">
+                    <div class="recipient-name">${revocation.recipientName || 'Unknown'}</div>
+                    <div class="certificate-number">${revocation.certificateNumber || 'N/A'}</div>
+                    <div class="certificate-type">${revocation.type || 'Unknown'}</div>
+                </div>
+                <div class="revocation-time">
+                    <span class="time-ago">${timeAgo}</span>
+                    <span class="revocation-date">${revokedDate.toLocaleDateString()}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = `
+        <div class="recent-revocations-header">
+            <h4>Recent Revocations</h4>
+            <span class="revocation-count">${recentRevocations.length} recent</span>
+        </div>
+        <div class="recent-revocations-list">
+            ${revocationsHTML}
+        </div>
+    `;
+}
+
+function renderStateChart(data) {
+    const canvas = document.getElementById('stateChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Check if data.membersByState exists and is an array
+    if (!data.membersByState || !Array.isArray(data.membersByState)) {
+        
+        return;
+    }
+    
+    // Top 5 states by member count
+    const topStates = data.membersByState.slice(0, 5);
+    const labels = topStates.map(state => state._id);
+    const values = topStates.map(state => state.count);
+    
+    // Create simple chart using canvas
+    drawSimpleChart(ctx, labels, values, 'Members by State', '#ffc107');
+}
+
+function renderSystemHealth(data) {
+    const systemHealth = document.getElementById('systemHealth');
+    if (!systemHealth) return;
+    
+    const healthScore = calculateHealthScore(data);
+    const healthStatus = getHealthStatus(healthScore);
+    
+    systemHealth.innerHTML = `
+        <div class="health-indicator">
+            <div class="health-score" style="color: ${healthStatus.color}">
+                ${healthScore}%
+            </div>
+            <div class="health-status" style="color: ${healthStatus.color}">
+                ${healthStatus.text}
+            </div>
+            <div class="health-details">
+                <div>Total Members: ${data.totalMembers}</div>
+                <div>Total Certificates: ${data.totalCertificates}</div>
+                <div>Active Certificates: ${data.activeCertificates}</div>
+            </div>
+        </div>
+    `;
+}
+
+function calculateHealthScore(data) {
+    let score = 100;
+    
+    // Deduct points for various issues
+    if (data.totalMembers === 0) score -= 20;
+    if (data.totalCertificates === 0) score -= 15;
+    
+    // Revoked certificate analysis
+    if (data.revokedAnalytics) {
+        const revocationRate = parseFloat(data.revokedAnalytics.revocationRate || 0);
+        
+        // Deduct points for high revocation rates
+        if (revocationRate > 50) score -= 25;
+        else if (revocationRate > 30) score -= 15;
+        else if (revocationRate > 15) score -= 10;
+        else if (revocationRate > 5) score -= 5;
+        
+        // Deduct points if revoked certificates exceed active ones
+        if (data.revokedAnalytics.totalRevoked > data.activeCertificates) score -= 20;
+        
+        // Bonus points for low revocation rates
+        if (revocationRate < 2) score += 10;
+        if (revocationRate === 0) score += 5;
+    }
+    
+    // Check pending sync operations
+    const pendingSync = getPendingSync();
+    const pendingCount = (pendingSync.memberCreations ? pendingSync.memberCreations.length : 0) +
+                        (pendingSync.memberUpdates ? pendingSync.memberUpdates.length : 0) +
+                        (pendingSync.memberDeletions ? pendingSync.memberDeletions.length : 0) +
+                        (pendingSync.certificates ? pendingSync.certificates.length : 0);
+    
+    if (pendingCount > 10) score -= 15;
+    if (pendingCount > 5) score -= 10;
+    if (pendingCount > 0) score -= 5;
+    
+    return Math.max(0, Math.min(100, score));
+}
+
+function getHealthStatus(score) {
+    if (score >= 90) return { text: 'Excellent', color: '#28a745' };
+    if (score >= 75) return { text: 'Good', color: '#17a2b8' };
+    if (score >= 60) return { text: 'Fair', color: '#ffc107' };
+    return { text: 'Poor', color: '#dc3545' };
+}
+
+function drawSimpleChart(ctx, labels, values, title, color) {
+    const canvas = ctx.canvas;
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    // Set up chart area
+    const padding = 40;
+    const chartWidth = width - 2 * padding;
+    const chartHeight = height - 2 * padding;
+    
+    // Find max value
+    const maxValue = Math.max(...values, 1);
+    
+    // Draw bars
+    const barWidth = chartWidth / labels.length;
+    const barSpacing = barWidth * 0.1;
+    const actualBarWidth = barWidth - barSpacing;
+    
+    ctx.fillStyle = color;
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    
+    labels.forEach((label, index) => {
+        const barHeight = (values[index] / maxValue) * chartHeight;
+        const x = padding + index * barWidth + barSpacing / 2;
+        const y = height - padding - barHeight;
+        
+        // Draw bar
+        ctx.fillRect(x, y, actualBarWidth, barHeight);
+        
+        // Draw value
+        ctx.fillStyle = '#333';
+        ctx.fillText(values[index], x + actualBarWidth / 2, y - 5);
+        
+        // Draw label
+        ctx.fillText(label, x + actualBarWidth / 2, height - padding + 15);
+        ctx.fillStyle = color;
+    });
+    
+    // Draw title
+    ctx.fillStyle = '#333';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(title, width / 2, 20);
+}
+
+// ==================== SYSTEM PAGE FUNCTIONS ====================
+
+async function loadSystemPage() {
+    try {
+        
+        
+        // Show loading state
+        showSystemLoading();
+        
+        // Load system information
+        await loadSystemInfo();
+        
+        // Load system logs
+        loadSystemLogs();
+        
+        // Update connection status
+        updateConnectionStatus();
+        
+        
+        
+    } catch (error) {
+        
+        showSystemError();
+    }
+}
+
+async function loadSystemInfo() {
+    try {
+        // Calculate database size
+        const dbSize = calculateDatabaseSize();
+        updateSystemStat('dbSize', dbSize);
+        
+        // Get last backup time
+        const lastBackup = getLastBackupTime();
+        updateSystemStat('lastBackup', lastBackup);
+        
+        // Get last sync time
+        const lastSync = getLastSyncTime();
+        updateSystemStat('lastSync', lastSync);
+        
+        // Check server status
+        const serverStatus = await checkServerStatus();
+        updateSystemStat('serverStatus', serverStatus);
+        
+    } catch (error) {
+        
+    }
+}
+
+function calculateDatabaseSize() {
+    try {
+        let totalSize = 0;
+        
+        // Calculate size of all localStorage items
+        const keys = ['narap_members', 'narap_certificates', 'narap_pending_sync', 'narap_theme'];
+        keys.forEach(key => {
+            const item = localStorage.getItem(key);
+            if (item) {
+                totalSize += new Blob([item]).size;
+            }
+        });
+        
+        // Convert to MB
+        const sizeInMB = (totalSize / (1024 * 1024)).toFixed(2);
+        return sizeInMB + ' MB';
+        
+    } catch (error) {
+        
+        return '0 MB';
+    }
+}
+
+function getLastBackupTime() {
+    try {
+        const lastBackup = localStorage.getItem('narap_last_backup');
+        if (lastBackup) {
+            const date = new Date(parseInt(lastBackup));
+            return date.toLocaleString();
+        }
+        return 'Never';
+    } catch (error) {
+        
+        return 'Never';
+    }
+}
+
+function getLastSyncTime() {
+    try {
+        const lastSync = localStorage.getItem('narap_last_sync');
+        if (lastSync) {
+            const date = new Date(parseInt(lastSync));
+            return date.toLocaleString();
+        }
+        return 'Never';
+    } catch (error) {
+        
+        return 'Never';
+    }
+}
+
+async function checkServerStatus() {
+    try {
+        if (!navigator.onLine) {
+            return 'Offline';
+        }
+        
+        const response = await fetch(`${backendUrl}/api/health`, {
+            method: 'GET',
+            timeout: 5000
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.status === 'healthy') {
+                return 'Online';
+            } else {
+                return 'Error';
+            }
+        } else {
+            return 'Error';
+        }
+        
+    } catch (error) {
+        
+        return 'Offline';
+    }
+}
+
+function updateSystemStat(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        if (elementId === 'serverStatus') {
+            // Add styling for server status
+            element.className = 'server-status ' + value.toLowerCase();
+            element.textContent = value;
+        } else {
+            element.textContent = value;
+        }
+    }
+}
+
+function showSystemLoading() {
+    const systemLogs = document.getElementById('systemLogs');
+    if (systemLogs) {
+        systemLogs.innerHTML = '<div class="loading">Loading system information...</div>';
+    }
+}
+
+function showSystemError() {
+    const systemLogs = document.getElementById('systemLogs');
+    if (systemLogs) {
+        systemLogs.innerHTML = '<div class="error">Failed to load system information</div>';
+    }
+}
+
+function loadSystemLogs() {
+    try {
+        const systemLogs = document.getElementById('systemLogs');
+        if (!systemLogs) return;
+        
+        // Get recent system activities
+        const activities = getSystemActivities();
+        
+        if (activities.length === 0) {
+            systemLogs.innerHTML = '<div class="no-data">No system activities found</div>';
+            return;
+        }
+        
+        const logsHTML = activities.map(activity => {
+            const timeAgo = getTimeAgo(activity.timestamp);
+            const icon = getSystemActivityIcon(activity.type);
+            const color = getSystemActivityColor(activity.type);
+            
+            return `
+                <div class="activity-item">
+                    <div class="activity-icon" style="background: ${color};">${icon}</div>
+                    <div class="activity-content">
+                        <div class="activity-title">${activity.title}</div>
+                        <div class="activity-time">${timeAgo}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        systemLogs.innerHTML = logsHTML;
+        
+    } catch (error) {
+        
+        const systemLogs = document.getElementById('systemLogs');
+        if (systemLogs) {
+            systemLogs.innerHTML = '<div class="error">Failed to load system logs</div>';
+        }
+    }
+}
+
+function getSystemActivities() {
+    try {
+        const activities = [];
+        
+        // Get last backup time
+        const lastBackup = localStorage.getItem('narap_last_backup');
+        if (lastBackup) {
+            activities.push({
+                type: 'backup',
+                title: 'System backup created',
+                timestamp: parseInt(lastBackup)
+            });
+        }
+        
+        // Get last sync time
+        const lastSync = localStorage.getItem('narap_last_sync');
+        if (lastSync) {
+            activities.push({
+                type: 'sync',
+                title: 'Data synchronized with backend',
+                timestamp: parseInt(lastSync)
+            });
+        }
+        
+        // Get recent member activities
+        const localMembers = getLocalMembers();
+        if (localMembers && localMembers.length > 0) {
+            const recentMembers = localMembers
+                .sort((a, b) => {
+                    const dateA = new Date(a.createdAt || a.dateAdded || a.updatedAt || 0);
+                    const dateB = new Date(b.createdAt || b.dateAdded || b.updatedAt || 0);
+                    return dateB - dateA;
+                })
+                .slice(0, 3);
+            
+            recentMembers.forEach(member => {
+                const date = new Date(member.createdAt || member.dateAdded || member.updatedAt);
+                activities.push({
+                    type: 'member',
+                    title: `${member.createdAt ? 'Added' : 'Updated'} member: ${member.name || member.fullName}`,
+                    timestamp: date.getTime()
+                });
+            });
+        }
+        
+        // Get pending sync activities
+        const pendingSync = getPendingSync();
+        const pendingCount = 
+            (pendingSync.memberCreations ? pendingSync.memberCreations.length : 0) +
+            (pendingSync.memberUpdates ? pendingSync.memberUpdates.length : 0) +
+            (pendingSync.memberDeletions ? pendingSync.memberDeletions.length : 0);
+        
+        if (pendingCount > 0) {
+            activities.push({
+                type: 'pending',
+                title: `${pendingCount} changes pending sync`,
+                timestamp: Date.now()
+            });
+        }
+        
+        // Sort by timestamp (most recent first)
+        activities.sort((a, b) => b.timestamp - a.timestamp);
+        
+        return activities.slice(0, 10); // Return last 10 activities
+        
+    } catch (error) {
+        
+        return [];
+    }
+}
+
+function getSystemActivityIcon(type) {
+    switch (type) {
+        case 'backup': return '💾';
+        case 'sync': return '🔄';
+        case 'member': return '👤';
+        case 'pending': return '⏳';
+        default: return '📝';
+    }
+}
+
+function getSystemActivityColor(type) {
+    switch (type) {
+        case 'backup': return '#28a745';
+        case 'sync': return '#007bff';
+        case 'member': return '#17a2b8';
+        case 'pending': return '#ffc107';
+        default: return '#6c757d';
+    }
+}
+
+// Enhanced backup function
+async function createBackup() {
+    try {
+        showMessage('Creating backup...', 'info');
+        
+        const [members, certificates] = await Promise.all([
+            fetch(`${backendUrl}/api/getUsers`).then(res => res.json()).catch(() => []),
+            getCertificates()
+        ]);
+        
+        const pendingSync = getPendingSync();
+        
+        const backup = {
+            timestamp: new Date().toISOString(),
+            version: '1.0',
+            members: members || [],
+            certificates: certificates || [],
+            pendingSync: pendingSync,
+            metadata: {
+                totalMembers: members ? members.length : 0,
+                totalCertificates: certificates ? certificates.length : 0,
+                pendingChanges: pendingSync.certificateCreations.length + 
+                               pendingSync.certificateUpdates.length + 
+                               pendingSync.certificateDeletions.length
+            }
+        };
+        
+        const content = JSON.stringify(backup, null, 2);
+        const filename = `narap_backup_${new Date().toISOString().split('T')[0]}_${Date.now()}.json`;
+        
+        downloadFile(content, filename, 'application/json');
+        
+        // Save backup timestamp
+        localStorage.setItem('narap_last_backup', Date.now().toString());
+        
+        showMessage('Backup created successfully!', 'success');
+        
+        // Refresh system page if currently on it
+        const activePanel = document.querySelector('.panel.active');
+        if (activePanel && activePanel.id === 'panel-system') {
+            loadSystemPage();
+        }
+        
+    } catch (error) {
+        
+        showMessage('Failed to create backup: ' + error.message, 'error');
+    }
+}
+
+// Enhanced sync function
+async function syncWithBackend() {
+    try {
+        showMessage('Syncing with backend...', 'info');
+        
+        await syncPendingChanges();
+        
+        if (typeof loadMembers === 'function') await loadMembers();
+        if (typeof loadCertificates === 'function') await loadCertificates();
+        
+        // Save sync timestamp
+        localStorage.setItem('narap_last_sync', Date.now().toString());
+        
+        showMessage('Backend sync completed successfully!', 'success');
+        
+        // Refresh system page if currently on it
+        const activePanel = document.querySelector('.panel.active');
+        if (activePanel && activePanel.id === 'panel-system') {
+            loadSystemPage();
+        }
+        
+    } catch (error) {
+        
+        showMessage('Failed to sync with backend: ' + error.message, 'error');
+    }
+}
+
+// Export all data function
+async function exportAllData() {
+    try {
+        showMessage('Preparing data export...', 'info');
+        
+        // Get all data
+        const [members, certificates] = await Promise.all([
+            fetch(`${backendUrl}/api/getUsers`).then(res => res.json()).catch(() => getLocalMembers()),
+            getCertificates()
+        ]);
+        
+        const pendingSync = getPendingSync();
+        const systemInfo = {
+            lastBackup: getLastBackupTime(),
+            lastSync: getLastSyncTime(),
+            databaseSize: calculateDatabaseSize(),
+            serverStatus: await checkServerStatus()
+        };
+        
+        const exportData = {
+            timestamp: new Date().toISOString(),
+            version: '1.0',
+            members: members || [],
+            certificates: certificates || [],
+            pendingSync: pendingSync,
+            systemInfo: systemInfo,
+            metadata: {
+                totalMembers: members ? members.length : 0,
+                totalCertificates: certificates ? certificates.length : 0,
+                pendingChanges: (pendingSync.memberCreations ? pendingSync.memberCreations.length : 0) +
+                               (pendingSync.memberUpdates ? pendingSync.memberUpdates.length : 0) +
+                               (pendingSync.memberDeletions ? pendingSync.memberDeletions.length : 0)
+            }
+        };
+        
+        const content = JSON.stringify(exportData, null, 2);
+        const filename = `narap_export_${new Date().toISOString().split('T')[0]}_${Date.now()}.json`;
+        
+        downloadFile(content, filename, 'application/json');
+        
+        showMessage('Data export completed successfully!', 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to export data: ' + error.message, 'error');
+    }
+}
+
+// ==================== MEMBER FUNCTIONS ====================
+
+async function loadMembers(page = 1, limit = 10, searchTerm = '') {
+    try {
+        
+        
+        let backendMembers = [];
+        let localMembers = getLocalMembers();
+        
+        // Try to fetch from backend if online
+        if (navigator.onLine) {
+            try {
+                const response = await fetch(`${backendUrl}/api/members`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    
+                    // Handle different response formats
+                    if (Array.isArray(data)) {
+                        backendMembers = data;
+                        
+                    } else if (data && Array.isArray(data.members)) {
+                        backendMembers = data.members;
+                        
+                    } else if (data && Array.isArray(data.data)) {
+                        backendMembers = data.data;
+                        
+                    } else if (data && data.success && Array.isArray(data.data)) {
+                        backendMembers = data.data;
+                        
+                    } else {
+                        
+                        backendMembers = [];
+                    }
+                    
+                    // Save backend members to local storage
+                    saveLocalMembers(backendMembers);
+                }
+            } catch (error) {
+                
+            }
+        }
+        
+        // Merge backend and local members
+        const mergedMembers = [...backendMembers];
+        
+        // Add local members that don't exist in backend
+        localMembers.forEach(localMember => {
+            const existsInBackend = backendMembers.find(backendMember => 
+                backendMember._id === localMember._id || 
+                backendMember.id === localMember.id ||
+                backendMember.code === localMember.code
+            );
+            
+            if (!existsInBackend) {
+                mergedMembers.push({ ...localMember, isFromBackend: false });
+            }
+        });
+        
+        // Sort by creation date (newest first)
+        mergedMembers.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.dateAdded || 0);
+            const dateB = new Date(b.createdAt || b.dateAdded || 0);
+            return dateB - dateA;
+        });
+        
+        // Store in global state
+        if (typeof window !== 'undefined') {
+            window.currentMembers = mergedMembers;
+        }
+        
+        // Save merged members to local storage
+        saveLocalMembers(mergedMembers);
+        
+        if (typeof displayMembers === 'function') {
+            displayMembers(mergedMembers);
+        }
+        
+        
+        return mergedMembers;
+        
+    } catch (error) {
+        
+        showMessage('Failed to load members: ' + error.message, 'error');
+        
+        // Fallback to local storage
+        const localMembers = getLocalMembers();
+        if (typeof window !== 'undefined') {
+            window.currentMembers = localMembers;
+        }
+        
+        if (typeof displayMembers === 'function') {
+            displayMembers(localMembers);
+        }
+        
+        return localMembers;
+    }
+}
+
+async function addMember(event) {
+    event.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('memberName').value.trim(),
+        email: document.getElementById('memberEmail').value.trim(),
+        password: document.getElementById('memberPassword').value,
+        code: document.getElementById('memberCode').value.trim(),
+        position: document.getElementById('memberPosition').value,
+        state: document.getElementById('memberState').value.trim(),
+        zone: document.getElementById('memberZone').value.trim()
+    };
+    
+    // Create FormData for file upload
+    const formDataObj = new FormData();
+    
+    // Add text fields
+    formDataObj.append('name', formData.name);
+    formDataObj.append('email', formData.email);
+    formDataObj.append('password', formData.password);
+    formDataObj.append('code', formData.code);
+    formDataObj.append('position', formData.position);
+    formDataObj.append('state', formData.state);
+    formDataObj.append('zone', formData.zone);
+    
+    // Add files
+    const passportInput = document.getElementById('memberPassport');
+    const signatureInput = document.getElementById('memberSignature');
+    
+    if (passportInput && passportInput.files[0]) {
+        formDataObj.append('passportPhoto', passportInput.files[0]);
+    }
+    if (signatureInput && signatureInput.files[0]) {
+        formDataObj.append('signature', signatureInput.files[0]);
+    }
+    
+    // Validate required fields
+    if (!formData.name || !formData.code || !formData.position) {
+        showMessage('Please fill in all required fields (Name, Code, Position)', 'error');
+        return;
+    }
+    
+    // Check if member with same code already exists
+    const currentMembers = window.currentMembers || [];
+    const existingMember = currentMembers.find(member => 
+        member.code === formData.code
+    );
+    
+    if (existingMember) {
+        showMessage('A member with this code already exists', 'error');
+        return;
+    }
+    
+    try {
+        showMessage('Adding member...', 'info');
+        
+        let backendResponse = null;
+        let isOnline = navigator.onLine;
+        
+        // Try to add to backend if online
+        if (isOnline) {
+            try {
+                const response = await fetch(`${backendUrl}/api/addUser`, {
+                    method: 'POST',
+                    body: formDataObj // Don't set Content-Type header for FormData
+                });
+                
+                if (response.ok) {
+                    backendResponse = await response.json();
+                    
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                
+                isOnline = false;
+            }
+        }
+        
+        // Create member object
+        const newMember = {
+            _id: backendResponse?.data?._id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            ...formData,
+            createdAt: new Date().toISOString(),
+            dateAdded: new Date().toISOString(),
+            isActive: true,
+            isFromBackend: isOnline,
+            pendingSync: !isOnline
+        };
+        
+        // Handle file data - always use multipart/form-data approach
+        const passportInput = document.getElementById('memberPassport');
+        const signatureInput = document.getElementById('memberSignature');
+        
+        // Store file references for offline sync
+        if (passportInput && passportInput.files[0]) {
+            newMember.passportFile = passportInput.files[0]; // Store file reference
+            
+        }
+        
+        if (signatureInput && signatureInput.files[0]) {
+            newMember.signatureFile = signatureInput.files[0]; // Store file reference
+            
+        }
+        
+        // For online storage, use the filename from backend response
+        if (isOnline && backendResponse && backendResponse.data && backendResponse.data.passportPhoto) {
+            newMember.passportPhoto = backendResponse.data.passportPhoto;
+            
+        }
+        if (isOnline && backendResponse && backendResponse.data && backendResponse.data.signature) {
+            newMember.signature = backendResponse.data.signature;
+            
+        }
+        
+        // Add to current members
+        const updatedMembers = [...currentMembers, newMember];
+        window.currentMembers = updatedMembers;
+        
+
+        
+        // Save to local storage
+        saveLocalMembers(updatedMembers);
+        
+        // Add to pending sync if offline
+        if (!isOnline) {
+            const pendingSync = getPendingSync();
+            pendingSync.memberCreations.push(newMember);
+            savePendingSync(pendingSync);
+            showMessage('Member added locally. Will sync when online.', 'warning');
+        } else {
+            showMessage('Member added successfully!', 'success');
+        }
+        
+        closeAddMemberModal();
+        displayMembers(updatedMembers);
+        updateSyncStatus();
+        
+        // Refresh dashboard stats and recent activity
+        if (typeof loadDashboardStats === 'function') {
+            await loadDashboardStats();
+        }
+        if (typeof loadRecentActivity === 'function') {
+            await loadRecentActivity();
+        }
+        
+    } catch (error) {
+        
+        showMessage('Failed to add member: ' + error.message, 'error');
+    }
+}
+
+// ==================== CERTIFICATE FUNCTIONS ====================
+
+async function getCertificates() {
+    try {
+        
+        
+        let backendCertificates = [];
+        let localCertificates = getLocalCertificates();
+        
+        try {
+            const res = await fetch(`${backendUrl}/api/certificates`, {
+                method: 'GET'
+            });
+            
+            if (res.ok) {
+                const responseData = await res.json();
+                
+                // Handle different response formats
+                if (Array.isArray(responseData)) {
+                    backendCertificates = responseData;
+                } else if (responseData && Array.isArray(responseData.data)) {
+                    backendCertificates = responseData.data;
+                } else if (responseData && responseData.success && Array.isArray(responseData.data)) {
+                    backendCertificates = responseData.data;
+                } else {
+                    backendCertificates = [];
+                }
+                
+                backendCertificates = backendCertificates.map(cert => ({ ...cert, isFromBackend: true }));
+            }
+        } catch (error) {
+            
+        }
+        
+        // Ensure localCertificates is an array
+        if (!Array.isArray(localCertificates)) {
+            localCertificates = [];
+        }
+        
+        // Create a map of local certificates by ID for easy lookup
+        const localCertMap = new Map();
+        localCertificates.forEach(localCert => {
+            const key = localCert._id || localCert.id || localCert.certificateNumber || localCert.number;
+            if (key) {
+                localCertMap.set(key, { ...localCert, isFromBackend: false });
+            }
+        });
+        
+        // Merge backend and local certificates, giving priority to local changes
+        const mergedCertificates = [];
+        
+        // Process backend certificates first
+        backendCertificates.forEach(backendCert => {
+            const key = backendCert._id || backendCert.id || backendCert.certificateNumber || backendCert.number;
+            const localCert = localCertMap.get(key);
+            
+            if (localCert) {
+                // Certificate exists in both backend and local
+                // Check if local version is more recent or has important changes
+                const localUpdatedAt = new Date(localCert.updatedAt || localCert.revokedAt || 0);
+                const backendUpdatedAt = new Date(backendCert.updatedAt || backendCert.revokedAt || 0);
+                
+                if (localUpdatedAt > backendUpdatedAt || localCert.status === 'revoked') {
+                    // Local version is more recent or has been revoked - use local
+                    mergedCertificates.push(localCert);
+                } else {
+                    // Backend version is more recent - use backend
+                    mergedCertificates.push(backendCert);
+                }
+                
+                // Remove from local map to avoid duplication
+                localCertMap.delete(key);
+            } else {
+                // Certificate only exists in backend
+                mergedCertificates.push(backendCert);
+            }
+        });
+        
+        // Add remaining local certificates (not in backend)
+        localCertMap.forEach(localCert => {
+            mergedCertificates.push(localCert);
+        });
+        
+        // Sort by creation date (newest first)
+        mergedCertificates.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.issueDate || 0);
+            const dateB = new Date(b.createdAt || b.issueDate || 0);
+            return dateB - dateA;
+        });
+        
+        if (typeof window !== 'undefined') {
+            window.currentCertificates = mergedCertificates;
+        }
+        
+        // Save the merged certificates back to local storage to ensure consistency
+        saveLocalCertificates(mergedCertificates);
+        
+        return mergedCertificates;
+        
+    } catch (error) {
+        
+        showMessage('Failed to load certificates: ' + error.message, 'error');
+        
+        const localCertificates = getLocalCertificates();
+        const fallbackCertificates = Array.isArray(localCertificates) 
+            ? localCertificates.map(cert => ({ ...cert, isFromBackend: false }))
+            : [];
+        
+        if (typeof window !== 'undefined') {
+            window.currentCertificates = fallbackCertificates;
+        }
+        
+        return fallbackCertificates;
+    }
+}
+
+async function loadCertificates() {
+    
+    
+    try {
+        const tableBody = document.getElementById('certificatesTableBody');
+        if (tableBody) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="loading">Loading certificates...</td>
+                </tr>
+            `;
+        }
+        
+        // Use the improved getCertificates function for consistent merging logic
+        const mergedCertificates = await getCertificates();
+        
+        if (typeof window !== 'undefined') {
+            window.currentCertificates = mergedCertificates;
+        }
+        
+        if (typeof displayCertificates === 'function') {
+            displayCertificates(mergedCertificates);
+        }
+        
+        
+        
+    } catch (error) {
+        
+        showMessage('Error loading certificates: ' + error.message, 'error');
+        
+        const localCertificates = getLocalCertificates();
+        if (typeof window !== 'undefined') {
+            window.currentCertificates = localCertificates;
+        }
+        
+        if (typeof displayCertificates === 'function') {
+            displayCertificates(localCertificates);
+        }
+    }
+}
+
+// ==================== TAB SWITCHING ====================
+
+function switchTab(tabName) {
+    
+    
+    const panels = document.querySelectorAll('.panel');
+    panels.forEach(panel => {
+        panel.classList.remove('active');
+    });
+    
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    const selectedPanel = document.getElementById('panel-' + tabName);
+    if (selectedPanel) {
+        selectedPanel.classList.add('active');
+    }
+    
+    const selectedNavItem = document.getElementById('btn-' + tabName);
+    if (selectedNavItem) {
+        selectedNavItem.classList.add('active');
+    }
+    
+    const headerTitle = document.getElementById('headerTitle');
+    if (headerTitle) {
+        headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    }
+    
+    // Show/hide pagination controls based on tab
+    const membersPaginationContainer = document.getElementById('membersPagination');
+    const certificatesPaginationContainer = document.getElementById('certificatesPagination');
+    
+    if (membersPaginationContainer) {
+        if (tabName === 'members') {
+            membersPaginationContainer.style.display = 'flex';
+        } else {
+            membersPaginationContainer.style.display = 'none';
+        }
+    }
+    
+    if (certificatesPaginationContainer) {
+        if (tabName === 'certificates') {
+            certificatesPaginationContainer.style.display = 'flex';
+        } else {
+            certificatesPaginationContainer.style.display = 'none';
+        }
+    }
+    
+    // Auto-load data based on tab
+    switch (tabName) {
+        case 'members':
+            if (!window.currentMembers || window.currentMembers.length === 0) {
+                
+                loadMembers();
+            } else {
+                
+                displayMembers(window.currentMembers);
+            }
+            break;
+            
+        case 'certificates':
+            if (!window.currentCertificates || window.currentCertificates.length === 0) {
+                
+                loadCertificates();
+            } else {
+                
+                displayCertificates(window.currentCertificates);
+            }
+            break;
+            
+        case 'dashboard':
+            
+            loadDashboard();
+            break;
+            
+        case 'analytics':
+            
+            loadAnalytics();
+            break;
+            
+        case 'system':
+            
+            loadSystemPage();
+            break;
+    }
+    
+    
+}
+
+// ==================== SIDEBAR FUNCTIONS ====================
+
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    const hamburger = document.querySelector('.hamburger-btn');
+    
+    
+    
+    if (sidebar) {
+        sidebar.classList.toggle('active');
+    }
+    
+    if (overlay) {
+        overlay.classList.toggle('active');
+    }
+    
+    if (hamburger) {
+        hamburger.classList.toggle('active');
+    }
+}
+
+// ==================== MODAL FUNCTIONS ====================
+
+function showAddMemberModal() {
+    const modal = document.getElementById('addMemberModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeAddMemberModal() {
+    const modal = document.getElementById('addMemberModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        // Reset form
+        const form = document.getElementById('addMemberForm');
+        if (form) {
+            form.reset();
+        }
+        // Clear password strength indicator
+        const strengthIndicator = document.getElementById('passwordStrength');
+        if (strengthIndicator) {
+            strengthIndicator.innerHTML = '';
+        }
+        // Clear file uploads
+        const passportInput = document.getElementById('memberPassport');
+        const signatureInput = document.getElementById('memberSignature');
+        if (passportInput) clearFileUpload(passportInput, 'passportLabel');
+        if (signatureInput) clearFileUpload(signatureInput, 'signatureLabel');
+    }
+}
+
+function showEditMemberModal(memberId) {
+    const modal = document.getElementById('editMemberModal');
+    if (modal) {
+        // Populate form with member data
+        const member = window.currentMembers?.find(m => m._id === memberId || m.id === memberId);
+        if (member) {
+            const form = document.getElementById('editMemberForm');
+            if (form) {
+                form.querySelector('#editMemberName').value = member.name || '';
+                form.querySelector('#editMemberEmail').value = member.email || '';
+                form.querySelector('#editMemberCode').value = member.code || '';
+                form.querySelector('#editMemberPosition').value = member.position || '';
+                form.querySelector('#editMemberState').value = member.state || '';
+                form.querySelector('#editMemberZone').value = member.zone || '';
+                form.dataset.memberId = memberId;
+            }
+        }
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeEditMemberModal() {
+    const modal = document.getElementById('editMemberModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        // Reset form
+        const form = document.getElementById('editMemberForm');
+        if (form) {
+            form.reset();
+            delete form.dataset.memberId;
+        }
+        // Clear file uploads
+        const passportInput = document.getElementById('editMemberPassport');
+        const signatureInput = document.getElementById('editMemberSignature');
+        if (passportInput) clearFileUpload(passportInput, 'editPassportLabel');
+        if (signatureInput) clearFileUpload(signatureInput, 'editSignatureLabel');
+    }
+}
+
+function showImportModal() {
+    const modal = document.getElementById('importModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeImportModal() {
+    const modal = document.getElementById('importModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        // Reset form
+        const form = document.getElementById('importForm');
+        if (form) {
+            form.reset();
+        }
+    }
+}
+
+// ==================== MEMBER DISPLAY FUNCTIONS ====================
+
+function displayMembers(members) {
+    const tableBody = document.getElementById('membersTableBody');
+    if (!tableBody) {
+        
+        return;
+    }
+    
+    // Ensure members is an array
+    if (!Array.isArray(members)) {
+        
+        members = [];
+    }
+    
+    if (members.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="no-data">No members found</td>
+            </tr>
+        `;
+        return;
+    }
+    
+    try {
+        tableBody.innerHTML = members.map((member, index) => {
+            // Ensure member is an object
+            if (!member || typeof member !== 'object') {
+                
+                return '';
+            }
+            
+            const memberId = member._id || member.id || '';
+            const name = member.name || 'N/A';
+            const email = member.email || 'N/A';
+            const code = member.code || 'N/A';
+            const position = member.position || 'N/A';
+            const state = member.state || 'N/A';
+            const zone = member.zone || 'N/A';
+            
+            const imageUrl = getImageUrl(member.passportPhoto || member.passport);
+            console.log('🔍 Image debug for member:', member.name, {
+                passportPhoto: member.passportPhoto,
+                passport: member.passport,
+                imageUrl: imageUrl
+            });
+            
+            const rowHTML = `
+                <tr>
+                    <td><img alt="Passport" class="img-thumbnail" height="50" width="50" src="${imageUrl}" onerror="this.src='${DEFAULT_AVATAR}'" onload="this.style.display='block'" style="display:none"></td>
+                    <td>${name}</td>
+                    <td>${email}</td>
+                    <td>${code}</td>
+                    <td>${position}</td>
+                    <td>${state}</td>
+                    <td>${zone}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewMember('${memberId}')" title="View Member">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            
+            return rowHTML;
+        }).join('');
+        
+        // Update members count
+        updateMembersCount();
+        
+    } catch (error) {
+        
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="error">Error displaying members</td>
+            </tr>
+        `;
+    }
+}
+
+function filterMembers() {
+    const searchTerm = document.getElementById('memberSearch')?.value.toLowerCase() || '';
+    const positionFilter = document.getElementById('positionFilter')?.value || '';
+    const stateFilter = document.getElementById('stateFilter')?.value || '';
+    
+    const members = window.currentMembers || [];
+    
+    const filteredMembers = members.filter(member => {
+        // Case-insensitive search across multiple fields
+        const matchesSearch = !searchTerm || 
+            (member.name && member.name.toLowerCase().includes(searchTerm)) ||
+            (member.email && member.email.toLowerCase().includes(searchTerm)) ||
+            (member.code && member.code.toLowerCase().includes(searchTerm)) ||
+            (member.position && member.position.toLowerCase().includes(searchTerm)) ||
+            (member.state && member.state.toLowerCase().includes(searchTerm)) ||
+            (member.zone && member.zone.toLowerCase().includes(searchTerm));
+        
+        // Case-insensitive filter matching
+        const matchesPosition = !positionFilter || 
+            (member.position && member.position.toLowerCase() === positionFilter.toLowerCase());
+        const matchesState = !stateFilter || 
+            (member.state && member.state.toLowerCase() === stateFilter.toLowerCase());
+        
+        return matchesSearch && matchesPosition && matchesState;
+    });
+    
+    displayMembers(filteredMembers);
+}
+
+function refreshMembers() {
+    
+    // Clear any cached data
+    window.currentMembers = null;
+    // Force reload
+    loadMembers();
+}
+
+async function deleteMember(memberId) {
+    if (!confirm('Are you sure you want to delete this member? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        showMessage('Deleting member...', 'info');
+        
+        const currentMembers = window.currentMembers || [];
+        const memberToDelete = currentMembers.find(member => 
+            member._id === memberId || member.id === memberId
+        );
+        
+        if (!memberToDelete) {
+            showMessage('Member not found', 'error');
+            return;
+        }
+        
+
+        
+        let isOnline = navigator.onLine;
+        let backendDeleteSuccess = false;
+        
+        // Try to delete from backend if online and member exists in backend
+        if (isOnline && memberToDelete.isFromBackend && !memberToDelete._id.startsWith('local_')) {
+            try {
+
+                const response = await fetch(`${backendUrl}/api/deleteUser/${memberToDelete._id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+
+                    backendDeleteSuccess = true;
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                
+                isOnline = false;
+            }
+        }
+        
+        // Always remove from local storage and current members
+        const updatedMembers = currentMembers.filter(member => 
+            member._id !== memberId && member.id !== memberId
+        );
+        window.currentMembers = updatedMembers;
+        
+        // Save to local storage immediately
+        saveLocalMembers(updatedMembers);
+
+        
+        // Add to pending sync if backend deletion failed or member was local
+        if (!backendDeleteSuccess) {
+            const pendingSync = getPendingSync();
+            pendingSync.memberDeletions.push({
+                _id: memberToDelete._id || memberToDelete.id,
+                code: memberToDelete.code,
+                name: memberToDelete.name,
+                email: memberToDelete.email
+            });
+            savePendingSync(pendingSync);
+
+            
+            if (!isOnline) {
+                showMessage('Member deleted locally. Will sync with database when online.', 'warning');
+            } else {
+                showMessage('Member deleted locally. Will retry database sync.', 'warning');
+            }
+        } else {
+            showMessage('Member deleted successfully from both local storage and database!', 'success');
+        }
+        
+        // Update display and sync status
+        displayMembers(updatedMembers);
+        updateSyncStatus();
+        
+        // Refresh dashboard stats and recent activity
+        if (typeof loadDashboardStats === 'function') {
+            await loadDashboardStats();
+        }
+        if (typeof loadRecentActivity === 'function') {
+            await loadRecentActivity();
+        }
+        
+
+        
+    } catch (error) {
+        
+        showMessage('Failed to delete member: ' + error.message, 'error');
+    }
+}
+
+// ==================== VIEW MEMBER FUNCTION ====================
+
+async function viewMember(memberId) {
+    try {
+        const currentMembers = window.currentMembers || [];
+        const member = currentMembers.find(m => 
+            m._id === memberId || m.id === memberId
+        );
+        
+        if (!member) {
+            showMessage('Member not found', 'error');
+            return;
+        }
+        
+        // Create and show the view modal
+        showViewMemberModal(member);
+        
+    } catch (error) {
+        
+        showMessage('Failed to view member: ' + error.message, 'error');
+    }
+}
+
+function showViewMemberModal(member) {
+    // Create modal HTML
+    const modalHTML = `
+        <div id="viewMemberModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>View Member Details</h3>
+                    <button class="close-btn" onclick="closeViewMemberModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="member-view-container">
+                        <div class="member-photo-section">
+                            <img src="${getImageUrl(member.passportPhoto || member.passport)}" 
+                                 alt="Member Photo" 
+                                 class="member-view-photo"
+                                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K'">
+                        </div>
+                        <div class="member-details-section">
+                            <div class="detail-row">
+                                <label>Full Name:</label>
+                                <span>${member.name || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>Email:</label>
+                                <span>${member.email || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>NARAP Code:</label>
+                                <span>${member.code || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>Position:</label>
+                                <span>${member.position || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>State:</label>
+                                <span>${member.state || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>Zone:</label>
+                                <span>${member.zone || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>Phone:</label>
+                                <span>${member.phone || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>Address:</label>
+                                <span>${member.address || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>Member Since:</label>
+                                <span>${member.dateAdded ? new Date(member.dateAdded).toLocaleDateString() : 
+                                        member.createdAt ? new Date(member.createdAt).toLocaleDateString() : 
+                                        member.joinDate ? new Date(member.joinDate).toLocaleDateString() : 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <label>Status:</label>
+                                <span class="status-badge ${member.isActive !== false ? 'active' : 'inactive'}">
+                                    ${member.isActive !== false ? 'Active' : 'Inactive'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeViewMemberModal()">Close</button>
+                    <button class="btn btn-warning" onclick="showEditMemberModal('${member._id || member.id}')">Edit Member</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Show modal
+    document.getElementById('viewMemberModal').style.display = 'flex';
+}
+
+function closeViewMemberModal() {
+    const modal = document.getElementById('viewMemberModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function editMember(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const memberId = form.dataset.memberId;
+    
+    if (!memberId) {
+        showMessage('Member ID not found', 'error');
+        return;
+    }
+    
+    const formData = {
+        name: form.querySelector('#editMemberName').value.trim(),
+        email: form.querySelector('#editMemberEmail').value.trim(),
+        code: form.querySelector('#editMemberCode').value.trim(),
+        position: form.querySelector('#editMemberPosition').value,
+        state: form.querySelector('#editMemberState').value.trim(),
+        zone: form.querySelector('#editMemberZone').value.trim()
+    };
+    
+    // Create FormData for file upload
+    const formDataObj = new FormData();
+    
+    // Add text fields
+    formDataObj.append('name', formData.name);
+    formDataObj.append('email', formData.email);
+    formDataObj.append('code', formData.code);
+    formDataObj.append('position', formData.position);
+    formDataObj.append('state', formData.state);
+    formDataObj.append('zone', formData.zone);
+    
+    // Add files
+    const passportInput = document.getElementById('editMemberPassport');
+    const signatureInput = document.getElementById('editMemberSignature');
+    
+    if (passportInput && passportInput.files[0]) {
+        formDataObj.append('passportPhoto', passportInput.files[0]);
+    }
+    if (signatureInput && signatureInput.files[0]) {
+        formDataObj.append('signature', signatureInput.files[0]);
+    }
+    
+    // Validate required fields
+    if (!formData.name || !formData.code || !formData.position) {
+        showMessage('Please fill in all required fields (Name, Code, Position)', 'error');
+        return;
+    }
+    
+    try {
+        showMessage('Updating member...', 'info');
+        
+        const currentMembers = window.currentMembers || [];
+        const memberIndex = currentMembers.findIndex(member => 
+            member._id === memberId || member.id === memberId
+        );
+        
+        if (memberIndex === -1) {
+            showMessage('Member not found', 'error');
+            return;
+        }
+        
+        const originalMember = currentMembers[memberIndex];
+        let isOnline = navigator.onLine;
+        
+        // Try to update in backend if online and member exists in backend
+        let backendResponse = null;
+        if (isOnline && originalMember.isFromBackend && !originalMember._id.startsWith('local_')) {
+            try {
+                const response = await fetch(`${backendUrl}/api/updateUser/${memberId}`, {
+                    method: 'PUT',
+                    body: formDataObj // Don't set Content-Type header for FormData
+                });
+                
+                if (response.ok) {
+                    backendResponse = await response.json();
+                    
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                
+                isOnline = false;
+            }
+        }
+        
+        // Update member in current members
+        const updatedMember = {
+            ...originalMember,
+            ...formData,
+            updatedAt: new Date().toISOString(),
+            pendingSync: !isOnline
+        };
+        
+        // Handle file data - always use multipart/form-data approach
+        const passportInput = document.getElementById('editMemberPassport');
+        const signatureInput = document.getElementById('editMemberSignature');
+        
+        // Store file references for offline sync
+        if (passportInput && passportInput.files[0]) {
+            updatedMember.passportFile = passportInput.files[0]; // Store file reference
+            
+        }
+        
+        if (signatureInput && signatureInput.files[0]) {
+            updatedMember.signatureFile = signatureInput.files[0]; // Store file reference
+            
+        }
+        
+        // For online storage, use the filename from backend response
+        if (isOnline && backendResponse && backendResponse.data && backendResponse.data.passportPhoto) {
+            updatedMember.passportPhoto = backendResponse.data.passportPhoto;
+            
+        }
+        if (isOnline && backendResponse && backendResponse.data && backendResponse.data.signature) {
+            updatedMember.signature = backendResponse.data.signature;
+            
+        }
+        
+        const updatedMembers = [...currentMembers];
+        updatedMembers[memberIndex] = updatedMember;
+        window.currentMembers = updatedMembers;
+        
+
+        
+        // Save to local storage
+        saveLocalMembers(updatedMembers);
+        
+        // Add to pending sync if offline
+        if (!isOnline) {
+            const pendingSync = getPendingSync();
+            pendingSync.memberUpdates.push(updatedMember);
+            savePendingSync(pendingSync);
+            showMessage('Member updated locally. Will sync when online.', 'warning');
+        } else {
+            showMessage('Member updated successfully!', 'success');
+        }
+        
+        closeEditMemberModal();
+        displayMembers(updatedMembers);
+        updateSyncStatus();
+        
+        // Refresh dashboard stats and recent activity
+        if (typeof loadDashboardStats === 'function') {
+            await loadDashboardStats();
+        }
+        if (typeof loadRecentActivity === 'function') {
+            await loadRecentActivity();
+        }
+        
+    } catch (error) {
+        
+        showMessage('Failed to update member: ' + error.message, 'error');
+    }
+}
+
+// ==================== CERTIFICATE DISPLAY FUNCTIONS ====================
+
+function displayCertificates(certificates) {
+    const tableBody = document.getElementById('certificatesTableBody');
+    if (!tableBody) return;
+    
+    if (!certificates || certificates.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="no-data" style="text-align: center; padding: 40px; color: #6c757d; font-style: italic;">
+                    No certificates found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tableBody.innerHTML = certificates.map((certificate, index) => {
+        // Ensure all data is properly formatted
+        const certificateNumber = certificate.certificateNumber || certificate.number || 'N/A';
+        const recipientName = certificate.recipientName || certificate.name || 'N/A';
+        const title = certificate.title || certificate.certificateTitle || 'N/A';
+        const issueDate = certificate.issueDate ? new Date(certificate.issueDate).toLocaleDateString() : 'N/A';
+        const status = certificate.status || 'Active';
+        const statusClass = status.toLowerCase();
+        const certificateId = certificate._id || certificate.id || '';
+        
+        // Ensure title is properly formatted and aligned
+        const formattedTitle = title.trim() || 'N/A';
+        
+        return `
+            <tr>
+                <td>${certificateNumber}</td>
+                <td>${recipientName}</td>
+                <td class="title-cell">${formattedTitle}</td>
+                <td>${issueDate}</td>
+                <td>
+                    <span class="status-badge ${statusClass}">
+                        ${status}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-info" onclick="viewCertificate('${certificateId}')" title="View Certificate">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="editCertificate('${certificateId}')" title="Edit Certificate">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="downloadCertificate('${certificateId}')" title="Download Certificate">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteCertificate('${certificateId}')" title="Delete Certificate">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="revokeCertificate('${certificateId}')" title="Revoke Certificate">
+                            <i class="fas fa-ban"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function viewCertificate(certificateId) {
+    try {
+        const certificates = window.currentCertificates || getLocalCertificates();
+        const certificate = certificates.find(cert => 
+            cert._id === certificateId || cert.id === certificateId
+        );
+        
+        if (!certificate) {
+            showMessage('Certificate not found', 'error');
+            return;
+        }
+        
+        // Create beautiful certificate view modal
+        showCertificateViewModal(certificate);
+        
+    } catch (error) {
+        
+        showMessage('Failed to view certificate', 'error');
+    }
+}
+
+function showCertificateViewModal(certificate) {
+    // Create modal HTML with modern document preview UI
+    const modalHTML = `
+        <div id="certificateViewModal" class="modal-overlay document-preview-overlay">
+            <div class="modal-content document-preview-modal">
+                <div class="document-preview-header">
+                    <div class="preview-title">
+                        <h3>Certificate Preview</h3>
+                        <span class="certificate-info">${certificate.certificateNumber || certificate.number || 'N/A'} - ${certificate.recipientName || certificate.name || 'N/A'}</span>
+                    </div>
+                    <button class="close-btn" onclick="closeCertificateViewModal()">&times;</button>
+                </div>
+                
+                <div class="document-preview-toolbar">
+                    <div class="toolbar-left">
+                        <div class="zoom-controls">
+                            <button class="toolbar-btn" onclick="zoomOut()" title="Zoom Out">
+                                <i class="fas fa-search-minus"></i>
+                            </button>
+                            <span class="zoom-level" id="zoomLevel">100%</span>
+                            <button class="toolbar-btn" onclick="zoomIn()" title="Zoom In">
+                                <i class="fas fa-search-plus"></i>
+                            </button>
+                            <button class="toolbar-btn" onclick="toggleFitToScreen()" title="Fit to Screen" id="fitToScreenBtn">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar-center">
+                        <div class="page-navigation" id="pageNavigation" style="display: none;">
+                            <button class="toolbar-btn" onclick="previousPage()" title="Previous Page">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span class="page-indicator" id="pageIndicator">Page 1 of 1</span>
+                            <button class="toolbar-btn" onclick="nextPage()" title="Next Page">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar-right">
+                        <button class="toolbar-btn primary" onclick="editCertificate('${certificate._id || certificate.id}')" title="Edit Certificate">
+                            <i class="fas fa-edit"></i>
+                            <span>Edit</span>
+                        </button>
+                        <button class="toolbar-btn success" onclick="downloadCertificate('${certificate._id || certificate.id}')" title="Download PDF">
+                            <i class="fas fa-download"></i>
+                            <span>Download</span>
+                        </button>
+                        <button class="toolbar-btn info" onclick="printCertificate('${certificate._id || certificate.id}')" title="Print Certificate">
+                            <i class="fas fa-print"></i>
+                            <span>Print</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="document-preview-container">
+                    <div class="document-preview-wrapper" id="documentPreviewWrapper">
+                        <div class="document-preview-content" id="documentPreviewContent">
+                            ${generateCertificateHTML(certificate)}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="document-preview-footer">
+                    <div class="footer-info">
+                        <span class="certificate-status">
+                            Status: <span class="status-badge ${certificate.status || 'active'}">${certificate.status || 'Active'}</span>
+                        </span>
+                        <span class="certificate-date">
+                            Issued: ${certificate.issueDate ? new Date(certificate.issueDate).toLocaleDateString() : 'N/A'}
+                        </span>
+                    </div>
+                    <div class="footer-actions">
+                        <button class="btn btn-secondary" onclick="closeCertificateViewModal()">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Show modal
+    document.getElementById('certificateViewModal').style.display = 'flex';
+    
+    // Initialize document preview functionality
+    initializeDocumentPreview();
+}
+
+function closeCertificateViewModal() {
+    const modal = document.getElementById('certificateViewModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// ==================== DOCUMENT PREVIEW FUNCTIONALITY ====================
+
+let currentZoom = 100;
+let isFitToScreen = false;
+let currentPage = 1;
+let totalPages = 1;
+
+function initializeDocumentPreview() {
+    currentZoom = 100;
+    isFitToScreen = false;
+    currentPage = 1;
+    totalPages = 1;
+    
+    updateZoomDisplay();
+    updatePageDisplay();
+}
+
+function zoomIn() {
+    if (currentZoom < 300) {
+        currentZoom += 25;
+        applyZoom();
+    }
+}
+
+function zoomOut() {
+    if (currentZoom > 25) {
+        currentZoom -= 25;
+        applyZoom();
+    }
+}
+
+function toggleFitToScreen() {
+    isFitToScreen = !isFitToScreen;
+    const fitBtn = document.getElementById('fitToScreenBtn');
+    
+    if (isFitToScreen) {
+        fitToScreen();
+        if (fitBtn) {
+            fitBtn.innerHTML = '<i class="fas fa-compress"></i>';
+            fitBtn.title = 'Actual Size';
+        }
+    } else {
+        resetZoom();
+        if (fitBtn) {
+            fitBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            fitBtn.title = 'Fit to Screen';
+        }
+    }
+}
+
+function fitToScreen() {
+    const container = document.getElementById('documentPreviewWrapper');
+    const content = document.getElementById('documentPreviewContent');
+    
+    if (container && content) {
+        const containerRect = container.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        
+        const scaleX = (containerRect.width - 40) / contentRect.width;
+        const scaleY = (containerRect.height - 40) / contentRect.height;
+        const scale = Math.min(scaleX, scaleY, 1);
+        
+        currentZoom = Math.round(scale * 100);
+        applyZoom();
+    }
+}
+
+function resetZoom() {
+    currentZoom = 100;
+    applyZoom();
+}
+
+function applyZoom() {
+    const content = document.getElementById('documentPreviewContent');
+    if (content) {
+        content.style.transform = `scale(${currentZoom / 100})`;
+        content.style.transformOrigin = 'top left';
+        updateZoomDisplay();
+    }
+}
+
+function updateZoomDisplay() {
+    const zoomLevel = document.getElementById('zoomLevel');
+    if (zoomLevel) {
+        zoomLevel.textContent = `${currentZoom}%`;
+    }
+}
+
+function previousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        updatePageDisplay();
+        // Here you would load the previous page content
+    }
+}
+
+function nextPage() {
+    if (currentPage < totalPages) {
+        currentPage++;
+        updatePageDisplay();
+        // Here you would load the next page content
+    }
+}
+
+function updatePageDisplay() {
+    const pageIndicator = document.getElementById('pageIndicator');
+    const pageNavigation = document.getElementById('pageNavigation');
+    
+    if (pageIndicator) {
+        pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+    }
+    
+    if (pageNavigation) {
+        pageNavigation.style.display = totalPages > 1 ? 'flex' : 'none';
+    }
+}
+
+function downloadCertificate(certificateId) {
+    try {
+        const certificates = window.currentCertificates || getLocalCertificates();
+        const certificate = certificates.find(cert => 
+            cert._id === certificateId || cert.id === certificateId
+        );
+        
+        if (!certificate) {
+            showMessage('Certificate not found', 'error');
+            return;
+        }
+        
+        // Generate certificate content
+        const certificateHTML = generateCertificateHTML(certificate);
+        const filename = `certificate_${certificate.certificateNumber || certificate.number || certificateId}.html`;
+        
+        downloadFile(certificateHTML, filename, 'text/html');
+        showMessage('Certificate downloaded successfully!', 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to download certificate', 'error');
+    }
+}
+
+// ==================== ENHANCED CERTIFICATE ACTIONS ====================
+
+async function editCertificate(certificateId) {
+    try {
+        const certificates = window.currentCertificates || getLocalCertificates();
+        const certificate = certificates.find(cert => 
+            cert._id === certificateId || cert.id === certificateId
+        );
+        
+        if (!certificate) {
+            showMessage('Certificate not found', 'error');
+            return;
+        }
+        
+        // Populate the certificate form with existing data
+        const fields = {
+            'certificateNumber': certificate.certificateNumber || certificate.number || '',
+            'certificateSerialNumber': certificate.serialNumber || certificate.certificateSerialNumber || '',
+            'certificateRecipient': certificate.recipientName || certificate.name || '',
+            'certificateEmail': certificate.email || '',
+            'certificateTitle': certificate.title || certificate.certificateTitle || '',
+            'certificateType': certificate.type || certificate.certificateType || '',
+            'certificateIssueDate': certificate.issueDate ? new Date(certificate.issueDate).toISOString().split('T')[0] : '',
+            'certificateValidUntil': certificate.validUntil ? new Date(certificate.validUntil).toISOString().split('T')[0] : '',
+            'certificatePosition': certificate.position || '',
+            'certificateCode': certificate.code || '',
+            'certificateState': certificate.state || '',
+            'certificateZone': certificate.zone || '',
+            'certificateDescription': certificate.description || certificate.certificateDescription || ''
+        };
+        
+        // Fill the form fields
+        Object.entries(fields).forEach(([fieldId, value]) => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.value = value;
+            }
+        });
+        
+        // Store the certificate ID for update
+        document.getElementById('issueCertificateForm').dataset.certificateId = certificateId;
+        
+        // Change modal title and button
+        const modalTitle = document.querySelector('#issueCertificateModal .modal-title');
+        const submitButton = document.querySelector('#issueCertificateForm button[type="submit"]');
+        
+        if (modalTitle) modalTitle.textContent = 'Edit Certificate';
+        if (submitButton) {
+            submitButton.innerHTML = '<i class="fas fa-save"></i> Update Certificate';
+            submitButton.onclick = updateCertificate;
+        }
+        
+        // Show the modal
+        showIssueCertificateModal();
+        
+    } catch (error) {
+        
+        showMessage('Failed to edit certificate', 'error');
+    }
+}
+
+async function updateCertificate(event) {
+    event.preventDefault();
+    
+    try {
+        const certificateId = document.getElementById('issueCertificateForm').dataset.certificateId;
+        if (!certificateId) {
+            showMessage('Certificate ID not found', 'error');
+            return;
+        }
+        
+        const formData = getCertificateFormData();
+        formData._id = certificateId;
+        
+        const certificates = window.currentCertificates || getLocalCertificates();
+        const certificateIndex = certificates.findIndex(cert => 
+            cert._id === certificateId || cert.id === certificateId
+        );
+        
+        if (certificateIndex === -1) {
+            showMessage('Certificate not found', 'error');
+            return;
+        }
+        
+        // Update the certificate
+        certificates[certificateIndex] = {
+            ...certificates[certificateIndex],
+            ...formData,
+            updatedAt: new Date().toISOString()
+        };
+        
+        window.currentCertificates = certificates;
+        saveLocalCertificates(certificates);
+        
+        // Reset form and close modal
+        document.getElementById('issueCertificateForm').reset();
+        document.getElementById('issueCertificateForm').dataset.certificateId = '';
+        
+        // Reset modal title and button
+        const modalTitle = document.querySelector('#issueCertificateModal .modal-title');
+        const submitButton = document.querySelector('#issueCertificateForm button[type="submit"]');
+        
+        if (modalTitle) modalTitle.textContent = 'Issue Certificate';
+        if (submitButton) {
+            submitButton.innerHTML = '<i class="fas fa-certificate"></i> Issue Certificate';
+            submitButton.onclick = issueCertificate;
+        }
+        
+        closeIssueCertificateModal();
+        displayCertificates(certificates);
+        
+        showMessage('Certificate updated successfully!', 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to update certificate', 'error');
+    }
+}
+
+async function deleteCertificate(certificateId) {
+    if (!confirm('Are you sure you want to delete this certificate? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        showMessage('Deleting certificate...', 'info');
+        
+        const certificates = window.currentCertificates || getLocalCertificates();
+        const certificateToDelete = certificates.find(cert => 
+            cert._id === certificateId || cert.id === certificateId
+        );
+        
+        if (!certificateToDelete) {
+            showMessage('Certificate not found', 'error');
+            return;
+        }
+        
+        // Remove from local storage first
+        const updatedCertificates = certificates.filter(cert => 
+            cert._id !== certificateId && cert.id !== certificateId
+        );
+        
+        window.currentCertificates = updatedCertificates;
+        saveLocalCertificates(updatedCertificates);
+        
+        // Update display immediately for better UX
+        displayCertificates(updatedCertificates);
+        
+        // Refresh analytics if analytics tab is active
+        const analyticsPanel = document.getElementById('panel-analytics');
+        if (analyticsPanel && analyticsPanel.classList.contains('active')) {
+            
+            loadAnalytics();
+        }
+        
+        // Try to sync with backend if online
+        if (navigator.onLine) {
+            try {
+                
+                
+                // Delete certificate from backend
+                const response = await fetch(`${backendUrl}/api/certificates/${certificateId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    
+                    showMessage('Certificate deleted successfully and synced with server!', 'success');
+                } else {
+                    
+                    showMessage('Certificate deleted locally. Will sync when connection is restored.', 'warning');
+                    
+                    // Add to pending sync for later
+                    const pendingSync = getPendingSync();
+                    pendingSync.certificates.push({
+                        action: 'delete',
+                        data: { id: certificateId },
+                        timestamp: new Date().toISOString()
+                    });
+                    savePendingSync(pendingSync);
+                }
+            } catch (backendError) {
+                
+                showMessage('Certificate deleted locally. Will sync when connection is restored.', 'warning');
+                
+                // Add to pending sync for later
+                const pendingSync = getPendingSync();
+                pendingSync.certificates.push({
+                    action: 'delete',
+                    data: { id: certificateId },
+                    timestamp: new Date().toISOString()
+                });
+                savePendingSync(pendingSync);
+            }
+        } else {
+            // Offline mode - just delete locally
+            
+            showMessage('Certificate deleted locally. Will sync when connection is restored.', 'info');
+            
+            // Add to pending sync for later
+            const pendingSync = getPendingSync();
+            pendingSync.certificates.push({
+                action: 'delete',
+                data: { id: certificateId },
+                timestamp: new Date().toISOString()
+            });
+            savePendingSync(pendingSync);
+        }
+        
+    } catch (error) {
+        
+        showMessage('Failed to delete certificate', 'error');
+    }
+}
+
+async function revokeCertificate(certificateId) {
+    if (!confirm('Are you sure you want to revoke this certificate? This will mark it as revoked.')) {
+        return;
+    }
+    
+    try {
+        showMessage('Revoking certificate...', 'info');
+        
+        const certificates = window.currentCertificates || getLocalCertificates();
+        const certificateIndex = certificates.findIndex(cert => 
+            cert._id === certificateId || cert.id === certificateId
+        );
+        
+        if (certificateIndex === -1) {
+            showMessage('Certificate not found', 'error');
+            return;
+        }
+        
+        const certificateToRevoke = certificates[certificateIndex];
+        
+        // Update certificate status to revoked
+        const updatedCertificate = {
+            ...certificateToRevoke,
+            status: 'revoked',
+            revokedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        // Update local storage first
+        certificates[certificateIndex] = updatedCertificate;
+        window.currentCertificates = certificates;
+        saveLocalCertificates(certificates);
+        
+        // Update display immediately for better UX
+        displayCertificates(certificates);
+        
+        // Refresh analytics if analytics tab is active
+        const analyticsPanel = document.getElementById('panel-analytics');
+        if (analyticsPanel && analyticsPanel.classList.contains('active')) {
+            
+            loadAnalytics();
+        }
+        
+        // Try to sync with backend if online
+        if (navigator.onLine) {
+            try {
+                
+                
+                // Update certificate in backend
+                const response = await fetch(`${backendUrl}/api/certificates/${certificateId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updatedCertificate)
+                });
+                
+                if (response.ok) {
+                    
+                    showMessage('Certificate revoked successfully and synced with server!', 'success');
+                } else {
+                    
+                    showMessage('Certificate revoked locally. Will sync when connection is restored.', 'warning');
+                    
+                    // Add to pending sync for later
+                    const pendingSync = getPendingSync();
+                    pendingSync.certificates.push({
+                        action: 'update',
+                        data: updatedCertificate,
+                        timestamp: new Date().toISOString()
+                    });
+                    savePendingSync(pendingSync);
+                }
+            } catch (backendError) {
+                
+                showMessage('Certificate revoked locally. Will sync when connection is restored.', 'warning');
+                
+                // Add to pending sync for later
+                const pendingSync = getPendingSync();
+                pendingSync.certificates.push({
+                    action: 'update',
+                    data: updatedCertificate,
+                    timestamp: new Date().toISOString()
+                });
+                savePendingSync(pendingSync);
+            }
+        } else {
+            // Offline mode - just update locally
+            
+            showMessage('Certificate revoked locally. Will sync when connection is restored.', 'info');
+            
+            // Add to pending sync for later
+            const pendingSync = getPendingSync();
+            pendingSync.certificates.push({
+                action: 'update',
+                data: updatedCertificate,
+                timestamp: new Date().toISOString()
+            });
+            savePendingSync(pendingSync);
+        }
+        
+    } catch (error) {
+        
+        showMessage('Failed to revoke certificate', 'error');
+    }
+}
+
+// ==================== THEME AND UI FUNCTIONS ====================
+
+function toggleTheme() {
+    const body = document.body;
+    const themeToggle = document.getElementById('themeToggle');
+    
+    if (body.classList.contains('dark-theme')) {
+        body.classList.remove('dark-theme');
+        localStorage.setItem('narap_theme', 'light');
+        if (themeToggle) {
+            themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+            themeToggle.title = 'Switch to Dark Theme';
+        }
+    } else {
+        body.classList.add('dark-theme');
+        localStorage.setItem('narap_theme', 'dark');
+        if (themeToggle) {
+            themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            themeToggle.title = 'Switch to Light Theme';
+        }
+    }
+}
+
+// ==================== CERTIFICATE MODAL FUNCTIONS ====================
+
+function showIssueCertificateModal() {
+    const modal = document.getElementById('issueCertificateModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeIssueCertificateModal() {
+    const modal = document.getElementById('issueCertificateModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        // Reset form
+        const form = document.getElementById('issueCertificateForm');
+        if (form) {
+            form.reset();
+        }
+    }
+}
+
+function closeViewCertificateModal() {
+    const modal = document.getElementById('viewCertificateModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+function closeViewIdCardModal() {
+    const modal = document.getElementById('viewIdCardModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// ==================== CERTIFICATE HELPER FUNCTIONS ====================
+
+function getCertificateFormData() {
+    try {
+        
+        
+        // Get form values directly by ID since FormData requires name attributes
+        const data = {
+            certificateNumber: document.getElementById('certificateNumber')?.value || '',
+            certificateSerialNumber: document.getElementById('certificateSerialNumber')?.value || '',
+            certificateRecipient: document.getElementById('certificateRecipient')?.value || '',
+            certificateEmail: document.getElementById('certificateEmail')?.value || '',
+            certificateTitle: document.getElementById('certificateTitle')?.value || '',
+            certificateType: document.getElementById('certificateType')?.value || '',
+            certificateIssueDate: document.getElementById('certificateIssueDate')?.value || '',
+            certificateValidUntil: document.getElementById('certificateValidUntil')?.value || '',
+            certificatePosition: document.getElementById('certificatePosition')?.value || '',
+            certificateCode: document.getElementById('certificateCode')?.value || '',
+            certificateState: document.getElementById('certificateState')?.value || '',
+            certificateDescription: document.getElementById('certificateDescription')?.value || ''
+        };
+        
+        
+        
+        // Ensure certificate number is always generated and unique
+        if (!data.certificateNumber || data.certificateNumber.trim() === '') {
+            data.certificateNumber = generateUniqueCertificateNumber();
+            
+        }
+        
+        // Ensure serial number is always generated
+        if (!data.certificateSerialNumber || data.certificateSerialNumber.trim() === '') {
+            data.certificateSerialNumber = generateUniqueSerialNumber();
+            
+        }
+        
+        // Validate required fields
+        const requiredFields = [
+            'certificateRecipient', 'certificateEmail', 'certificateTitle', 
+            'certificateType', 'certificateIssueDate'
+        ];
+        
+        
+        for (const field of requiredFields) {
+            const value = data[field];
+            
+            if (!value || value.trim() === '') {
+                
+                return null;
+            }
+        }
+        
+        
+        
+        // Map form data to certificate structure
+        const certificateData = {
+            // Backend expects these field names
+            number: data.certificateNumber,
+            recipient: data.certificateRecipient,
+            title: data.certificateTitle,
+            email: data.certificateEmail,
+            type: data.certificateType,
+            issueDate: data.certificateIssueDate,
+            validUntil: data.certificateValidUntil || null,
+            description: data.certificateDescription || '',
+            
+            // Additional fields for local storage
+            certificateNumber: data.certificateNumber,
+            serialNumber: data.certificateSerialNumber,
+            recipientName: data.certificateRecipient,
+            position: data.certificatePosition || '',
+            code: data.certificateCode || '',
+            state: data.certificateState || '',
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            _id: 'local_' + Date.now()
+        };
+        
+        
+        return certificateData;
+        
+    } catch (error) {
+        
+        return null;
+    }
+}
+
+function generateUniqueCertificateNumber() {
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const certificateNumber = `NARAP-CERT-${timestamp}-${randomSuffix}`;
+    
+    // Check if this certificate number already exists in local storage
+    const existingCertificates = getLocalCertificates() || [];
+    const isDuplicate = existingCertificates.some(cert => 
+        cert.certificateNumber === certificateNumber || cert.number === certificateNumber
+    );
+    
+    if (isDuplicate) {
+        // If duplicate, generate a new one with additional randomness
+        return generateUniqueCertificateNumber();
+    }
+    
+    return certificateNumber;
+}
+
+function generateUniqueSerialNumber() {
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `SN-${timestamp}-${randomSuffix}`;
+}
+
+function generateCertificateHTML(certificate) {
+    const issueDate = certificate.issueDate ? new Date(certificate.issueDate).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    }) : 'N/A';
+    
+    return `
+        <div class="certificate-container">
+            <div class="certificate">
+                <!-- Header Section -->
+                <div class="certificate-header">
+                    <div class="logo-section">
+                        <img src="/images/narap-logo.jpg" alt="NARAP Logo" class="logo">
+                    </div>
+                    <div class="organization-info">
+                        <h1 class="org-name">NARAP</h1>
+                        <p class="org-full-name">National Association of Refrigeration and Air Conditioning Professionals</p>
+                    </div>
+                </div>
+                
+                <!-- Main Certificate Content -->
+                <div class="certificate-body">
+                    <div class="certificate-title">
+                        <h2>${certificate.title || 'Certificate of Membership'}</h2>
+                        <div class="title-decoration"></div>
+                    </div>
+                    
+                    <div class="certificate-content">
+                        <div class="presentation-text">
+                            <p class="presentation">This is to certify that</p>
+                        </div>
+                        
+                        <div class="recipient-info">
+                            <h3 class="recipient-name">${certificate.recipientName || certificate.name}</h3>
+                            <p class="recipient-description">has successfully completed all requirements and demonstrated exceptional competence in the field of Refrigeration and Air Conditioning. This certificate is hereby granted in recognition of their professional achievements.</p>
+                        </div>
+                        
+                        <div class="certificate-details">
+                            <div class="details-grid">
+                                <div class="detail-item">
+                                    <span class="detail-label">Certificate Number:</span>
+                                    <span class="detail-value">${certificate.certificateNumber || certificate.number}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Issue Date:</span>
+                                    <span class="detail-value">${issueDate}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Position:</span>
+                                    <span class="detail-value">${certificate.position || 'Member'}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">State:</span>
+                                    <span class="detail-value">${certificate.state || 'N/A'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Signature Section -->
+                <div class="certificate-signature">
+                    <div class="signature-area">
+                        <div class="signature-line"></div>
+                        <p class="signature-title">Authorized Signature</p>
+                        <p class="signature-name">NARAP Executive Director</p>
+                    </div>
+                    <div class="official-seal">
+                        <div class="seal-circle">
+                            <span>NARAP</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Footer Section -->
+                <div class="certificate-footer">
+                    <div class="footer-content">
+                        <p class="footer-text">This certificate is issued by NARAP and is valid for professional recognition.</p>
+                        <div class="certificate-meta">
+                            <span class="meta-item">Certificate ID: ${certificate.certificateNumber || certificate.number}</span>
+                            <span class="meta-item">Issue Date: ${issueDate}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function issueCertificate(event) {
+    event.preventDefault();
+    
+    try {
+        
+        showMessage('Issuing certificate...', 'info');
+        
+        // Get form data
+        const certificateData = getCertificateFormData();
+        
+        if (!certificateData) {
+            
+            showMessage('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        
+        
+        // Try to save to backend first
+        let backendSuccess = false;
+        if (navigator.onLine) {
+            try {
+                // Prepare data for backend (only required fields)
+                const backendData = {
+                    number: certificateData.number,
+                    recipient: certificateData.recipient,
+                    title: certificateData.title,
+                    email: certificateData.email,
+                    type: certificateData.type,
+                    issueDate: certificateData.issueDate,
+                    validUntil: certificateData.validUntil,
+                    description: certificateData.description
+                };
+                
+                const response = await fetch(`${backendUrl}/api/certificates`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(backendData)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.certificate) {
+                        certificateData._id = result.certificate._id;
+                        backendSuccess = true;
+                    }
+                }
+            } catch (error) {
+                
+            }
+        }
+        
+        // Save to local storage
+        const localCertificates = getLocalCertificates() || [];
+        localCertificates.push(certificateData);
+        saveLocalCertificates(localCertificates);
+        
+        // Add to pending sync if backend failed
+        if (!backendSuccess) {
+            const pendingSync = getPendingSync();
+            pendingSync.certificateCreations.push(certificateData);
+            savePendingSync(pendingSync);
+        }
+        
+        // Update current certificates
+        window.currentCertificates = localCertificates;
+        
+        // Close modal and refresh
+        closeIssueCertificateModal();
+        displayCertificates(localCertificates);
+        
+        showMessage('Certificate issued successfully!', 'success');
+        
+        // Refresh dashboard if on dashboard
+        const activePanel = document.querySelector('.panel.active');
+        if (activePanel && activePanel.id === 'panel-dashboard') {
+            loadDashboard();
+        }
+        
+    } catch (error) {
+        
+        showMessage('Failed to issue certificate: ' + error.message, 'error');
+    }
+}
+
+async function autoFillCertificateFields() {
+    try {
+        const email = document.getElementById('certificateEmail').value;
+        if (!email) return;
+        
+        
+        
+        let member = null;
+        
+        // First check local members
+        const localMembers = getLocalMembers();
+        if (localMembers && localMembers.length > 0) {
+            member = localMembers.find(m => 
+                m.email && m.email.toLowerCase() === email.toLowerCase()
+            );
+            
+        }
+        
+        // If not found locally and online, try backend
+        if (!member && navigator.onLine) {
+            try {
+                
+                const response = await fetch(`${backendUrl}/api/getUsers`);
+                if (response.ok) {
+                    const result = await response.json();
+                    let backendMembers = [];
+                    
+                    // Handle different response formats
+                    if (Array.isArray(result)) {
+                        backendMembers = result;
+                    } else if (result && Array.isArray(result.data)) {
+                        backendMembers = result.data;
+                    } else if (result && result.success && Array.isArray(result.success.data)) {
+                        backendMembers = result.success.data;
+                    }
+                    
+                    member = backendMembers.find(m => 
+                        m.email && m.email.toLowerCase() === email.toLowerCase()
+                    );
+                    
+                }
+            } catch (error) {
+                
+            }
+        }
+        
+        if (member) {
+            
+            
+            // Fill all the certificate form fields with comprehensive member data
+            const fields = {
+                'certificateRecipient': member.name || member.fullName || '',
+                'certificatePosition': member.position || '',
+                'certificateCode': member.code || '',
+                'certificateState': member.state || '',
+                'certificateZone': member.zone || ''
+            };
+            
+            // Update each field
+            Object.entries(fields).forEach(([fieldId, value]) => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.value = value;
+                    
+                }
+            });
+            
+            // Auto-generate certificate number if empty
+            const certNumberField = document.getElementById('certificateNumber');
+            if (certNumberField && !certNumberField.value.trim()) {
+                certNumberField.value = generateUniqueCertificateNumber();
+            }
+            
+            // Auto-generate serial number if empty
+            const serialNumberField = document.getElementById('certificateSerialNumber');
+            if (serialNumberField && !serialNumberField.value.trim()) {
+                serialNumberField.value = generateUniqueSerialNumber();
+            }
+            
+            // Set issue date to today if empty
+            const issueDateField = document.getElementById('certificateIssueDate');
+            if (issueDateField && !issueDateField.value) {
+                const today = new Date().toISOString().split('T')[0];
+                issueDateField.value = today;
+            }
+            
+            // Set certificate type to membership if empty
+            const typeField = document.getElementById('certificateType');
+            if (typeField && !typeField.value) {
+                typeField.value = 'membership';
+            }
+            
+            // Also update the certificate title if it's empty
+            const titleField = document.getElementById('certificateTitle');
+            if (titleField && !titleField.value.trim()) {
+                titleField.value = 'Certificate of Membership';
+            }
+            
+            // Add member details to description if empty
+            const descField = document.getElementById('certificateDescription');
+            if (descField && !descField.value.trim()) {
+                const description = `This certificate is issued to ${member.name || member.fullName} in recognition of their membership in the Nigerian Association of Refrigeration and Air Conditioning Practitioners (NARAP).`;
+                descField.value = description;
+            }
+            
+            showMessage(`✅ Member details auto-filled for ${member.name || member.fullName}!`, 'success');
+            
+        } else {
+            
+            // Clear fields if no member found
+            const fields = ['certificateRecipient', 'certificatePosition', 'certificateCode', 'certificateState'];
+            fields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.value = '';
+                }
+            });
+        }
+        
+    } catch (error) {
+        
+        showMessage('Error auto-filling fields', 'error');
+    }
+}
+
+// Handle real-time email input for better UX
+function handleEmailInput() {
+    const email = document.getElementById('certificateEmail').value;
+    const emailField = document.getElementById('certificateEmail');
+    
+    if (!email) {
+        // Clear the visual indicator
+        emailField.style.borderColor = '';
+        return;
+    }
+    
+    // Check if email format is valid
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        emailField.style.borderColor = '#dc3545'; // Red for invalid email
+        return;
+    }
+    
+    // Check if member exists (local check only for performance)
+    const localMembers = getLocalMembers();
+    if (localMembers && localMembers.length > 0) {
+        const member = localMembers.find(m => 
+            m.email && m.email.toLowerCase() === email.toLowerCase()
+        );
+        
+        if (member) {
+            emailField.style.borderColor = '#28a745'; // Green for found member
+        } else {
+            emailField.style.borderColor = '#ffc107'; // Yellow for valid email but no member found
+        }
+    } else {
+        emailField.style.borderColor = '#ffc107'; // Yellow for valid email
+    }
+}
+
+// ==================== CERTIFICATE FUNCTIONS ====================
+
+function refreshCertificates() {
+    loadCertificates();
+}
+
+function clearCertificateFilters() {
+    const searchInput = document.getElementById('certificateSearch');
+    const statusFilter = document.getElementById('statusFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    
+    if (searchInput) searchInput.value = '';
+    if (statusFilter) statusFilter.value = '';
+    if (dateFilter) dateFilter.value = '';
+    
+    loadCertificates();
+}
+
+function generateCertificatePreview() {
+    try {
+        
+        
+        // Get form data
+        const formData = getCertificateFormData();
+        
+        if (!formData) {
+            
+            showMessage('Please fill in all required fields', 'warning');
+            return;
+        }
+        
+        
+        
+        // Create a certificate object for preview
+        const previewCertificate = {
+            certificateNumber: formData.certificateNumber,
+            serialNumber: formData.certificateSerialNumber,
+            recipientName: formData.certificateRecipient,
+            email: formData.certificateEmail,
+            title: formData.certificateTitle,
+            type: formData.certificateType,
+            issueDate: formData.certificateIssueDate,
+            validUntil: formData.certificateValidUntil,
+            position: formData.certificatePosition,
+            code: formData.certificateCode,
+            state: formData.certificateState,
+            description: formData.certificateDescription,
+            status: 'Active'
+        };
+        
+        // Show certificate in modern preview modal
+        showCertificatePreviewModal(previewCertificate);
+        
+    } catch (error) {
+        
+        showMessage('Failed to generate preview', 'error');
+    }
+}
+
+function showCertificatePreviewModal(certificate) {
+    // Create modal HTML with modern document preview UI
+    const modalHTML = `
+        <div id="certificatePreviewModal" class="modal-overlay document-preview-overlay">
+            <div class="modal-content document-preview-modal">
+                <div class="document-preview-header">
+                    <div class="preview-title">
+                        <h3>Certificate Preview</h3>
+                        <span class="certificate-info">${certificate.certificateNumber || 'N/A'} - ${certificate.recipientName || 'N/A'}</span>
+                    </div>
+                    <button class="close-btn" onclick="closeCertificatePreviewModal()">&times;</button>
+                </div>
+                
+                <div class="document-preview-toolbar">
+                    <div class="toolbar-left">
+                        <div class="zoom-controls">
+                            <button class="toolbar-btn" onclick="zoomOut()" title="Zoom Out">
+                                <i class="fas fa-search-minus"></i>
+                            </button>
+                            <span class="zoom-level" id="zoomLevel">100%</span>
+                            <button class="toolbar-btn" onclick="zoomIn()" title="Zoom In">
+                                <i class="fas fa-search-plus"></i>
+                            </button>
+                            <button class="toolbar-btn" onclick="toggleFitToScreen()" title="Fit to Screen" id="fitToScreenBtn">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar-center">
+                        <div class="page-navigation" id="pageNavigation" style="display: none;">
+                            <button class="toolbar-btn" onclick="previousPage()" title="Previous Page">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span class="page-indicator" id="pageIndicator">Page 1 of 1</span>
+                            <button class="toolbar-btn" onclick="nextPage()" title="Next Page">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar-right">
+                        <button class="toolbar-btn success" onclick="downloadCertificatePreview()" title="Download PDF">
+                            <i class="fas fa-download"></i>
+                            <span>Download</span>
+                        </button>
+                        <button class="toolbar-btn info" onclick="printCertificatePreview()" title="Print Certificate">
+                            <i class="fas fa-print"></i>
+                            <span>Print</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="document-preview-container">
+                    <div class="document-preview-wrapper" id="documentPreviewWrapper">
+                        <div class="document-preview-content" id="documentPreviewContent">
+                            ${generateCertificateHTML(certificate)}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="document-preview-footer">
+                    <div class="footer-info">
+                        <span class="certificate-status">
+                            Status: <span class="status-badge active">Preview</span>
+                        </span>
+                        <span class="certificate-date">
+                            Issue Date: ${certificate.issueDate || 'Not set'}
+                        </span>
+                    </div>
+                    <div class="footer-actions">
+                        <button class="btn btn-secondary" onclick="closeCertificatePreviewModal()">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Show modal
+    document.getElementById('certificatePreviewModal').style.display = 'flex';
+    
+    // Initialize document preview functionality
+    initializeDocumentPreview();
+}
+
+function closeCertificatePreviewModal() {
+    const modal = document.getElementById('certificatePreviewModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function downloadCertificatePreview() {
+    try {
+        const content = document.getElementById('documentPreviewContent');
+        if (content) {
+            const certificateHTML = content.innerHTML;
+            const filename = `certificate_preview_${Date.now()}.html`;
+            downloadFile(certificateHTML, filename, 'text/html');
+            showMessage('Certificate preview downloaded successfully!', 'success');
+        }
+    } catch (error) {
+        
+        showMessage('Failed to download certificate preview', 'error');
+    }
+}
+
+function printCertificatePreview() {
+    try {
+        const content = document.getElementById('documentPreviewContent');
+        if (content) {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Certificate Preview</title>
+                        <style>
+                            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+                            .certificate { max-width: 210mm; margin: 0 auto; }
+                        </style>
+                    </head>
+                    <body>
+                        ${content.innerHTML}
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+    } catch (error) {
+        
+        showMessage('Failed to print certificate preview', 'error');
+    }
+}
+
+function printCertificate(certificateId = null) {
+    try {
+        let certificate;
+        
+        if (certificateId) {
+            // Print existing certificate
+            const certificates = window.currentCertificates || getLocalCertificates();
+            certificate = certificates.find(cert => 
+                cert._id === certificateId || cert.id === certificateId
+            );
+        } else {
+            // Print preview certificate
+            certificate = getCertificateFormData();
+        }
+        
+        if (!certificate) {
+            showMessage('No certificate to print', 'error');
+            return;
+        }
+        
+        // Generate certificate HTML
+        const certificateHTML = generateCertificateHTML(certificate);
+        
+        // Create print window
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Certificate - ${certificate.recipientName || certificate.name}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+                    .certificate { border: 3px solid #gold; padding: 40px; text-align: center; background: #fff; }
+                    .header { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #333; }
+                    .title { font-size: 28px; font-weight: bold; margin: 30px 0; color: #2c3e50; }
+                    .recipient { font-size: 20px; margin: 20px 0; color: #34495e; }
+                    .description { font-size: 16px; margin: 20px 0; color: #7f8c8d; }
+                    .footer { margin-top: 40px; font-size: 14px; color: #95a5a6; }
+                    .signature { margin-top: 30px; }
+                    @media print { body { margin: 0; } .certificate { border: none; } }
+                </style>
+            </head>
+            <body>
+                ${certificateHTML}
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+        
+        showMessage('Certificate sent to printer!', 'success');
+        
+    } catch (error) {
+        
+        showMessage('Failed to print certificate', 'error');
+    }
+}
+
+// ==================== ID CARD FUNCTIONS ====================
+
+function generateIdCardPreview() {
+    showMessage('ID card preview feature coming soon!', 'info');
+}
+
+function printIdCard() {
+    showMessage('ID card print feature coming soon!', 'info');
+}
+
+function downloadIdCard() {
+    showMessage('ID card download feature coming soon!', 'info');
+}
+
+// ==================== TABLE UTILITY FUNCTIONS ====================
+
+// Bulk operations removed - no longer needed without checkboxes
+
+function updateMembersCount() {
+    const membersCount = document.getElementById('membersCount');
+    const totalMembers = window.currentMembers?.length || 0;
+    
+    if (membersCount) {
+        membersCount.textContent = `Showing ${totalMembers} of ${totalMembers} members`;
+    }
+}
+
+// ==================== PAGINATION FUNCTIONS ====================
+
+// ==================== MODERN PAGINATION FUNCTIONS ====================
+
+function changeMembersPerPage() {
+    const perPageSelect = document.getElementById('membersPerPage');
+    const perPage = perPageSelect ? parseInt(perPageSelect.value) : 25;
+    
+    // Store preference
+    localStorage.setItem('narap_members_per_page', perPage);
+    
+    // Reload members with new pagination
+    loadMembers(1, perPage);
+}
+
+function changeCertificatesPerPage() {
+    const perPageSelect = document.getElementById('certificatesPerPage');
+    const perPage = perPageSelect ? parseInt(perPageSelect.value) : 25;
+    
+    // Store preference
+    localStorage.setItem('narap_certificates_per_page', perPage);
+    
+    // Reload certificates with new pagination
+    loadCertificates(1, perPage);
+}
+
+function goToMembersPage(page) {
+    const perPageSelect = document.getElementById('membersPerPage');
+    const perPage = perPageSelect ? parseInt(perPageSelect.value) : 25;
+    
+    loadMembers(page, perPage);
+}
+
+function goToCertificatesPage(page) {
+    const perPageSelect = document.getElementById('certificatesPerPage');
+    const perPage = perPageSelect ? parseInt(perPageSelect.value) : 25;
+    
+    loadCertificates(page, perPage);
+}
+
+function setupPaginationEventListeners() {
+    // Members pagination
+    const membersPerPageSelect = document.getElementById('membersPerPage');
+    if (membersPerPageSelect) {
+        membersPerPageSelect.addEventListener('change', changeMembersPerPage);
+    }
+    
+    const membersFirstPage = document.getElementById('firstPage');
+    const membersPrevPage = document.getElementById('prevPage');
+    const membersNextPage = document.getElementById('nextPage');
+    const membersLastPage = document.getElementById('lastPage');
+    
+    if (membersFirstPage) membersFirstPage.addEventListener('click', () => goToMembersPage(1));
+    if (membersPrevPage) membersPrevPage.addEventListener('click', () => {
+        const currentPage = parseInt(localStorage.getItem('narap_members_current_page') || '1');
+        if (currentPage > 1) goToMembersPage(currentPage - 1);
+    });
+    if (membersNextPage) membersNextPage.addEventListener('click', () => {
+        const currentPage = parseInt(localStorage.getItem('narap_members_current_page') || '1');
+        const totalPages = parseInt(localStorage.getItem('narap_members_total_pages') || '1');
+        if (currentPage < totalPages) goToMembersPage(currentPage + 1);
+    });
+    if (membersLastPage) membersLastPage.addEventListener('click', () => {
+        const totalPages = parseInt(localStorage.getItem('narap_members_total_pages') || '1');
+        goToMembersPage(totalPages);
+    });
+    
+    // Certificates pagination
+    const certificatesPerPageSelect = document.getElementById('certificatesPerPage');
+    if (certificatesPerPageSelect) {
+        certificatesPerPageSelect.addEventListener('change', changeCertificatesPerPage);
+    }
+    
+    const certificatesFirstPage = document.getElementById('certificatesFirstPage');
+    const certificatesPrevPage = document.getElementById('certificatesPrevPage');
+    const certificatesNextPage = document.getElementById('certificatesNextPage');
+    const certificatesLastPage = document.getElementById('certificatesLastPage');
+    
+    if (certificatesFirstPage) certificatesFirstPage.addEventListener('click', () => goToCertificatesPage(1));
+    if (certificatesPrevPage) certificatesPrevPage.addEventListener('click', () => {
+        const currentPage = parseInt(localStorage.getItem('narap_certificates_current_page') || '1');
+        if (currentPage > 1) goToCertificatesPage(currentPage - 1);
+    });
+    if (certificatesNextPage) certificatesNextPage.addEventListener('click', () => {
+        const currentPage = parseInt(localStorage.getItem('narap_certificates_current_page') || '1');
+        const totalPages = parseInt(localStorage.getItem('narap_certificates_total_pages') || '1');
+        if (currentPage < totalPages) goToCertificatesPage(currentPage + 1);
+    });
+    if (certificatesLastPage) certificatesLastPage.addEventListener('click', () => {
+        const totalPages = parseInt(localStorage.getItem('narap_certificates_total_pages') || '1');
+        goToCertificatesPage(totalPages);
+    });
+}
+
+function renderPagination(currentPage, totalPages, totalItems, itemsPerPage, type = 'members') {
+    const startItem = (currentPage - 1) * itemsPerPage + 1;
+    const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+    
+    // Update count text
+    const countElement = document.getElementById(type === 'members' ? 'membersCount' : 'certificatesCount');
+    if (countElement) {
+        countElement.textContent = `Showing ${startItem}-${endItem} of ${totalItems} ${type}`;
+    }
+    
+    // Update page numbers
+    const pageNumbersElement = document.getElementById(type === 'members' ? 'pageNumbers' : 'certificatesPageNumbers');
+    if (pageNumbersElement) {
+        pageNumbersElement.innerHTML = '';
+        
+        if (totalPages <= 1) {
+            // Hide pagination if only one page
+            const paginationContainer = document.getElementById(type === 'members' ? 'membersPagination' : 'certificatesPagination');
+            if (paginationContainer) {
+                paginationContainer.style.display = 'none';
+            }
+            return;
+        }
+        
+        // Show pagination
+        const paginationContainer = document.getElementById(type === 'members' ? 'membersPagination' : 'certificatesPagination');
+        if (paginationContainer) {
+            paginationContainer.style.display = 'flex';
+        }
+        
+        // Generate page numbers with ellipsis
+        const maxVisiblePages = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        
+        // Add first page and ellipsis if needed
+        if (startPage > 1) {
+            const firstPageBtn = document.createElement('div');
+            firstPageBtn.className = 'page-number';
+            firstPageBtn.textContent = '1';
+            firstPageBtn.onclick = () => goToPage(1, type);
+            pageNumbersElement.appendChild(firstPageBtn);
+            
+            if (startPage > 2) {
+                const ellipsis = document.createElement('div');
+                ellipsis.className = 'page-ellipsis';
+                ellipsis.textContent = '...';
+                pageNumbersElement.appendChild(ellipsis);
+            }
+        }
+        
+        // Add visible page numbers
+        for (let i = startPage; i <= endPage; i++) {
+            const pageBtn = document.createElement('div');
+            pageBtn.className = 'page-number';
+            if (i === currentPage) {
+                pageBtn.classList.add('active');
+            }
+            pageBtn.textContent = i;
+            pageBtn.onclick = () => goToPage(i, type);
+            pageNumbersElement.appendChild(pageBtn);
+        }
+        
+        // Add last page and ellipsis if needed
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                const ellipsis = document.createElement('div');
+                ellipsis.className = 'page-ellipsis';
+                ellipsis.textContent = '...';
+                pageNumbersElement.appendChild(ellipsis);
+            }
+            
+            const lastPageBtn = document.createElement('div');
+            lastPageBtn.className = 'page-number';
+            lastPageBtn.textContent = totalPages;
+            lastPageBtn.onclick = () => goToPage(totalPages, type);
+            pageNumbersElement.appendChild(lastPageBtn);
+        }
+    }
+    
+    // Update navigation buttons
+    updatePaginationButtons(currentPage, totalPages, type);
+    
+    // Store pagination state
+    localStorage.setItem(`narap_${type}_current_page`, currentPage.toString());
+    localStorage.setItem(`narap_${type}_total_pages`, totalPages.toString());
+}
+
+function updatePaginationButtons(currentPage, totalPages, type = 'members') {
+    const firstBtn = document.getElementById(type === 'members' ? 'firstPage' : 'certificatesFirstPage');
+    const prevBtn = document.getElementById(type === 'members' ? 'prevPage' : 'certificatesPrevPage');
+    const nextBtn = document.getElementById(type === 'members' ? 'nextPage' : 'certificatesNextPage');
+    const lastBtn = document.getElementById(type === 'members' ? 'lastPage' : 'certificatesLastPage');
+    
+    if (firstBtn) firstBtn.disabled = currentPage === 1;
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPage === totalPages;
+    if (lastBtn) lastBtn.disabled = currentPage === totalPages;
+}
+
+function goToPage(page, type = 'members') {
+    if (type === 'members') {
+        goToMembersPage(page);
+    } else {
+        goToCertificatesPage(page);
+    }
+}
+
+// ==================== SYSTEM FUNCTIONS ====================
+
+function testServerConnection() {
+    testBackendConnection();
+}
+
+function refreshMembersTable() {
+    loadMembers();
+}
+
+function confirmClearAllData() {
+    const modal = document.getElementById('confirmModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeConfirmModal() {
+    const modal = document.getElementById('confirmModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+function showRestoreModal() {
+    const modal = document.getElementById('restoreModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeRestoreModal() {
+    const modal = document.getElementById('restoreModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        // Reset form
+        const form = document.getElementById('restoreForm');
+        if (form) {
+            form.reset();
+        }
+    }
+}
+
+// ==================== ONLINE/OFFLINE HANDLING ====================
+
+function handleOnline() {
+    
+    showMessage('Connection restored. Syncing pending changes...', 'info');
+    
+    // Sync pending changes when back online
+    setTimeout(async () => {
+        await syncPendingChanges();
+        // Reload data to get latest from backend
+        if (typeof loadMembers === 'function') await loadMembers();
+        if (typeof loadCertificates === 'function') await loadCertificates();
+    }, 1000);
+}
+
+function handleOffline() {
+    
+    showMessage('Connection lost. Working in offline mode. Changes will sync when online.', 'warning');
+}
+
+function updateConnectionStatus() {
+    const statusIndicator = document.querySelector('.connection-indicator');
+    const statusText = document.querySelector('.connection-text');
+    
+    if (statusIndicator && statusText) {
+        if (navigator.onLine) {
+            statusIndicator.classList.remove('offline');
+            statusText.textContent = 'Online';
+        } else {
+            statusIndicator.classList.add('offline');
+            statusText.textContent = 'Offline';
+        }
+    }
+}
+
+// ==================== AUTO-SYNC FUNCTIONS ====================
+
+async function autoSync() {
+    if (!navigator.onLine) {
+        
+        return;
+    }
+    
+    const pendingSync = getPendingSync();
+    const hasPendingChanges = 
+        pendingSync.memberCreations.length > 0 ||
+        pendingSync.memberUpdates.length > 0 ||
+        pendingSync.memberDeletions.length > 0 ||
+        pendingSync.certificateCreations.length > 0 ||
+        pendingSync.certificateUpdates.length > 0;
+    
+    if (hasPendingChanges) {
+        
+        await syncPendingChanges();
+    }
+}
+
+// Set up auto-sync interval (every 30 seconds when online)
+function setupAutoSync() {
+    setInterval(autoSync, 30000);
+}
+
+// ==================== IMPORT/EXPORT FUNCTIONS ====================
+
+function importData() {
+    const fileInput = document.getElementById('importFile');
+    if (!fileInput || !fileInput.files[0]) {
+        showMessage('Please select a file to import', 'warning');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            showMessage('Import feature coming soon!', 'info');
+            closeImportModal();
+        } catch (error) {
+            showMessage('Invalid file format. Please select a valid JSON file.', 'error');
+        }
+    };
+    
+    reader.readAsText(file);
+}
+
+function downloadSampleCSV() {
+    const sampleData = [
+        { name: 'John Doe', email: 'john@example.com', code: 'NARAP001', position: 'MEMBER', state: 'Lagos', zone: 'South West' },
+        { name: 'Jane Smith', email: 'jane@example.com', code: 'NARAP002', position: 'SECRETARY', state: 'Abuja', zone: 'North Central' }
+    ];
+    
+    const csvContent = convertToCSV(sampleData);
+    downloadFile(csvContent, 'sample_members.csv', 'text/csv');
+    showMessage('Sample CSV downloaded!', 'success');
+}
+
+function restoreBackup() {
+    const fileInput = document.getElementById('restoreFile');
+    if (!fileInput || !fileInput.files[0]) {
+        showMessage('Please select a backup file to restore', 'warning');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            const backup = JSON.parse(e.target.result);
+            showMessage('Restore feature coming soon!', 'info');
+            closeRestoreModal();
+        } catch (error) {
+            showMessage('Invalid backup file format.', 'error');
+        }
+    };
+    
+    reader.readAsText(file);
+}
+
+// ==================== SYNC STATUS FUNCTIONS ====================
+
+function updateSyncStatus() {
+    const pendingSync = getPendingSync();
+    const totalPending = 
+        pendingSync.memberCreations.length +
+        pendingSync.memberUpdates.length +
+        pendingSync.memberDeletions.length +
+        pendingSync.certificateCreations.length +
+        pendingSync.certificateUpdates.length;
+    
+    // Update sync status in UI if elements exist
+    const syncStatusElement = document.getElementById('syncStatus');
+    if (syncStatusElement) {
+        if (totalPending > 0) {
+            syncStatusElement.textContent = `${totalPending} pending changes`;
+            syncStatusElement.className = 'sync-status pending';
+        } else {
+            syncStatusElement.textContent = 'All changes synced';
+            syncStatusElement.className = 'sync-status synced';
+        }
+    }
+    
+    // Update sync button state
+    const syncButton = document.querySelector('[onclick="syncWithBackend()"]');
+    if (syncButton) {
+        if (totalPending > 0) {
+            syncButton.disabled = false;
+            syncButton.innerHTML = `<i class="fas fa-sync"></i> Sync (${totalPending})`;
+        } else {
+            syncButton.disabled = true;
+            syncButton.innerHTML = `<i class="fas fa-sync"></i> Synced`;
+        }
+    }
+    
+    return totalPending;
+}
+
+function showSyncDetails() {
+    const pendingSync = getPendingSync();
+    const details = [];
+    
+    if (pendingSync.memberCreations.length > 0) {
+        details.push(`${pendingSync.memberCreations.length} new members`);
+    }
+    if (pendingSync.memberUpdates.length > 0) {
+        details.push(`${pendingSync.memberUpdates.length} member updates`);
+    }
+    if (pendingSync.memberDeletions.length > 0) {
+        details.push(`${pendingSync.memberDeletions.length} member deletions`);
+    }
+    if (pendingSync.certificateCreations.length > 0) {
+        details.push(`${pendingSync.certificateCreations.length} new certificates`);
+    }
+    if (pendingSync.certificateUpdates.length > 0) {
+        details.push(`${pendingSync.certificateUpdates.length} certificate updates`);
+    }
+    
+    if (details.length > 0) {
+        showMessage(`Pending changes: ${details.join(', ')}`, 'info');
+    } else {
+        showMessage('No pending changes to sync', 'success');
+    }
+}
+
+// ==================== INITIALIZATION ====================
+
+// Initialize utility classes
+const performanceMonitor = new PerformanceMonitor();
+const notificationManager = new NotificationManager();
+const dataCache = new DataCache();
+
+// Make functions globally accessible
+window.login = login;
+window.logout = logout;
+window.fillAdminCredentials = fillAdminCredentials;
+window.clearLoginForm = clearLoginForm;
+window.switchTab = switchTab;
+window.toggleSidebar = toggleSidebar;
+window.addMember = addMember;
+window.loadMembers = loadMembers;
+window.loadCertificates = loadCertificates;
+window.loadDashboard = loadDashboard;
+window.exportMembers = exportMembers;
+window.exportCertificates = exportCertificates;
+window.exportCertificatesButton = exportCertificatesButton;
+window.exportAllData = exportAllData;
+window.createBackup = createBackup;
+window.clearAllData = clearAllData;
+window.syncWithBackend = syncWithBackend;
+window.syncPendingChanges = syncPendingChanges;
+window.checkPasswordStrength = checkPasswordStrength;
+window.testBackendConnection = testBackendConnection;
+window.updateBackendUrl = updateBackendUrl;
+window.showAddMemberModal = showAddMemberModal;
+window.closeAddMemberModal = closeAddMemberModal;
+window.showEditMemberModal = showEditMemberModal;
+window.closeEditMemberModal = closeEditMemberModal;
+window.showImportModal = showImportModal;
+window.closeImportModal = closeImportModal;
+window.displayMembers = displayMembers;
+window.filterMembers = filterMembers;
+window.refreshMembers = refreshMembers;
+window.deleteMember = deleteMember;
+window.editMember = editMember;
+window.displayCertificates = displayCertificates;
+window.viewCertificate = viewCertificate;
+window.downloadCertificate = downloadCertificate;
+window.toggleTheme = toggleTheme;
+window.showIssueCertificateModal = showIssueCertificateModal;
+window.closeIssueCertificateModal = closeIssueCertificateModal;
+window.closeViewCertificateModal = closeViewCertificateModal;
+window.closeViewIdCardModal = closeViewIdCardModal;
+window.refreshCertificates = refreshCertificates;
+window.clearCertificateFilters = clearCertificateFilters;
+window.generateCertificatePreview = generateCertificatePreview;
+window.issueCertificate = issueCertificate;
+window.autoFillCertificateFields = autoFillCertificateFields;
+window.handleEmailInput = handleEmailInput;
+window.printCertificate = printCertificate;
+window.generateIdCardPreview = generateIdCardPreview;
+window.printIdCard = printIdCard;
+window.downloadIdCard = downloadIdCard;
+window.testServerConnection = testServerConnection;
+window.refreshMembersTable = refreshMembersTable;
+window.confirmClearAllData = confirmClearAllData;
+window.closeConfirmModal = closeConfirmModal;
+window.showRestoreModal = showRestoreModal;
+window.closeRestoreModal = closeRestoreModal;
+window.importData = importData;
+window.downloadSampleCSV = downloadSampleCSV;
+window.restoreBackup = restoreBackup;
+        // window.selectAllMembers = selectAllMembers; // Removed - no longer needed
+    // window.getSelectedMembers = getSelectedMembers; // Removed - no longer needed
+    // window.bulkDeleteMembers = bulkDeleteMembers; // Removed - no longer needed
+    // window.bulkExportMembers = bulkExportMembers; // Removed - no longer needed
+window.updateMembersCount = updateMembersCount;
+window.changeMembersPerPage = changeMembersPerPage;
+window.goToMembersPage = goToMembersPage;
+window.handleOnline = handleOnline;
+window.handleOffline = handleOffline;
+window.updateConnectionStatus = updateConnectionStatus;
+window.setupAutoSync = setupAutoSync;
+window.updateSyncStatus = updateSyncStatus;
+window.showSyncDetails = showSyncDetails;
+window.loadInitialData = loadInitialData;
+window.clearPendingDeletions = clearPendingDeletions;
+window.loadDashboard = loadDashboard;
+window.loadDashboardStats = loadDashboardStats;
+window.loadRecentActivity = loadRecentActivity;
+window.loadAnalytics = loadAnalytics;
+window.loadSystemPage = loadSystemPage;
+window.handleFileUpload = handleFileUpload;
+window.handleImageUpload = handleImageUpload;
+window.handleCSVUpload = handleCSVUpload;
+window.handleJSONUpload = handleJSONUpload;
+window.showImagePreview = showImagePreview;
+window.clearFileUpload = clearFileUpload;
+window.testPassportUpload = testPassportUpload;
+window.debugFileUpload = debugFileUpload;
+window.getImageUrl = getImageUrl;
+
+
+// ==================== FILE UPLOAD FUNCTIONS ====================
+
+function handleFileUpload(input, labelId) {
+    
+    
+    const file = input.files[0];
+    const label = document.getElementById(labelId);
+    
+    // Debug information
+    debugFileUpload(input, labelId);
+    
+    if (!file) {
+        if (label) {
+            label.textContent = 'Choose file';
+            label.classList.remove('has-file');
+        }
+        return;
+    }
+    
+    // Update label with file name
+    if (label) {
+        label.textContent = file.name;
+        label.classList.add('has-file');
+    }
+    
+    // Handle different file types
+    const fileType = file.type;
+    const isImage = fileType.startsWith('image/');
+    const isCSV = fileType === 'text/csv' || file.name.toLowerCase().endsWith('.csv');
+    const isJSON = fileType === 'application/json' || file.name.toLowerCase().endsWith('.json');
+    
+    if (isImage) {
+        // Handle image files (passport photos, signatures)
+        handleImageUpload(input, file);
+    } else if (isCSV) {
+        // Handle CSV files (import)
+        handleCSVUpload(input, file);
+    } else if (isJSON) {
+        // Handle JSON files (backup restore)
+        handleJSONUpload(input, file);
+    } else {
+        showMessage('Unsupported file type. Please select an image, CSV, or JSON file.', 'error');
+        input.value = '';
+        if (label) {
+            label.textContent = 'Choose file';
+            label.classList.remove('has-file');
+        }
+    }
+}
+
+function handleImageUpload(input, file) {
+    // Validate file size (max 5MB for images)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+        showMessage('Image file is too large. Please select a file smaller than 5MB.', 'error');
+        input.value = '';
+        return;
+    }
+    
+    // Validate image dimensions
+    const img = new Image();
+    img.onload = function() {
+        const maxWidth = 800;
+        const maxHeight = 800;
+        
+        if (this.width > maxWidth || this.height > maxHeight) {
+            showMessage(`Image dimensions are too large. Please select an image smaller than ${maxWidth}x${maxHeight} pixels.`, 'error');
+            input.value = '';
+            return;
+        }
+        
+        // Show preview for passport photos and signatures
+        if (input.id.includes('Passport') || input.id.includes('Signature')) {
+            showImagePreview(URL.createObjectURL(file), input.id + 'Preview');
+        }
+        
+        showMessage('Image selected successfully!', 'success');
+    };
+    
+    img.onerror = function() {
+        showMessage('Invalid image file. Please select a valid image.', 'error');
+        input.value = '';
+    };
+    
+    img.src = URL.createObjectURL(file);
+}
+
+function handleCSVUpload(input, file) {
+    // Validate file size (max 10MB for CSV)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        showMessage('CSV file is too large. Please select a file smaller than 10MB.', 'error');
+        input.value = '';
+        return;
+    }
+    
+    showMessage('CSV file selected. Click "Import" to process the file.', 'info');
+}
+
+function handleJSONUpload(input, file) {
+    // Validate file size (max 10MB for JSON)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        showMessage('JSON file is too large. Please select a file smaller than 10MB.', 'error');
+        input.value = '';
+        return;
+    }
+    
+    showMessage('JSON backup file selected. Click "Restore" to process the file.', 'info');
+}
+
+function showImagePreview(base64Data, previewId) {
+    const previewElement = document.getElementById(previewId);
+    if (previewElement) {
+        previewElement.src = base64Data;
+        previewElement.style.display = 'block';
+    }
+}
+
+function clearFileUpload(input, labelId) {
+    input.value = '';
+    const label = document.getElementById(labelId);
+    if (label) {
+        label.textContent = 'Choose file';
+        label.classList.remove('has-file');
+    }
+    
+    // Remove hidden input data
+    const hiddenInput = document.querySelector(`input[name="${input.id}Data"]`);
+    if (hiddenInput) {
+        hiddenInput.remove();
+    }
+    
+    // Clear preview if exists
+    const previewId = input.id + 'Preview';
+    const previewElement = document.getElementById(previewId);
+    if (previewElement) {
+        previewElement.style.display = 'none';
+        previewElement.src = '';
+    }
+    
+    // Also clear any existing preview images
+    const allPreviews = document.querySelectorAll('.passport-preview, .signature-preview');
+    allPreviews.forEach(preview => {
+        if (preview.id === previewId) {
+            preview.style.display = 'none';
+            preview.src = '';
+        }
+    });
+}
+
+// ==================== INITIAL DATA LOADING ====================
+
+async function loadInitialData() {
+    try {
+        
+        
+        // Load members data (this will load from local storage first, then sync with backend)
+        if (typeof loadMembers === 'function') {
+            await loadMembers();
+        }
+        
+        // Load certificates data
+        if (typeof loadCertificates === 'function') {
+            await loadCertificates();
+        }
+        
+
+        
+        
+        
+    } catch (error) {
+        
+    }
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        
+        
+        // Initialize notification manager container
+        if (notificationManager) {
+            notificationManager.createContainer();
+        }
+        
+        // Check login state
+        const isLoggedIn = localStorage.getItem('narap_logged_in') === 'true';
+        const loginSection = document.getElementById('loginSection');
+        const adminSection = document.getElementById('adminSection');
+        
+        if (isLoggedIn) {
+            if (loginSection) loginSection.style.display = 'none';
+            if (adminSection) adminSection.style.display = 'block';
+            
+        } else {
+            if (loginSection) loginSection.style.display = 'flex';
+            if (adminSection) adminSection.style.display = 'none';
+            
+        }
+        
+        // Auto-fill admin credentials
+        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
+        
+        // Initialize theme
+        const savedTheme = localStorage.getItem('narap_theme');
+        const themeToggle = document.getElementById('themeToggle');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            if (themeToggle) {
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+                themeToggle.title = 'Switch to Light Theme';
+            }
+        }
+        
+        // Initialize dashboard if logged in
+        if (isLoggedIn && typeof loadDashboard === 'function') {
+            loadDashboard();
+            
+            // Load initial data (members and certificates)
+            if (typeof loadInitialData === 'function') {
+                loadInitialData();
+            }
+            
+            // Switch to dashboard tab by default
+            setTimeout(() => {
+                switchTab('dashboard');
+            }, 100);
+        }
+        
+        // Add event listeners for member selection
+        document.addEventListener('change', function(e) {
+            if (e.target.name === 'memberSelect') {
+                updateMembersCount();
+            }
+        });
+
+        // Add event listeners for online/offline status
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        updateConnectionStatus(); // Initial check
+        
+        // Set up auto-sync on page load
+        setupAutoSync();
+        
+        // Update sync status
+        updateSyncStatus();
+        
+        // Initialize pagination visibility - hide by default
+        const membersPaginationContainer = document.getElementById('membersPagination');
+        const certificatesPaginationContainer = document.getElementById('certificatesPagination');
+        if (membersPaginationContainer) {
+            membersPaginationContainer.style.display = 'none';
+        }
+        if (certificatesPaginationContainer) {
+            certificatesPaginationContainer.style.display = 'none';
+        }
+        
+        // Setup pagination event listeners
+        setupPaginationEventListeners();
+        
+        // Load initial data (but don't show pagination yet)
+        if (typeof loadInitialData === 'function') loadInitialData();
+        
+        // Ensure pagination is hidden after initial data load
+        setTimeout(() => {
+            if (membersPaginationContainer) {
+                membersPaginationContainer.style.display = 'none';
+            }
+            if (certificatesPaginationContainer) {
+                certificatesPaginationContainer.style.display = 'none';
+            }
+        }, 100);
+        
+        
+        
+    } catch (error) {
+        
+    }
+}); 
+
+// ==================== UPLOAD TESTING FUNCTIONS ====================
+
+function testPassportUpload() {
+    
+    
+    // Test if file input exists
+    const passportInput = document.getElementById('memberPassport');
+    if (!passportInput) {
+        
+        return false;
+    }
+    
+    // Test if label exists
+    const passportLabel = document.getElementById('passportLabel');
+    if (!passportLabel) {
+        
+        return false;
+    }
+    
+    // Test if preview element exists
+    const passportPreview = document.getElementById('memberPassportPreview');
+    if (!passportPreview) {
+        
+        return false;
+    }
+    
+    
+    
+    
+    
+    
+    return true;
+}
+
+function debugFileUpload(input, labelId) {
+    // Debug function for file upload issues
+    console.log('Debug file upload:', { input, labelId });
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function getImageUrl(imagePath) {
+    
+    
+    if (!imagePath) {
+        
+        return DEFAULT_AVATAR;
+    }
+    
+    // If it's already a full URL, return as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        return imagePath;
+    }
+    
+    // If it's a base64 data URL (legacy support), validate it
+    if (imagePath.startsWith('data:image/')) {
+        // Check if base64 data is complete and valid
+        if (imagePath.length > 100 && imagePath.includes('base64,')) {
+            try {
+                // Try to validate the base64 data
+                const base64Part = imagePath.split('base64,')[1];
+                if (base64Part && base64Part.length > 100) { // Increased minimum length
+                    // Additional validation: check if base64 ends properly
+                    if (base64Part.length % 4 === 0) { // Base64 should be divisible by 4
+                        return imagePath;
+                    } else {
+                        return DEFAULT_AVATAR;
+                    }
+                } else {
+                    return DEFAULT_AVATAR;
+                }
+            } catch (error) {
+                return DEFAULT_AVATAR;
+            }
+        } else {
+            return DEFAULT_AVATAR;
+        }
+    }
+    
+    // If it's a filename (from Multer upload), construct the URL
+    if (imagePath.includes('.') && !imagePath.includes('/')) {
+        return `${backendUrl}/api/uploads/passports/${imagePath}`;
+    }
+    
+    // If it's a full path from Multer upload, extract filename and construct URL
+    if (imagePath.includes('uploads/passports/')) {
+        const filename = imagePath.split('uploads/passports/').pop();
+        const url = `${backendUrl}/api/uploads/passports/${filename}`;
+        
+        return url;
+    }
+    
+    // If it's a full path from Multer upload, extract filename and construct URL
+    if (imagePath.includes('uploads/signatures/')) {
+        const filename = imagePath.split('uploads/signatures/').pop();
+        const url = `${backendUrl}/api/uploads/signatures/${filename}`;
+        
+        return url;
+    }
+    
+    // If it's a full absolute path (Windows or Unix), extract just the filename
+    if (imagePath.includes('\\') || imagePath.includes('/')) {
+        const filename = imagePath.split(/[\\/]/).pop();
+        
+        return `${backendUrl}/api/uploads/passports/${filename}`;
+    }
+    
+    // Default fallback
+    return DEFAULT_AVATAR;
+}
+
+// Utility function to clean up certificates with null certificate numbers
+async function cleanupNullCertificateNumbers() {
+    try {
+        
+        
+        const certificates = getLocalCertificates() || [];
+        let updated = false;
+        
+        for (let i = 0; i < certificates.length; i++) {
+            const cert = certificates[i];
+            if (!cert.number || cert.number.trim() === '' || cert.number === null) {
+                
+                certificates[i] = {
+                    ...cert,
+                    number: generateUniqueCertificateNumber(),
+                    certificateNumber: cert.certificateNumber || generateUniqueCertificateNumber()
+                };
+                updated = true;
+            }
+        }
+        
+        if (updated) {
+            saveLocalCertificates(certificates);
+            window.currentCertificates = certificates;
+            
+            
+            // Refresh display if certificates tab is active
+            const certificatesPanel = document.getElementById('panel-certificates');
+            if (certificatesPanel && certificatesPanel.classList.contains('active')) {
+                displayCertificates(certificates);
+            }
+        }
+        
+        return updated;
+    } catch (error) {
+        
+        return false;
+    }
+}
+
+// Call cleanup function on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Clean up any existing certificates with null certificate numbers
+    setTimeout(() => {
+        cleanupNullCertificateNumbers();
+    }, 1000);
+});
+
+// Function to cleanup database certificates with null certificate numbers
+async function cleanupDatabaseCertificates() {
+    if (!confirm('This will fix all certificates with null certificate numbers in the database. Continue?')) {
+        return;
+    }
+    
+    try {
+        showMessage('Cleaning up database certificates...', 'info');
+        
+        const response = await fetch(`${backendUrl}/api/cleanup-certificates`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showMessage(`✅ ${result.message}`, 'success');
+            
+            // Refresh certificates display
+            await loadCertificates();
+            
+            // Refresh analytics if on analytics tab
+            const analyticsPanel = document.getElementById('panel-analytics');
+            if (analyticsPanel && analyticsPanel.classList.contains('active')) {
+                loadAnalytics();
+            }
+        } else {
+            const error = await response.json();
+            showMessage(`❌ Failed to cleanup certificates: ${error.message}`, 'error');
+        }
+    } catch (error) {
+        
+        showMessage('❌ Failed to cleanup certificates: ' + error.message, 'error');
+    }
+}
+
+
+
+
+
+
+
+
+
