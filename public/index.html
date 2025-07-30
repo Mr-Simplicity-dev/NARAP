@@ -1046,24 +1046,27 @@ body {
       </div>
 
       <!-- Certificate Verification Form -->
-      <div id="certificateVerification" class="verification-form" style="display: none;">
-        <form class="search-form" onsubmit="searchCertificate(event)">
-          <div class="form-group">
-            <label for="certificateNumber">Certificate Number</label>
-            <input 
-              type="text" 
-              id="certificateNumber" 
-              class="code-input" 
-              placeholder="Enter Certificate Number (e.g., CERT-2024-001)" 
-              required
-              autocomplete="off"
-            >
-          </div>
-          <button type="submit" class="search-btn" id="certificateSearchBtn">
-            🔍 Verify
-                   </button>
-        </form>
-      </div>
+<div id="certificateVerification" class="verification-form" style="display: none;">
+  <form class="search-form" onsubmit="searchCertificate(event)">
+    <div class="form-group">
+      <label for="certificateNumber">Certificate Number</label>
+      <input 
+        type="text" 
+        id="certificateNumber" 
+        class="code-input certificate-input" 
+        placeholder="N/___/___/___ (e.g., N/875/OYO/825)" 
+        required
+        autocomplete="off"
+        onkeydown="return allowCertificateInput(event)"
+        pattern="N\/\d{3}\/[A-Z]{3}\/\d{3}"
+        title="Format: N/875/OYO/825"
+      >
+    </div>
+    <button type="submit" class="search-btn" id="certificateSearchBtn">
+      🔍 Verify
+    </button>
+  </form>
+</div>
 
       <div class="loading" id="loading">
         <div style="display: inline-block; animation: spin 1s linear infinite;">⏳</div>
