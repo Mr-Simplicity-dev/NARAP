@@ -2988,6 +2988,30 @@ document.addEventListener('DOMContentLoaded', async function() {
       trackUsage('app', 'initialized_offline');
     }
   }
+
+  // Initialize certificate input formatting
+  setupCertificateInputFormatting(); // <-- ADD THIS LINE
+  
+  
+
+// Define the formatting function (add this to your utilities)
+function setupCertificateInputFormatting() {
+  const certInput = document.getElementById('certificateNumber');
+  if (!certInput) return;
+
+  certInput.addEventListener('input', function(e) {
+    let val = e.target.value.toUpperCase();
+    val = val.replace(/[^0-9A-Z\/]/g, ''); // Sanitize input
+    
+    // Auto-format as N/___/___/___
+    if (val.length > 0 && val[0] !== 'N') val = 'N' + val;
+    if (val.length > 1 && val[1] !== '/') val = val.slice(0,1) + '/' + val.slice(1);
+    if (val.length > 5 && val[5] !== '/') val = val.slice(0,5) + '/' + val.slice(5);
+    if (val.length > 9 && val[9] !== '/') val = val.slice(0,9) + '/' + val.slice(9);
+    
+    e.target.value = val.slice(0, 13); // Enforce max length
+  });
+}
   
   // Add service worker for offline functionality (if available)
   if ('serviceWorker' in navigator) {
