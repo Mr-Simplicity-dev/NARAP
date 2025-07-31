@@ -1863,7 +1863,7 @@ function calculateRevokedCertificateAnalytics(certificates) {
         .slice(0, 5)
         .map(cert => ({
             id: cert._id || cert.id,
-            recipientName: cert.recipientName || cert.name,
+            recipientName: cert.recipientName || cert.recipient || cert.name,
             certificateNumber: cert.certificateNumber || cert.number,
             revokedAt: cert.revokedAt || cert.updatedAt,
             type: cert.type || cert.certificateType
@@ -3291,7 +3291,7 @@ async function loadCertificates(page = 1, limit = 10, searchTerm = '') {
                 return (
                     (certificate.certificateNumber && certificate.certificateNumber.toLowerCase().includes(searchLower)) ||
                     (certificate.number && certificate.number.toLowerCase().includes(searchLower)) ||
-                    (certificate.recipientName && certificate.recipientName.toLowerCase().includes(searchLower)) ||
+                    ((certificate.recipientName || certificate.recipient) && (certificate.recipientName || certificate.recipient).toLowerCase().includes(searchLower)) ||
                     (certificate.name && certificate.name.toLowerCase().includes(searchLower)) ||
                     (certificate.title && certificate.title.toLowerCase().includes(searchLower)) ||
                     (certificate.certificateTitle && certificate.certificateTitle.toLowerCase().includes(searchLower))
@@ -4082,7 +4082,7 @@ function displayCertificates(certificates, totalItems = 0, currentPage = 1, tota
     tableBody.innerHTML = certificates.map((certificate, index) => {
         // Ensure all data is properly formatted
         const certificateNumber = certificate.certificateNumber || certificate.number || 'N/A';
-        const recipientName = certificate.recipientName || certificate.name || 'N/A';
+        const recipientName = certificate.recipientName || certificate.recipient || certificate.name || 'N/A';
         const title = certificate.title || certificate.certificateTitle || 'N/A';
         const issueDate = certificate.issueDate ? new Date(certificate.issueDate).toLocaleDateString() : 'N/A';
         const status = certificate.status || 'Active';
@@ -4156,7 +4156,7 @@ function showCertificateViewModal(certificate) {
                 <div class="document-preview-header">
                     <div class="preview-title">
                         <h3>Certificate Preview</h3>
-                        <span class="certificate-info">${certificate.certificateNumber || certificate.number || 'N/A'} - ${certificate.recipientName || certificate.name || 'N/A'}</span>
+                        <span class="certificate-info">${certificate.certificateNumber || certificate.number || 'N/A'} - ${certificate.recipientName || certificate.recipient || certificate.name || 'N/A'}</span>
                     </div>
                     <button class="close-btn" onclick="closeCertificateViewModal()">&times;</button>
                 </div>
@@ -4407,7 +4407,7 @@ async function editCertificate(certificateId) {
         const fields = {
             'certificateNumber': certificate.certificateNumber || certificate.number || '',
             'certificateSerialNumber': certificate.serialNumber || certificate.certificateSerialNumber || '',
-            'certificateRecipient': certificate.recipientName || certificate.name || '',
+            'certificateRecipient': certificate.recipientName || certificate.recipient || certificate.name || '',
             'certificateEmail': certificate.email || '',
             'certificateTitle': certificate.title || certificate.certificateTitle || '',
             'certificateType': certificate.type || certificate.certificateType || '',
@@ -4939,7 +4939,7 @@ function generateCertificateHTML(certificate) {
                         </div>
                         
                         <div class="recipient-info">
-                            <h3 class="recipient-name">${certificate.recipientName || certificate.name}</h3>
+                            <h3 class="recipient-name">${certificate.recipientName || certificate.recipient || certificate.name}</h3>
                             <p class="recipient-description">has successfully completed all requirements and demonstrated exceptional competence in the field of Refrigeration and Air Conditioning. This certificate is hereby granted in recognition of their professional achievements.</p>
                         </div>
                         
@@ -5468,7 +5468,7 @@ function printCertificate(certificateId = null) {
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Certificate - ${certificate.recipientName || certificate.name}</title>
+                <title>Certificate - ${certificate.recipientName || certificate.recipient || certificate.name}</title>
                 <style>
                     body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
                     .certificate { border: 3px solid #gold; padding: 40px; text-align: center; background: #fff; }
