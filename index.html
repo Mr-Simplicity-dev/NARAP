@@ -2215,6 +2215,53 @@ window.testCertificateVerification = async function(certificateNumber = 'CERT-20
   }
 };
 
+// Test function for member update
+window.testMemberUpdate = async function(memberId) {
+  console.log('🧪 Testing member update for ID:', memberId);
+  
+  const member = window.currentMembers?.find(m => m._id === memberId || m.id === memberId);
+  if (!member) {
+    console.log('❌ Member not found');
+    return;
+  }
+  
+  console.log('📋 Member data:', member);
+  
+  // Create test form data
+  const formData = new FormData();
+  formData.append('name', member.name + ' (Updated)');
+  formData.append('email', member.email || '');
+  formData.append('code', member.code);
+  formData.append('position', member.position || 'MEMBER');
+  formData.append('state', member.state);
+  formData.append('zone', member.zone);
+  
+  try {
+    console.log('🔄 Sending update request...');
+    console.log('🔗 URL:', `${backendUrl}/api/users/updateUser/${memberId}`);
+    const response = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
+      method: 'PUT',
+      body: formData
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Update successful:', result);
+      showMessage('Test update successful!', 'success');
+      
+      // Refresh the members list
+      await loadMembers();
+    } else {
+      const error = await response.json();
+      console.log('❌ Update failed:', error);
+      showMessage('Test update failed: ' + error.message, 'error');
+    }
+  } catch (error) {
+    console.log('❌ Update error:', error);
+    showMessage('Test update error: ' + error.message, 'error');
+  }
+};
+
 // Test function to check available files on backend
 window.checkBackendFiles = async function() {
   console.log('🧪 Checking available files on backend...');
@@ -2236,7 +2283,7 @@ window.checkBackendFiles = async function() {
   }
 };
 
-console.log('📸 Photo tools loaded: debugPhoto(), checkPhotoEndpoints(), getPhotoMetadata(), testPhotoUrl(), testMemberVerification(), testCertificateVerification(), checkBackendFiles()');
+console.log('📸 Photo tools loaded: debugPhoto(), checkPhotoEndpoints(), getPhotoMetadata(), testPhotoUrl(), testMemberVerification(), testCertificateVerification(), checkBackendFiles(), testMemberUpdate()');
 
 // Add a debug button to the page for testing
 document.addEventListener('DOMContentLoaded', () => {
@@ -2266,6 +2313,38 @@ document.addEventListener('DOMContentLoaded', () => {
       checkBackendFiles();
     };
     document.body.appendChild(debugButton);
+  }
+  
+  // Add update test button
+  if (!document.getElementById('updateTestButton')) {
+    const updateTestButton = document.createElement('button');
+    updateTestButton.id = 'updateTestButton';
+    updateTestButton.innerHTML = '🔄 Test Update';
+    updateTestButton.style.cssText = `
+      position: fixed;
+      top: 50px;
+      right: 10px;
+      z-index: 10000;
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    `;
+    updateTestButton.onclick = () => {
+      console.log('🔄 Starting update test...');
+      // Get the first member for testing
+      const firstMember = window.currentMembers?.[0];
+      if (firstMember) {
+        testMemberUpdate(firstMember._id || firstMember.id);
+      } else {
+        console.log('❌ No members available for testing');
+        showMessage('No members available for testing', 'error');
+      }
+    };
+    document.body.appendChild(updateTestButton);
   }
 });
 

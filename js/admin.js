@@ -3507,7 +3507,26 @@ function showEditMemberModal(memberId) {
                 form.querySelector('#editMemberState').value = member.state || '';
                 form.querySelector('#editMemberZone').value = member.zone || '';
                 form.dataset.memberId = memberId;
+                
+                // Show existing photos if available
+                const passportPreview = document.getElementById('editMemberPassportPreview');
+                const signaturePreview = document.getElementById('editMemberSignaturePreview');
+                
+                if (passportPreview && member.passportPhoto) {
+                    const photoUrl = getImageUrl(member.passportPhoto);
+                    passportPreview.src = photoUrl;
+                    passportPreview.style.display = 'block';
+                }
+                
+                if (signaturePreview && member.signature) {
+                    const signatureUrl = getImageUrl(member.signature);
+                    signaturePreview.src = signatureUrl;
+                    signaturePreview.style.display = 'block';
+                }
             }
+        } else {
+            showMessage('Member not found', 'error');
+            return;
         }
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -3530,6 +3549,18 @@ function closeEditMemberModal() {
         const signatureInput = document.getElementById('editMemberSignature');
         if (passportInput) clearFileUpload(passportInput, 'editPassportLabel');
         if (signatureInput) clearFileUpload(signatureInput, 'editSignatureLabel');
+        
+        // Clear preview images
+        const passportPreview = document.getElementById('editMemberPassportPreview');
+        const signaturePreview = document.getElementById('editMemberSignaturePreview');
+        if (passportPreview) {
+            passportPreview.src = '';
+            passportPreview.style.display = 'none';
+        }
+        if (signaturePreview) {
+            signaturePreview.src = '';
+            signaturePreview.style.display = 'none';
+        }
     }
 }
 
@@ -3949,8 +3980,8 @@ async function editMember(event) {
     }
     
     // Validate required fields
-    if (!formData.name || !formData.password || !formData.code || !formData.state || !formData.zone) {
-        showMessage('Please fill in all required fields (Name, Password, Code, State, Zone)', 'error');
+    if (!formData.name || !formData.code || !formData.state || !formData.zone) {
+        showMessage('Please fill in all required fields (Name, Code, State, Zone)', 'error');
         return;
     }
     
@@ -3974,6 +4005,9 @@ async function editMember(event) {
         let backendResponse = null;
         if (isOnline && originalMember.isFromBackend && !originalMember._id.startsWith('local_')) {
             try {
+                console.log('🔄 Updating member in backend:', memberId);
+                console.log('📤 FormData contents:', Array.from(formDataObj.entries()));
+                
                 const response = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
                     method: 'PUT',
                     body: formDataObj // Don't set Content-Type header for FormData
@@ -3981,13 +4015,14 @@ async function editMember(event) {
                 
                 if (response.ok) {
                     backendResponse = await response.json();
-                    
+                    console.log('✅ Backend update successful:', backendResponse);
                 } else {
                     const errorData = await response.json().catch(() => ({}));
+                    console.log('❌ Backend update failed:', response.status, errorData);
                     throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
             } catch (error) {
-                
+                console.log('❌ Backend update error:', error);
                 isOnline = false;
             }
         }
@@ -4001,18 +4036,13 @@ async function editMember(event) {
         };
         
         // Handle file data - always use multipart/form-data approach
-        const passportInput = document.getElementById('editMemberPassport');
-        const signatureInput = document.getElementById('editMemberSignature');
-        
         // Store file references for offline sync
         if (passportInput && passportInput.files[0]) {
             updatedMember.passportFile = passportInput.files[0]; // Store file reference
-            
         }
         
         if (signatureInput && signatureInput.files[0]) {
             updatedMember.signatureFile = signatureInput.files[0]; // Store file reference
-            
         }
         
         // For online storage, use the filename from backend response
@@ -6702,6 +6732,52 @@ async function updateMemberPhoto(memberCode) {
 
 // Expose functions to window for debugging
 window.updateMemberPhoto = updateMemberPhoto;
+
+// Test function for member update
+window.testMemberUpdate = async function(memberId) {
+  console.log('🧪 Testing member update for ID:', memberId);
+  
+  const member = window.currentMembers?.find(m => m._id === memberId || m.id === memberId);
+  if (!member) {
+    console.log('❌ Member not found');
+    return;
+  }
+  
+  console.log('📋 Member data:', member);
+  
+  // Create test form data
+  const formData = new FormData();
+  formData.append('name', member.name + ' (Updated)');
+  formData.append('email', member.email || '');
+  formData.append('code', member.code);
+  formData.append('position', member.position || 'MEMBER');
+  formData.append('state', member.state);
+  formData.append('zone', member.zone);
+  
+  try {
+    console.log('🔄 Sending update request...');
+    const response = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
+      method: 'PUT',
+      body: formData
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Update successful:', result);
+      showMessage('Test update successful!', 'success');
+      
+      // Refresh the members list
+      await loadMembers();
+    } else {
+      const error = await response.json();
+      console.log('❌ Update failed:', error);
+      showMessage('Test update failed: ' + error.message, 'error');
+    }
+  } catch (error) {
+    console.log('❌ Update error:', error);
+    showMessage('Test update error: ' + error.message, 'error');
+  }
+};
 
 
 
