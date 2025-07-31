@@ -214,16 +214,7 @@ function getBackendUrl() {
         return customBackendUrl;
     }
     
-    const currentOrigin = window.location.origin;
-    
-    if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
-        const currentPort = window.location.port;
-        if (currentPort && currentPort !== '3000') {
-            return `http://localhost:5000`;
-        }
-        return 'http://localhost:5000';
-    }
-    
+    // Always use production backend by default
     return 'https://narap-backend.onrender.com';
 }
 
@@ -1068,17 +1059,9 @@ async function syncPendingChanges() {
 // Function to clear problematic pending deletions
 function clearPendingDeletions() {
     const pendingSync = getPendingSync();
-    const deletionCount = pendingSync.memberDeletions.length;
-    
-    if (deletionCount > 0) {
-        pendingSync.memberDeletions = [];
-        savePendingSync(pendingSync);
-        updateSyncStatus();
-        showMessage(`Cleared ${deletionCount} pending deletions`, 'info');
-        
-    } else {
-        showMessage('No pending deletions to clear', 'info');
-    }
+    pendingSync.memberDeletions = [];
+    savePendingSync(pendingSync);
+    console.log('✅ Pending deletions cleared');
 }
 
 async function syncWithBackend() {
@@ -2809,18 +2792,22 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
                         backendMembers = [];
                     }
                     
-                    // Save backend members to local storage
-                    saveLocalMembers(backendMembers);
+                    // Don't immediately save backend members to local storage
+                    // We'll merge them properly below
                 }
             } catch (error) {
                 
             }
         }
         
-        // Merge backend and local members
+        // Merge backend and local members properly
         const mergedMembers = [...backendMembers];
         
-        // Add local members that don't exist in backend
+        // Get pending deletions to exclude them from local members
+        const pendingSync = getPendingSync();
+        const pendingDeletions = pendingSync.memberDeletions || [];
+        
+        // Add local members that don't exist in backend and aren't pending deletion
         localMembers.forEach(localMember => {
             const existsInBackend = backendMembers.find(backendMember => 
                 backendMember._id === localMember._id || 
@@ -2828,7 +2815,13 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
                 backendMember.code === localMember.code
             );
             
-            if (!existsInBackend) {
+            const isPendingDeletion = pendingDeletions.some(deletion => 
+                deletion._id === localMember._id || 
+                deletion.id === localMember.id ||
+                deletion.code === localMember.code
+            );
+            
+            if (!existsInBackend && !isPendingDeletion) {
                 mergedMembers.push({ ...localMember, isFromBackend: false });
             }
         });
@@ -3684,28 +3677,25 @@ async function deleteMember(memberId) {
             return;
         }
         
-
-        
         let isOnline = navigator.onLine;
         let backendDeleteSuccess = false;
         
         // Try to delete from backend if online and member exists in backend
-        if (isOnline && memberToDelete.isFromBackend && !memberToDelete._id.startsWith('local_')) {
+        if (isOnline && memberToDelete.isFromBackend !== false && !memberToDelete._id.startsWith('local_')) {
             try {
-
                 const response = await fetch(`${backendUrl}/api/users/deleteUser/${memberToDelete._id}`, {
                     method: 'DELETE'
                 });
                 
                 if (response.ok) {
-
                     backendDeleteSuccess = true;
+                    console.log('✅ Member deleted from backend successfully');
                 } else {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
             } catch (error) {
-                
+                console.error('❌ Backend deletion failed:', error);
                 isOnline = false;
             }
         }
@@ -3718,7 +3708,6 @@ async function deleteMember(memberId) {
         
         // Save to local storage immediately
         saveLocalMembers(updatedMembers);
-
         
         // Add to pending sync if backend deletion failed or member was local
         if (!backendDeleteSuccess) {
@@ -3730,7 +3719,6 @@ async function deleteMember(memberId) {
                 email: memberToDelete.email
             });
             savePendingSync(pendingSync);
-
             
             if (!isOnline) {
                 showMessage('Member deleted locally. Will sync with database when online.', 'warning');
@@ -3753,10 +3741,8 @@ async function deleteMember(memberId) {
             await loadRecentActivity();
         }
         
-
-        
     } catch (error) {
-        
+        console.error('❌ Delete member error:', error);
         showMessage('Failed to delete member: ' + error.message, 'error');
     }
 }
