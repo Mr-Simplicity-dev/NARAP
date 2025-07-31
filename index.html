@@ -1785,12 +1785,18 @@ function displayMemberResult(member) {
       
       // Test if the photo URL is accessible
       if (validPhotoUrl) {
-        testPhotoUrl(validPhotoUrl).then(isAccessible => {
-          console.log('🔍 Photo URL accessibility test result:', isAccessible);
-          if (!isAccessible) {
-            console.log('⚠️ Photo URL is not accessible, will show placeholder');
-          }
-        });
+        try {
+          testPhotoUrl(validPhotoUrl).then(isAccessible => {
+            console.log('🔍 Photo URL accessibility test result:', isAccessible);
+            if (!isAccessible) {
+              console.log('⚠️ Photo URL is not accessible, will show placeholder');
+            }
+          }).catch(error => {
+            console.log('❌ Photo URL test error:', error);
+          });
+        } catch (error) {
+          console.log('❌ Error testing photo URL:', error);
+        }
       }
     } catch (error) {
       console.log('❌ Error processing photo URL:', error);
