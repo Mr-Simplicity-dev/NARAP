@@ -698,6 +698,34 @@ async function syncPendingChanges() {
             }
         }
         
+        // Check backend URL before starting sync
+        console.log('🔍 Backend URL for sync:', backendUrl);
+        
+        // Validate backend URL
+        if (!backendUrl || backendUrl === 'undefined' || backendUrl === 'null') {
+            console.error('❌ Invalid backend URL:', backendUrl);
+            showMessage('Backend URL not configured. Please check settings.', 'error');
+            return;
+        }
+        
+        // Test backend connectivity
+        try {
+            const connectivityTest = await fetch(`${backendUrl}/api/health`, {
+                method: 'GET',
+                timeout: 5000
+            });
+            
+            if (!connectivityTest.ok) {
+                console.warn('⚠️ Backend health check failed - sync may fail');
+                showMessage('Backend appears to be down. Sync will be retried when available.', 'warning');
+            } else {
+                console.log('✅ Backend connectivity confirmed');
+            }
+        } catch (connectivityError) {
+            console.warn('⚠️ Backend connectivity test failed:', connectivityError);
+            showMessage('Cannot reach backend server. Sync will be retried when connection is restored.', 'warning');
+        }
+        
         // Sync member changes
         for (const member of pendingSync.memberCreations) {
             try {
@@ -727,10 +755,42 @@ async function syncPendingChanges() {
                     
                 }
                 
-                const response = await fetch(`${backendUrl}/api/users/addUser`, {
-                    method: 'POST',
-                    body: formData // Don't set Content-Type header for FormData
-                });
+                // Check network connectivity first
+                if (!navigator.onLine) {
+                    console.log('🌐 Offline - skipping backend sync for member:', member.name);
+                    continue;
+                }
+                
+                // Test backend connectivity before attempting sync
+                try {
+                    const healthCheck = await fetch(`${backendUrl}/api/health`, {
+                        method: 'GET',
+                        timeout: 5000
+                    });
+                    
+                    if (!healthCheck.ok) {
+                        console.log('🔴 Backend health check failed - skipping sync for member:', member.name);
+                        continue;
+                    }
+                } catch (healthError) {
+                    console.log('🔴 Backend not accessible - skipping sync for member:', member.name);
+                    continue;
+                }
+                
+                console.log('🟢 Backend accessible - attempting to sync member:', member.name);
+                
+                let response;
+                try {
+                    response = await fetch(`${backendUrl}/api/users/addUser`, {
+                        method: 'POST',
+                        body: formData, // Don't set Content-Type header for FormData
+                        timeout: 10000 // 10 second timeout
+                    });
+                } catch (fetchError) {
+                    console.error('🌐 Network error during fetch:', fetchError);
+                    console.log('🔄 Will retry sync for member later:', member.name);
+                    continue; // Skip this member for now, will retry in next sync cycle
+                }
                 
                 if (response.ok) {
                     const result = await response.json();
@@ -749,6 +809,12 @@ async function syncPendingChanges() {
                 } else {
                     const errorData = await response.json().catch(() => ({}));
                     console.error('AddUser sync error:', errorData);
+                    
+                    // Handle network errors specifically
+                    if (errorData.message && errorData.message.includes('Failed to fetch')) {
+                        console.log('🌐 Network error - will retry later for member:', member.name);
+                        continue; // Skip this member for now, will retry in next sync cycle
+                    }
                     
                     // Handle specific error cases
                     if (errorData.message && errorData.message.includes('Email already exists')) {
@@ -869,9 +935,17 @@ async function syncPendingChanges() {
                         throw new Error(errorData.message || `HTTP ${response.status}`);
                     }
                 }
-            } catch (error) {
-                console.error('AddUser sync error:', error);
+                    } catch (error) {
+            console.error('AddUser sync error:', error);
+            
+            // If it's a network error, mark for retry
+            if (error.message && error.message.includes('Failed to fetch')) {
+                console.log('🌐 Network error - member will be retried in next sync cycle:', member.name);
+                // Keep the member in pending sync for retry
+            } else {
+                console.error('❌ Non-network error - member sync failed:', member.name, error);
             }
+        }
         }
         
         for (const member of pendingSync.memberUpdates) {
