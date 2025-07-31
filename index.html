@@ -1530,93 +1530,36 @@ function switchTab(type) {
   closeModal();
 }
 
-// Enhanced getData function with error handling and caching
-async function getData(endpoint = '', options = {}) {
-  const defaultOptions = {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    ...options
-  };
+// Get backend URL function
+function getBackendUrl() {
+  if (window.BACKEND_URL) {
+    return window.BACKEND_URL;
+  }
   
-  try {
-    // Use your existing retry mechanism
-    const response = await makeRequest(
-      `http://localhost:3000/api/data${endpoint}`, 
-      defaultOptions
-    );
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('Data fetched successfully:', data);
-    
-    // Cache the data for offline use
-    if (endpoint) {
-      localStorage.setItem(`narap_cache_${endpoint.replace(/\//g, '_')}`, JSON.stringify({
-        data,
-        timestamp: Date.now(),
-        ttl: 5 * 60 * 1000 // 5 minutes TTL
-      }));
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    
-    // Try to get cached data if available
-    if (endpoint) {
-      const cached = getCachedData(endpoint);
-      if (cached) {
-        console.log('Using cached data due to network error');
-        return cached;
-      }
-    }
-    
-    throw error;
+  const customBackendUrl = localStorage.getItem('narap_backend_url');
+  if (customBackendUrl) {
+    return customBackendUrl;
   }
+  
+  // Always use production backend by default
+  return 'https://narap-backend.onrender.com';
 }
 
-// Helper function to get cached data
-function getCachedData(endpoint) {
-  try {
-    const cached = localStorage.getItem(`narap_cache_${endpoint.replace(/\//g, '_')}`);
-    if (cached) {
-      const { data, timestamp, ttl } = JSON.parse(cached);
-      if (Date.now() - timestamp < ttl) {
-        return data;
-      }
-    }
-  } catch (error) {
-    console.log('Error reading cached data:', error);
-  }
-  return null;
-}
+const backendUrl = getBackendUrl();
 
-// Updated member search function with Render backend integration
+// Enhanced member search function with Render backend integration
 async function searchUser(event) {
   event.preventDefault();
   
   const code = document.getElementById('memberCode').value.trim();
-  const searchBtn = document.getElementById('memberSearchBtn');
+  if (!code) {
+    showError('Please enter a member code.');
+    return;
+  }
+  
+  const searchBtn = document.getElementById('searchBtn');
   const loading = document.getElementById('loading');
   
-  if (!code) {
-    showError('Please enter a NARAP code');
-    document.getElementById('memberCode').focus();
-    return;
-  }
-  
-  if (code.length < 3) {
-    showError('NARAP code must be at least 3 characters long');
-    document.getElementById('memberCode').focus();
-    return;
-  }
-  
-  // Show loading state
   searchBtn.disabled = true;
   searchBtn.innerHTML = '<span style="animation: spin 1s linear infinite;">⏳</span> Searching...';
   loading.style.display = 'block';
@@ -1626,7 +1569,7 @@ async function searchUser(event) {
     console.log('🔍 Searching for member with code:', code);
     
     // Try the main Render backend API first
-    let response = await fetch('http://localhost:3000/api/members/verify', {
+    let response = await fetch(`${backendUrl}/api/members/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1650,7 +1593,7 @@ async function searchUser(event) {
     
     // If main API fails, try legacy API fallback
     try {
-      const legacyResponse = await fetch('http://localhost:3000/api/searchUser', {
+      const legacyResponse = await fetch(`${backendUrl}/api/searchUser`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1745,7 +1688,7 @@ async function searchCertificate(event) {
   hideError();
   
   try {
-    const response = await fetch('http://localhost:3000/api/certificates/verify', {
+    const response = await fetch(`${backendUrl}/api/certificates/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1803,10 +1746,10 @@ function displayMemberResult(member) {
       if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://') || passportPhoto.startsWith('data:')) {
         validPhotoUrl = passportPhoto;
       } else if (passportPhoto.startsWith('/')) {
-        validPhotoUrl = `http://localhost:3000${passportPhoto}`;
+        validPhotoUrl = `${backendUrl}${passportPhoto}`;
       } else {
         // Fallback for filename-only cases
-        validPhotoUrl = `http://localhost:3000/api/uploads/passports/${passportPhoto}`;
+        validPhotoUrl = `${backendUrl}/api/uploads/passports/${passportPhoto}`;
       }
       console.log('Processed photo URL:', validPhotoUrl);
     } catch (error) {
@@ -1822,9 +1765,9 @@ function displayMemberResult(member) {
       if (member.signature.startsWith('http://') || member.signature.startsWith('https://') || member.signature.startsWith('data:')) {
         validSignatureUrl = member.signature;
       } else if (member.signature.startsWith('/')) {
-        validSignatureUrl = `http://localhost:3000${member.signature}`;
+        validSignatureUrl = `${backendUrl}${member.signature}`;
       } else {
-        validSignatureUrl = `http://localhost:3000/api/uploads/signatures/${member.signature}`;
+        validSignatureUrl = `${backendUrl}/api/uploads/signatures/${member.signature}`;
       }
       console.log('Processed signature URL:', validSignatureUrl);
     } catch (error) {
@@ -2241,7 +2184,7 @@ async function searchUser(event) {
     console.log('🔍 Searching for member with code:', code);
     
     // Try the main Render backend API first
-    let response = await fetch('http://localhost:3000/api/members/verify', {
+    let response = await fetch(`${backendUrl}/api/members/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2275,9 +2218,9 @@ async function searchUser(event) {
     
     // If main API fails, try alternative endpoints
     const alternativeEndpoints = [
-      'http://localhost:3000/api/searchUser',
-      'http://localhost:3000/api/user/search',
-      'http://localhost:3000/api/member/find'
+      `${backendUrl}/api/searchUser`,
+      `${backendUrl}/api/user/search`,
+      `${backendUrl}/api/member/find`
     ];
     
     for (const endpoint of alternativeEndpoints) {
@@ -2525,7 +2468,7 @@ async function searchUser(event) {
     console.log('🔍 Searching for member with code:', code);
     
     // Try the main Render backend API first
-    let response = await fetch('http://localhost:3000/api/members/verify', {
+    let response = await fetch(`${backendUrl}/api/members/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2576,9 +2519,9 @@ async function searchUser(event) {
     
     // If main API fails, try alternative endpoints
     const alternativeEndpoints = [
-      'http://localhost:3000/api/searchUser',
-      'http://localhost:3000/api/user/search',
-      'http://localhost:3000/api/member/find'
+      `${backendUrl}/api/searchUser`,
+      `${backendUrl}/api/user/search`,
+      `${backendUrl}/api/member/find`
     ];
     
     for (const endpoint of alternativeEndpoints) {
@@ -2913,7 +2856,7 @@ async function searchUser(event) {
     console.log('🔍 Searching for member with code:', code);
     
     // Try the main Render backend API first
-    let response = await fetch('http://localhost:3000/api/members/verify', {
+    let response = await fetch(`${backendUrl}/api/members/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2947,9 +2890,9 @@ async function searchUser(event) {
     
     // If main API fails, try alternative endpoints
     const alternativeEndpoints = [
-      'http://localhost:3000/api/searchUser',
-      'http://localhost:3000/api/user/search',
-      'http://localhost:3000/api/member/find'
+      `${backendUrl}/api/searchUser`,
+      `${backendUrl}/api/user/search`,
+      `${backendUrl}/api/member/find`
     ];
     
     for (const endpoint of alternativeEndpoints) {
@@ -3317,7 +3260,7 @@ async function syncPendingData() {
       console.log('Syncing pending data:', data);
       
       // Attempt to sync with backend
-      await fetch('http://localhost:3000/api/sync', {
+      await fetch(`${backendUrl}/api/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3360,7 +3303,7 @@ function trackUsage(type, action) {
     
     // Try to send usage data to backend if online
     if (isOnline) {
-      fetch('http://localhost:3000/api/analytics', {
+      fetch(`${backendUrl}/api/analytics`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3427,7 +3370,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Health check function for backend
 async function checkBackendHealth() {
   try {
-    const response = await fetch('http://localhost:3000/api/health', {
+    const response = await fetch(`${backendUrl}/api/health`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
