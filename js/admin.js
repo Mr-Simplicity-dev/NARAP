@@ -2635,30 +2635,76 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
 async function addMember(event) {
     event.preventDefault();
     
+    // Get form elements with error checking
+    const nameField = document.getElementById('memberName');
+    const emailField = document.getElementById('memberEmail');
+    const passwordField = document.getElementById('memberPassword');
+    const codeField = document.getElementById('memberCode');
+    const positionField = document.getElementById('memberPosition');
+    const stateField = document.getElementById('memberState');
+    const zoneField = document.getElementById('memberZone');
+    
+    // Check if all form elements exist
+    if (!nameField || !passwordField || !codeField || !positionField || !stateField || !zoneField) {
+        console.error('❌ Form elements not found:', {
+            nameField: !!nameField,
+            passwordField: !!passwordField,
+            codeField: !!codeField,
+            positionField: !!positionField,
+            stateField: !!stateField,
+            zoneField: !!zoneField
+        });
+        showMessage('Form elements not found. Please refresh the page.', 'error');
+        return;
+    }
+    
     const formData = {
-        name: document.getElementById('memberName').value.trim(),
-        email: document.getElementById('memberEmail').value.trim(),
-        password: document.getElementById('memberPassword').value,
-        code: document.getElementById('memberCode').value.trim(),
-        position: document.getElementById('memberPosition').value,
-        state: document.getElementById('memberState').value.trim(),
-        zone: document.getElementById('memberZone').value.trim()
+        name: nameField.value.trim(),
+        email: emailField ? emailField.value.trim() : '',
+        password: passwordField.value,
+        code: codeField.value.trim(),
+        position: positionField.value,
+        state: stateField.value.trim(),
+        zone: zoneField.value.trim()
     };
+    
+    console.log('🔍 Form data collected:', {
+        name: formData.name,
+        email: formData.email,
+        code: formData.code,
+        position: formData.position,
+        state: formData.state,
+        zone: formData.zone,
+        hasPassword: !!formData.password,
+        passwordLength: formData.password ? formData.password.length : 0
+    });
     
     // Create FormData for file upload
     const formDataObj = new FormData();
     
-    // Add text fields
+    // Add text fields with validation
     formDataObj.append('name', formData.name);
+    
     // Only add email if it has a value
     if (formData.email && formData.email.trim()) {
         formDataObj.append('email', formData.email.trim());
     }
-    formDataObj.append('password', formData.password);
+    
+    formDataObj.append('password', formData.password || 'defaultPassword123');
     formDataObj.append('code', formData.code);
     formDataObj.append('position', formData.position);
     formDataObj.append('state', formData.state);
     formDataObj.append('zone', formData.zone);
+    
+    // Debug: Log all FormData entries
+    console.log('🔍 FormData contents:');
+    for (let [key, value] of formDataObj.entries()) {
+        if (value instanceof File) {
+            console.log(`  ${key}: [File] ${value.name} (${value.size} bytes)`);
+        } else {
+            console.log(`  ${key}: "${value}"`);
+        }
+    }
     
     // Add files
     const passportInput = document.getElementById('memberPassport');
@@ -2671,9 +2717,34 @@ async function addMember(event) {
         formDataObj.append('signature', signatureInput.files[0]);
     }
     
+    // Final validation: Check if all required fields are in FormData
+    const requiredFields = ['name', 'password', 'code', 'state', 'zone'];
+    const missingFields = [];
+    
+    for (const field of requiredFields) {
+        const value = formDataObj.get(field);
+        if (!value || value.toString().trim() === '') {
+            missingFields.push(field);
+        }
+    }
+    
+    if (missingFields.length > 0) {
+        console.error('❌ Missing required fields:', missingFields);
+        showMessage(`Missing required fields: ${missingFields.join(', ')}`, 'error');
+        return;
+    }
+    
+    console.log('✅ All required fields present in FormData');
+    
     // Validate required fields
-    if (!formData.name || !formData.password || !formData.code || !formData.state || !formData.zone) {
-        showMessage('Please fill in all required fields (Name, Password, Code, State, Zone)', 'error');
+    if (!formData.name || !formData.code || !formData.state || !formData.zone) {
+        showMessage('Please fill in all required fields (Name, Code, State, Zone)', 'error');
+        return;
+    }
+    
+    // Ensure password is provided
+    if (!formData.password || formData.password.trim() === '') {
+        showMessage('Password is required', 'error');
         return;
     }
     
@@ -2697,20 +2768,35 @@ async function addMember(event) {
         // Try to add to backend if online
         if (isOnline) {
             try {
+                console.log('🔍 Adding member to backend with data:', {
+                    name: formData.name,
+                    email: formData.email,
+                    code: formData.code,
+                    position: formData.position,
+                    state: formData.state,
+                    zone: formData.zone,
+                    hasPassword: !!formData.password,
+                    hasPassport: !!(passportInput && passportInput.files[0]),
+                    hasSignature: !!(signatureInput && signatureInput.files[0])
+                });
+                
                 const response = await fetch(`${backendUrl}/api/users/addUser`, {
                     method: 'POST',
                     body: formDataObj // Don't set Content-Type header for FormData
                 });
                 
+                console.log('🔍 Backend response status:', response.status);
+                
                 if (response.ok) {
                     backendResponse = await response.json();
-                    
+                    console.log('✅ Member added successfully to backend:', backendResponse);
                 } else {
                     const errorData = await response.json().catch(() => ({}));
+                    console.error('❌ Backend error response:', errorData);
                     throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
             } catch (error) {
-                
+                console.error('❌ Error adding member to backend:', error);
                 isOnline = false;
             }
         }
