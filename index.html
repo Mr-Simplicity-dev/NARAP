@@ -2083,13 +2083,9 @@ function tryAlternativeMemberPhotoUrls(img, originalUrl) {
   const filename = originalUrl.split('/').pop();
   const alternativeUrls = [
     `${backendUrl}/api/uploads/passports/${filename}`,
+    `${backendUrl}/api/uploads/signatures/${filename}`,
     `${backendUrl}/uploads/passports/${filename}`,
-    `${backendUrl}/uploads/images/${filename}`,
-    `${backendUrl}/public/uploads/${filename}`,
-    `${backendUrl}/assets/images/${filename}`,
-    `${backendUrl}/static/uploads/${filename}`,
-    `${backendUrl}/files/${filename}`,
-    `${backendUrl}/media/${filename}`
+    `${backendUrl}/uploads/signatures/${filename}`
   ];
 
   let currentIndex = 0;
@@ -2219,7 +2215,28 @@ window.testCertificateVerification = async function(certificateNumber = 'CERT-20
   }
 };
 
-console.log('📸 Photo tools loaded: debugPhoto(), checkPhotoEndpoints(), getPhotoMetadata(), testPhotoUrl(), testMemberVerification(), testCertificateVerification()');
+// Test function to check available files on backend
+window.checkBackendFiles = async function() {
+  console.log('🧪 Checking available files on backend...');
+  try {
+    const response = await fetch(`${backendUrl}/api/uploads/debug/files`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Backend files check successful:', data);
+      console.log('📸 Available passport files:', data.passports);
+      console.log('✍️ Available signature files:', data.signatures);
+      return data;
+    } else {
+      const errorText = await response.text();
+      console.log('❌ Backend files check failed:', response.status, errorText);
+    }
+  } catch (error) {
+    console.log('❌ Backend files check error:', error);
+  }
+};
+
+console.log('📸 Photo tools loaded: debugPhoto(), checkPhotoEndpoints(), getPhotoMetadata(), testPhotoUrl(), testMemberVerification(), testCertificateVerification(), checkBackendFiles()');
 
 // Add a debug button to the page for testing
 document.addEventListener('DOMContentLoaded', () => {
@@ -2246,6 +2263,7 @@ document.addEventListener('DOMContentLoaded', () => {
       testMemberVerification();
       testCertificateVerification();
       checkPhotoEndpoints();
+      checkBackendFiles();
     };
     document.body.appendChild(debugButton);
   }
@@ -2473,12 +2491,10 @@ function tryAlternativeImageUrls(img, originalUrl) {
   
   // Try different possible paths
   alternativeUrls.push(
-    `${backendUrl}/uploads/images/${filename}`,
-    `${backendUrl}/public/uploads/${filename}`,
-    `${backendUrl}/assets/images/${filename}`,
-    `${backendUrl}/static/uploads/${filename}`,
-    `${backendUrl}/files/${filename}`,
-    `${backendUrl}/media/${filename}`
+    `${backendUrl}/api/uploads/passports/${filename}`,
+    `${backendUrl}/api/uploads/signatures/${filename}`,
+    `${backendUrl}/uploads/passports/${filename}`,
+    `${backendUrl}/uploads/signatures/${filename}`
   );
   
   // Try each alternative URL
@@ -2817,12 +2833,10 @@ document.head.appendChild(photoStyles);
 // Function to check backend photo endpoints
 async function checkPhotoEndpoints() {
   const testEndpoints = [
-    `${backendUrl}/uploads/`,
-    `${backendUrl}/public/uploads/`,
-    `${backendUrl}/assets/images/`,
-    `${backendUrl}/static/uploads/`,
-    `${backendUrl}/files/`,
-    `${backendUrl}/media/`
+    `${backendUrl}/api/uploads/passports/`,
+    `${backendUrl}/api/uploads/signatures/`,
+    `${backendUrl}/uploads/passports/`,
+    `${backendUrl}/uploads/signatures/`
   ];
   
   console.log('🔍 Checking photo endpoints...');
