@@ -1737,8 +1737,10 @@ function displayMemberResult(member) {
                        member.avatar ||
                        null;
   
+  console.log('🔍 === MEMBER VERIFICATION DEBUG ===');
   console.log('Member data received:', member);
   console.log('Passport photo URL found:', passportPhoto);
+  console.log('Backend URL:', backendUrl);
   console.log('🔍 Full member object:', JSON.stringify(member, null, 2));
   
   // Validate photo URL
@@ -1765,6 +1767,7 @@ function displayMemberResult(member) {
       // Test if the photo URL is accessible
       if (validPhotoUrl) {
         testPhotoUrl(validPhotoUrl).then(isAccessible => {
+          console.log('🔍 Photo URL accessibility test result:', isAccessible);
           if (!isAccessible) {
             console.log('⚠️ Photo URL is not accessible, will show placeholder');
           }
@@ -1803,6 +1806,8 @@ function displayMemberResult(member) {
       validSignatureUrl = null;
     }
   }
+  
+  console.log('🔍 === END DEBUG ===');
   
   resultContent.innerHTML = `
     <div class="details-container">
@@ -1996,14 +2001,14 @@ function handleImageError(img, originalUrl) {
 function tryAlternativeImageUrls(img, originalUrl) {
   const filename = originalUrl.split('/').pop();
   const alternativeUrls = [
-    `http://localhost:3000/api/uploads/passports/${filename}`,
-    `http://localhost:3000/uploads/passports/${filename}`,
-    `http://localhost:3000/uploads/images/${filename}`,
-    `http://localhost:3000/public/uploads/${filename}`,
-    `http://localhost:3000/assets/images/${filename}`,
-    `http://localhost:3000/static/uploads/${filename}`,
-    `http://localhost:3000/files/${filename}`,
-    `http://localhost:3000/media/${filename}`
+    `${backendUrl}/api/uploads/passports/${filename}`,
+    `${backendUrl}/uploads/passports/${filename}`,
+    `${backendUrl}/uploads/images/${filename}`,
+    `${backendUrl}/public/uploads/${filename}`,
+    `${backendUrl}/assets/images/${filename}`,
+    `${backendUrl}/static/uploads/${filename}`,
+    `${backendUrl}/files/${filename}`,
+    `${backendUrl}/media/${filename}`
   ];
 
   let currentIndex = 0;
@@ -2077,14 +2082,14 @@ function handleMemberPhotoError(img, originalUrl) {
 function tryAlternativeMemberPhotoUrls(img, originalUrl) {
   const filename = originalUrl.split('/').pop();
   const alternativeUrls = [
-    `http://localhost:3000/api/uploads/passports/${filename}`,
-    `http://localhost:3000/uploads/passports/${filename}`,
-    `http://localhost:3000/uploads/images/${filename}`,
-    `http://localhost:3000/public/uploads/${filename}`,
-    `http://localhost:3000/assets/images/${filename}`,
-    `http://localhost:3000/static/uploads/${filename}`,
-    `http://localhost:3000/files/${filename}`,
-    `http://localhost:3000/media/${filename}`
+    `${backendUrl}/api/uploads/passports/${filename}`,
+    `${backendUrl}/uploads/passports/${filename}`,
+    `${backendUrl}/uploads/images/${filename}`,
+    `${backendUrl}/public/uploads/${filename}`,
+    `${backendUrl}/assets/images/${filename}`,
+    `${backendUrl}/static/uploads/${filename}`,
+    `${backendUrl}/files/${filename}`,
+    `${backendUrl}/media/${filename}`
   ];
 
   let currentIndex = 0;
@@ -2112,12 +2117,12 @@ function tryAlternativeMemberPhotoUrls(img, originalUrl) {
 
 async function checkPhotoEndpoints() {
   const endpoints = [
-    'http://localhost:3000/uploads/',
-    'http://localhost:3000/public/uploads/',
-    'http://localhost:3000/assets/images/',
-    'http://localhost:3000/static/uploads/',
-    'http://localhost:3000/files/',
-    'http://localhost:3000/media/'
+    `${backendUrl}/uploads/`,
+    `${backendUrl}/public/uploads/`,
+    `${backendUrl}/assets/images/`,
+    `${backendUrl}/static/uploads/`,
+    `${backendUrl}/files/`,
+    `${backendUrl}/media/`
   ];
   
   for (const endpoint of endpoints) {
@@ -2155,7 +2160,96 @@ window.testPhotoUrl = function(url) {
   img.src = url;
 };
 
-console.log('📸 Photo tools loaded: debugPhoto(), checkPhotoEndpoints(), getPhotoMetadata(), testPhotoUrl()');
+// Enhanced test function for member verification
+window.testMemberVerification = async function(code = 'N/045/ANA/05') {
+  console.log('🧪 Testing member verification for code:', code);
+  try {
+    const response = await fetch(`${backendUrl}/api/users/members/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Member verification successful:', data);
+      console.log('🔍 Photo URL from backend:', data.member.passportPhoto);
+      if (data.member.passportPhoto) {
+        console.log('🔍 Testing photo URL accessibility...');
+        const img = new Image();
+        img.onload = () => console.log('✅ Photo loads successfully');
+        img.onerror = () => console.log('❌ Photo fails to load');
+        img.src = data.member.passportPhoto;
+      }
+      return data;
+    } else {
+      const errorText = await response.text();
+      console.log('❌ Member verification failed:', response.status, errorText);
+    }
+  } catch (error) {
+    console.log('❌ Member verification error:', error);
+  }
+};
+
+// Test function for certificate verification
+window.testCertificateVerification = async function(certificateNumber = 'CERT-2024-001') {
+  console.log('🧪 Testing certificate verification for number:', certificateNumber);
+  try {
+    const response = await fetch(`${backendUrl}/api/certificates/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ certificateNumber })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Certificate verification successful:', data);
+      console.log('🔍 Certificate data:', data.certificate);
+      return data;
+    } else {
+      const errorText = await response.text();
+      console.log('❌ Certificate verification failed:', response.status, errorText);
+    }
+  } catch (error) {
+    console.log('❌ Certificate verification error:', error);
+  }
+};
+
+console.log('📸 Photo tools loaded: debugPhoto(), checkPhotoEndpoints(), getPhotoMetadata(), testPhotoUrl(), testMemberVerification(), testCertificateVerification()');
+
+// Add a debug button to the page for testing
+document.addEventListener('DOMContentLoaded', () => {
+  // Add debug button if it doesn't exist
+  if (!document.getElementById('debugButton')) {
+    const debugButton = document.createElement('button');
+    debugButton.id = 'debugButton';
+    debugButton.innerHTML = '🔧 Debug Photos';
+    debugButton.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 10000;
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    `;
+    debugButton.onclick = () => {
+      console.log('🔧 Starting photo debug session...');
+      testMemberVerification();
+      testCertificateVerification();
+      checkPhotoEndpoints();
+    };
+    document.body.appendChild(debugButton);
+  }
+});
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
@@ -2379,12 +2473,12 @@ function tryAlternativeImageUrls(img, originalUrl) {
   
   // Try different possible paths
   alternativeUrls.push(
-    `http://localhost:3000/uploads/images/${filename}`,
-    `http://localhost:3000/public/uploads/${filename}`,
-    `http://localhost:3000/assets/images/${filename}`,
-    `http://localhost:3000/static/uploads/${filename}`,
-    `http://localhost:3000/files/${filename}`,
-    `http://localhost:3000/media/${filename}`
+    `${backendUrl}/uploads/images/${filename}`,
+    `${backendUrl}/public/uploads/${filename}`,
+    `${backendUrl}/assets/images/${filename}`,
+    `${backendUrl}/static/uploads/${filename}`,
+    `${backendUrl}/files/${filename}`,
+    `${backendUrl}/media/${filename}`
   );
   
   // Try each alternative URL
@@ -2723,12 +2817,12 @@ document.head.appendChild(photoStyles);
 // Function to check backend photo endpoints
 async function checkPhotoEndpoints() {
   const testEndpoints = [
-    'http://localhost:3000/uploads/',
-    'http://localhost:3000/public/uploads/',
-    'http://localhost:3000/assets/images/',
-    'http://localhost:3000/static/uploads/',
-    'http://localhost:3000/files/',
-    'http://localhost:3000/media/'
+    `${backendUrl}/uploads/`,
+    `${backendUrl}/public/uploads/`,
+    `${backendUrl}/assets/images/`,
+    `${backendUrl}/static/uploads/`,
+    `${backendUrl}/files/`,
+    `${backendUrl}/media/`
   ];
   
   console.log('🔍 Checking photo endpoints...');
