@@ -3755,9 +3755,6 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
                         <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-sm btn-primary" onclick="updateMemberPhoto('${code}')" title="Update Photo">
-                            <i class="fas fa-camera"></i>
-                        </button>
                         <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
                             <i class="fas fa-trash"></i>
                         </button>
