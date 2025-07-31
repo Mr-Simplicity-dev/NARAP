@@ -706,7 +706,10 @@ async function syncPendingChanges() {
                 
                 // Add text fields
                 formData.append('name', member.name);
-                formData.append('email', member.email);
+                // Only add email if it has a value
+                if (member.email && member.email.trim()) {
+                    formData.append('email', member.email.trim());
+                }
                 formData.append('password', member.password || 'defaultPassword123');
                 formData.append('code', member.code);
                 formData.append('position', member.position);
@@ -746,7 +749,125 @@ async function syncPendingChanges() {
                 } else {
                     const errorData = await response.json().catch(() => ({}));
                     console.error('AddUser sync error:', errorData);
-                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                    
+                    // Handle specific error cases
+                    if (errorData.message && errorData.message.includes('Email already exists')) {
+                        // Remove email from the member data and try again
+                        const memberWithoutEmail = { ...member };
+                        delete memberWithoutEmail.email;
+                        
+                        // Update the member in local storage to remove email
+                        const currentMembers = window.currentMembers || [];
+                        const memberIndex = currentMembers.findIndex(m => m._id === member._id);
+                        if (memberIndex !== -1) {
+                            currentMembers[memberIndex].email = '';
+                            saveLocalMembers(currentMembers);
+                        }
+                        
+                        // Try to sync again without email
+                        try {
+                            const retryFormData = new FormData();
+                            retryFormData.append('name', member.name);
+                            // Don't add email field at all for retry
+                            retryFormData.append('password', member.password || 'defaultPassword123');
+                            retryFormData.append('code', member.code);
+                            retryFormData.append('position', member.position);
+                            retryFormData.append('state', member.state);
+                            retryFormData.append('zone', member.zone);
+                            
+                            if (member.passportFile) {
+                                retryFormData.append('passportPhoto', member.passportFile);
+                            }
+                            if (member.signatureFile) {
+                                retryFormData.append('signature', member.signatureFile);
+                            }
+                            
+                            const retryResponse = await fetch(`${backendUrl}/api/users/addUser`, {
+                                method: 'POST',
+                                body: retryFormData
+                            });
+                            
+                            if (retryResponse.ok) {
+                                const result = await retryResponse.json();
+                                if (result.data && result.data._id) {
+                                    const currentMembers = window.currentMembers || [];
+                                    const memberIndex = currentMembers.findIndex(m => m._id === member._id);
+                                    if (memberIndex !== -1) {
+                                        currentMembers[memberIndex]._id = result.data._id;
+                                        currentMembers[memberIndex].isFromBackend = true;
+                                        currentMembers[memberIndex].pendingSync = false;
+                                        saveLocalMembers(currentMembers);
+                                    }
+                                }
+                                syncedCount++;
+                                console.log('Successfully synced member without email:', member.name);
+                            } else {
+                                console.error('Retry failed for member:', member.name);
+                            }
+                        } catch (retryError) {
+                            console.error('Retry sync error:', retryError);
+                        }
+                    } else if (errorData.message && errorData.message.includes('Code already exists')) {
+                        // Generate a new unique code and try again
+                        const newCode = generateUniqueCode();
+                        
+                        // Update the member in local storage with new code
+                        const currentMembers = window.currentMembers || [];
+                        const memberIndex = currentMembers.findIndex(m => m._id === member._id);
+                        if (memberIndex !== -1) {
+                            currentMembers[memberIndex].code = newCode;
+                            saveLocalMembers(currentMembers);
+                        }
+                        
+                        // Try to sync again with new code
+                        try {
+                            const retryFormData = new FormData();
+                            retryFormData.append('name', member.name);
+                            // Only add email if it has a value
+                            if (member.email && member.email.trim()) {
+                                retryFormData.append('email', member.email.trim());
+                            }
+                            retryFormData.append('password', member.password || 'defaultPassword123');
+                            retryFormData.append('code', newCode);
+                            retryFormData.append('position', member.position);
+                            retryFormData.append('state', member.state);
+                            retryFormData.append('zone', member.zone);
+                            
+                            if (member.passportFile) {
+                                retryFormData.append('passportPhoto', member.passportFile);
+                            }
+                            if (member.signatureFile) {
+                                retryFormData.append('signature', member.signatureFile);
+                            }
+                            
+                            const retryResponse = await fetch(`${backendUrl}/api/users/addUser`, {
+                                method: 'POST',
+                                body: retryFormData
+                            });
+                            
+                            if (retryResponse.ok) {
+                                const result = await retryResponse.json();
+                                if (result.data && result.data._id) {
+                                    const currentMembers = window.currentMembers || [];
+                                    const memberIndex = currentMembers.findIndex(m => m._id === member._id);
+                                    if (memberIndex !== -1) {
+                                        currentMembers[memberIndex]._id = result.data._id;
+                                        currentMembers[memberIndex].isFromBackend = true;
+                                        currentMembers[memberIndex].pendingSync = false;
+                                        saveLocalMembers(currentMembers);
+                                    }
+                                }
+                                syncedCount++;
+                                console.log('Successfully synced member with new code:', member.name, 'New code:', newCode);
+                            } else {
+                                console.error('Retry failed for member:', member.name);
+                            }
+                        } catch (retryError) {
+                            console.error('Retry sync error:', retryError);
+                        }
+                    } else {
+                        throw new Error(errorData.message || `HTTP ${response.status}`);
+                    }
                 }
             } catch (error) {
                 console.error('AddUser sync error:', error);
@@ -760,7 +881,10 @@ async function syncPendingChanges() {
                 
                 // Add text fields
                 formData.append('name', member.name);
-                formData.append('email', member.email);
+                // Only add email if it has a value
+                if (member.email && member.email.trim()) {
+                    formData.append('email', member.email.trim());
+                }
                 formData.append('code', member.code);
                 formData.append('position', member.position);
                 formData.append('state', member.state);
@@ -834,6 +958,17 @@ async function syncPendingChanges() {
             pendingSync.memberUpdates = [];
             pendingSync.memberDeletions = [];
             savePendingSync(pendingSync);
+            
+            // Clean up successfully synced items from pending sync
+            if (syncedCount > 0) {
+                const pendingSync = getPendingSync();
+                pendingSync.memberCreations = pendingSync.memberCreations.filter(member => {
+                    const currentMembers = window.currentMembers || [];
+                    const memberIndex = currentMembers.findIndex(m => m._id === member._id);
+                    return memberIndex === -1 || currentMembers[memberIndex].pendingSync;
+                });
+                savePendingSync(pendingSync);
+            }
             
             showMessage(`Synced ${syncedCount} pending changes`, 'success');
             updateSyncStatus();
@@ -2515,7 +2650,10 @@ async function addMember(event) {
     
     // Add text fields
     formDataObj.append('name', formData.name);
-    formDataObj.append('email', formData.email);
+    // Only add email if it has a value
+    if (formData.email && formData.email.trim()) {
+        formDataObj.append('email', formData.email.trim());
+    }
     formDataObj.append('password', formData.password);
     formDataObj.append('code', formData.code);
     formDataObj.append('position', formData.position);
@@ -3252,110 +3390,145 @@ async function deleteMember(memberId) {
 // ==================== VIEW MEMBER FUNCTION ====================
 
 async function viewMember(memberId) {
+    console.log('🔍 Viewing member with ID:', memberId);
+    
     try {
         const currentMembers = window.currentMembers || [];
+        console.log('🔍 Current members count:', currentMembers.length);
+        
         const member = currentMembers.find(m => 
             m._id === memberId || m.id === memberId
         );
         
         if (!member) {
+            console.error('❌ Member not found with ID:', memberId);
             showMessage('Member not found', 'error');
             return;
         }
+        
+        console.log('✅ Found member:', member.name, member);
         
         // Create and show the view modal
         showViewMemberModal(member);
         
     } catch (error) {
-        
+        console.error('❌ Error viewing member:', error);
         showMessage('Failed to view member: ' + error.message, 'error');
     }
 }
 
 function showViewMemberModal(member) {
+    console.log('🔍 Opening member preview for:', member.name, member);
+    
+    // Get image URL with debugging
+    const imageUrl = getImageUrl(member.passportPhoto || member.passport);
+    console.log('🔍 Image URL:', imageUrl);
+    
     // Create modal HTML
     const modalHTML = `
-        <div id="viewMemberModal" class="modal-overlay">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>View Member Details</h3>
-                    <button class="close-btn" onclick="closeViewMemberModal()">&times;</button>
+        <div id="viewMemberModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+            <div class="modal-content" style="background: white; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; position: relative;">
+                <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0;">View Member Details</h3>
+                    <button class="close-btn" onclick="closeViewMemberModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
                 </div>
-                <div class="modal-body">
-                    <div class="member-view-container">
-                        <div class="member-photo-section">
-                            <img src="${getImageUrl(member.passportPhoto || member.passport)}" 
+                <div class="modal-body" style="padding: 20px;">
+                    <div class="member-view-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div class="member-photo-section" style="flex: 0 0 200px;">
+                            <img src="${imageUrl}" 
                                  alt="Member Photo" 
                                  class="member-view-photo"
-                                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K'">
+                                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;"
+                                 onerror="this.src='${DEFAULT_AVATAR}'; console.log('Image failed to load, using default avatar');"
+                                 onload="console.log('Image loaded successfully');">
                         </div>
-                        <div class="member-details-section">
-                            <div class="detail-row">
-                                <label>Full Name:</label>
-                                <span>${member.name || 'N/A'}</span>
+                        <div class="member-details-section" style="flex: 1; min-width: 300px;">
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Full Name:</label>
+                                <span style="color: #666;">${member.name || 'N/A'}</span>
                             </div>
-                            <div class="detail-row">
-                                <label>Email:</label>
-                                <span>${member.email || 'N/A'}</span>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Email:</label>
+                                <span style="color: #666;">${member.email || 'N/A'}</span>
                             </div>
-                            <div class="detail-row">
-                                <label>NARAP Code:</label>
-                                <span>${member.code || 'N/A'}</span>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">NARAP Code:</label>
+                                <span style="color: #666;">${member.code || 'N/A'}</span>
                             </div>
-                            <div class="detail-row">
-                                <label>Position:</label>
-                                <span>${member.position || 'N/A'}</span>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Position:</label>
+                                <span style="color: #666;">${member.position || 'N/A'}</span>
                             </div>
-                            <div class="detail-row">
-                                <label>State:</label>
-                                <span>${member.state || 'N/A'}</span>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">State:</label>
+                                <span style="color: #666;">${member.state || 'N/A'}</span>
                             </div>
-                            <div class="detail-row">
-                                <label>Zone:</label>
-                                <span>${member.zone || 'N/A'}</span>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Zone:</label>
+                                <span style="color: #666;">${member.zone || 'N/A'}</span>
                             </div>
-                            <div class="detail-row">
-                                <label>Phone:</label>
-                                <span>${member.phone || 'N/A'}</span>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Phone:</label>
+                                <span style="color: #666;">${member.phone || 'N/A'}</span>
                             </div>
-                            <div class="detail-row">
-                                <label>Address:</label>
-                                <span>${member.address || 'N/A'}</span>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Address:</label>
+                                <span style="color: #666;">${member.address || 'N/A'}</span>
                             </div>
-                            <div class="detail-row">
-                                <label>Member Since:</label>
-                                <span>${member.dateAdded ? new Date(member.dateAdded).toLocaleDateString() : 
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Member Since:</label>
+                                <span style="color: #666;">${member.dateAdded ? new Date(member.dateAdded).toLocaleDateString() : 
                                         member.createdAt ? new Date(member.createdAt).toLocaleDateString() : 
                                         member.joinDate ? new Date(member.joinDate).toLocaleDateString() : 'N/A'}</span>
                             </div>
-                            <div class="detail-row">
-                                <label>Status:</label>
-                                <span class="status-badge ${member.isActive !== false ? 'active' : 'inactive'}">
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Status:</label>
+                                <span class="status-badge ${member.isActive !== false ? 'active' : 'inactive'}" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; ${member.isActive !== false ? 'background: #d4edda; color: #155724;' : 'background: #f8d7da; color: #721c24;'}">
                                     ${member.isActive !== false ? 'Active' : 'Inactive'}
                                 </span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeViewMemberModal()">Close</button>
-                    <button class="btn btn-warning" onclick="showEditMemberModal('${member._id || member.id}')">Edit Member</button>
+                <div class="modal-footer" style="padding: 20px; border-top: 1px solid #eee; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="closeViewMemberModal()" style="padding: 10px 20px; border: 1px solid #ddd; background: #f8f9fa; border-radius: 4px; cursor: pointer;">Close</button>
+                    <button class="btn btn-warning" onclick="showEditMemberModal('${member._id || member.id}')" style="padding: 10px 20px; border: 1px solid #ffc107; background: #ffc107; color: #000; border-radius: 4px; cursor: pointer;">Edit Member</button>
                 </div>
             </div>
         </div>
     `;
     
+    // Remove any existing modal first
+    const existingModal = document.getElementById('viewMemberModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
     // Add modal to body
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     
-    // Show modal
-    document.getElementById('viewMemberModal').style.display = 'flex';
+    // Show modal with error handling
+    try {
+        const modal = document.getElementById('viewMemberModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            console.log('✅ Member preview modal displayed successfully');
+        } else {
+            console.error('❌ Failed to find modal element');
+        }
+    } catch (error) {
+        console.error('❌ Error displaying member preview modal:', error);
+    }
 }
 
 function closeViewMemberModal() {
+    console.log('🔍 Closing member preview modal');
     const modal = document.getElementById('viewMemberModal');
     if (modal) {
         modal.remove();
+        console.log('✅ Member preview modal closed successfully');
+    } else {
+        console.log('ℹ️ No modal found to close');
     }
 }
 
@@ -3384,7 +3557,10 @@ async function editMember(event) {
     
     // Add text fields
     formDataObj.append('name', formData.name);
-    formDataObj.append('email', formData.email);
+    // Only add email if it has a value
+    if (formData.email && formData.email.trim()) {
+        formDataObj.append('email', formData.email.trim());
+    }
     formDataObj.append('code', formData.code);
     formDataObj.append('position', formData.position);
     formDataObj.append('state', formData.state);
@@ -4339,6 +4515,23 @@ function generateUniqueSerialNumber() {
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `SN-${timestamp}-${randomSuffix}`;
+}
+
+function generateUniqueCode() {
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const code = `M${timestamp}${randomSuffix}`;
+    
+    // Check if this code already exists in local storage
+    const existingMembers = getLocalMembers() || [];
+    const isDuplicate = existingMembers.some(member => member.code === code);
+    
+    if (isDuplicate) {
+        // If duplicate, generate a new one with additional randomness
+        return generateUniqueCode();
+    }
+    
+    return code;
 }
 
 function generateCertificateHTML(certificate) {
