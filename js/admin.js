@@ -1189,12 +1189,81 @@ async function clearAllData() {
         
         // Clear frontend data
         console.log('🗑️ Clearing frontend data...');
-        localStorage.removeItem('narap_certificates');
-        localStorage.removeItem('narap_pending_sync');
-        localStorage.removeItem('narap_members');
         
+        // Clear all NARAP-related localStorage items
+        const localStorageKeys = [
+            // Main data
+            'narap_certificates',
+            'narap_pending_sync', 
+            'narap_members',
+            'narapUsers',
+            'narapMembersCache',
+            'narapPendingSync',
+            'narapUsageData',
+            
+            // Settings and preferences
+            'narap_backend_url',
+            'narap_theme',
+            'narap_logged_in',
+            'narap_debug',
+            
+            // Pagination settings
+            'narap_members_per_page',
+            'narap_certificates_per_page',
+            'narap_members_current_page',
+            'narap_members_total_pages',
+            'narap_certificates_current_page',
+            'narap_certificates_total_pages',
+            
+            // Timestamps
+            'narap_last_backup',
+            'narap_last_sync'
+        ];
+        
+        // Remove all known localStorage items
+        localStorageKeys.forEach(key => {
+            localStorage.removeItem(key);
+            console.log(`🗑️ Removed localStorage item: ${key}`);
+        });
+        
+        // Clear all cache items (they start with 'narap_cache_')
+        const allKeys = Object.keys(localStorage);
+        const cacheKeys = allKeys.filter(key => key.startsWith('narap_cache_'));
+        cacheKeys.forEach(key => {
+            localStorage.removeItem(key);
+            console.log(`🗑️ Removed cache item: ${key}`);
+        });
+        
+        // Clear all pagination state items (they start with 'narap_' and contain 'page')
+        const paginationKeys = allKeys.filter(key => key.startsWith('narap_') && key.includes('page'));
+        paginationKeys.forEach(key => {
+            localStorage.removeItem(key);
+            console.log(`🗑️ Removed pagination item: ${key}`);
+        });
+        
+        console.log(`✅ Cleared ${localStorageKeys.length + cacheKeys.length + paginationKeys.length} localStorage items`);
+        
+        // Clear any remaining NARAP-related items (catch-all)
+        const remainingKeys = Object.keys(localStorage).filter(key => key.includes('narap'));
+        remainingKeys.forEach(key => {
+            localStorage.removeItem(key);
+            console.log(`🗑️ Removed remaining item: ${key}`);
+        });
+        
+        // Clear sessionStorage as well (if any NARAP items exist there)
+        const sessionKeys = Object.keys(sessionStorage).filter(key => key.includes('narap'));
+        sessionKeys.forEach(key => {
+            sessionStorage.removeItem(key);
+            console.log(`🗑️ Removed sessionStorage item: ${key}`);
+        });
+        
+        // Clear memory variables
         if (typeof window.currentCertificates !== 'undefined') window.currentCertificates = [];
         if (typeof window.currentMembers !== 'undefined') window.currentMembers = [];
+        
+        // Clear any pagination state objects
+        if (typeof window.membersPaginationState !== 'undefined') window.membersPaginationState = null;
+        if (typeof window.certificatesPaginationState !== 'undefined') window.certificatesPaginationState = null;
         
         savePendingSync({
             certificateCreations: [],
@@ -1205,10 +1274,68 @@ async function clearAllData() {
             memberDeletions: []
         });
         
-        // Refresh the UI
-        if (typeof loadMembers === 'function') await loadMembers();
-        if (typeof loadCertificates === 'function') await loadCertificates();
-        if (typeof loadDashboard === 'function') await loadDashboard();
+        // Clear UI tables directly instead of reloading data
+        console.log('🗑️ Clearing UI tables...');
+        
+        // Clear members table
+        const membersTable = document.getElementById('membersTable');
+        if (membersTable) {
+            const tbody = membersTable.querySelector('tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #6c757d;">No members found</td></tr>';
+            }
+        }
+        
+        // Clear certificates table
+        const certificatesTable = document.getElementById('certificatesTable');
+        if (certificatesTable) {
+            const tbody = certificatesTable.querySelector('tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #6c757d;">No certificates found</td></tr>';
+            }
+        }
+        
+        // Clear dashboard stats
+        const dashboardStats = document.querySelectorAll('.stat-number');
+        dashboardStats.forEach(stat => {
+            if (stat) stat.textContent = '0';
+        });
+        
+        // Clear pagination
+        const membersPagination = document.getElementById('membersPagination');
+        const certificatesPagination = document.getElementById('certificatesPagination');
+        if (membersPagination) membersPagination.innerHTML = '';
+        if (certificatesPagination) certificatesPagination.innerHTML = '';
+        
+        // Clear search inputs
+        const memberSearchInput = document.getElementById('memberSearch');
+        const certificateSearchInput = document.getElementById('certificateSearch');
+        if (memberSearchInput) memberSearchInput.value = '';
+        if (certificateSearchInput) certificateSearchInput.value = '';
+        
+        // Update counts
+        const membersCountElement = document.getElementById('membersCount');
+        const certificatesCountElement = document.getElementById('certificatesCount');
+        if (membersCountElement) membersCountElement.textContent = '0';
+        if (certificatesCountElement) certificatesCountElement.textContent = '0';
+        
+        console.log('✅ UI tables cleared successfully');
+        
+        // Clear any charts or analytics
+        const chartContainers = document.querySelectorAll('.chart-container, .analytics-chart');
+        chartContainers.forEach(container => {
+            if (container) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #6c757d;">No data available</div>';
+            }
+        });
+        
+        // Clear any activity logs
+        const activityLogs = document.querySelectorAll('.activity-log, .recent-activity');
+        activityLogs.forEach(log => {
+            if (log) {
+                log.innerHTML = '<div style="text-align: center; padding: 20px; color: #6c757d;">No recent activity</div>';
+            }
+        });
         
         // Show summary of what was cleared
         const summary = [];
@@ -1217,8 +1344,22 @@ async function clearAllData() {
         if (pendingSync.memberCreations.length > 0) summary.push(`${pendingSync.memberCreations.length} pending member creations`);
         if (pendingSync.certificateCreations.length > 0) summary.push(`${pendingSync.certificateCreations.length} pending certificate creations`);
         
+        // Add localStorage clearing info
+        const totalLocalStorageItems = localStorageKeys.length + cacheKeys.length + paginationKeys.length + remainingKeys.length + sessionKeys.length;
+        if (totalLocalStorageItems > 0) {
+            summary.push(`${totalLocalStorageItems} localStorage items`);
+        }
+        
         const summaryText = summary.length > 0 ? `Cleared: ${summary.join(', ')}` : 'All data cleared';
         showMessage(`${summaryText} successfully!`, 'success');
+        
+        // Verify localStorage is completely cleared
+        const remainingNarapItems = Object.keys(localStorage).filter(key => key.includes('narap'));
+        if (remainingNarapItems.length > 0) {
+            console.warn('⚠️ Some NARAP localStorage items remain:', remainingNarapItems);
+        } else {
+            console.log('✅ All NARAP localStorage items successfully cleared');
+        }
         
     } catch (error) {
         console.error('❌ Clear data error:', error);
