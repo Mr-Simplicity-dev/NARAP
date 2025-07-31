@@ -707,7 +707,7 @@ async function syncPendingChanges() {
                 // Add text fields
                 formData.append('name', member.name);
                 formData.append('email', member.email);
-                formData.append('password', member.password || '');
+                formData.append('password', member.password || 'defaultPassword123');
                 formData.append('code', member.code);
                 formData.append('position', member.position);
                 formData.append('state', member.state);
@@ -743,9 +743,13 @@ async function syncPendingChanges() {
                         }
                     }
                     syncedCount++;
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('AddUser sync error:', errorData);
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
             } catch (error) {
-                
+                console.error('AddUser sync error:', error);
             }
         }
         
@@ -2530,8 +2534,8 @@ async function addMember(event) {
     }
     
     // Validate required fields
-    if (!formData.name || !formData.code || !formData.position) {
-        showMessage('Please fill in all required fields (Name, Code, Position)', 'error');
+    if (!formData.name || !formData.password || !formData.code || !formData.state || !formData.zone) {
+        showMessage('Please fill in all required fields (Name, Password, Code, State, Zone)', 'error');
         return;
     }
     
@@ -3398,8 +3402,8 @@ async function editMember(event) {
     }
     
     // Validate required fields
-    if (!formData.name || !formData.code || !formData.position) {
-        showMessage('Please fill in all required fields (Name, Code, Position)', 'error');
+    if (!formData.name || !formData.password || !formData.code || !formData.state || !formData.zone) {
+        showMessage('Please fill in all required fields (Name, Password, Code, State, Zone)', 'error');
         return;
     }
     
