@@ -1776,14 +1776,14 @@ async function searchCertificate(event) {
 }
 
 
-// Enhanced member verification display with comprehensive photo handling
+// Enhanced member verification display with improved photo handling
 function displayMemberResult(member) {
   const modalTitle = document.getElementById('modalTitle');
   const resultContent = document.getElementById('resultContent');
   
   modalTitle.textContent = 'Member Verification Result';
   
-  // Handle different possible passport photo field names from backend
+  // Get passport photo URL - backend now returns full URLs
   const passportPhoto = member.passportPhoto || 
                        member.passport || 
                        member.photo || 
@@ -1794,33 +1794,42 @@ function displayMemberResult(member) {
   
   console.log('Member data received:', member);
   console.log('Passport photo URL found:', passportPhoto);
-  console.log('All photo-related fields:', {
-    passportPhoto: member.passportPhoto,
-    passport: member.passport,
-    photo: member.photo,
-    profilePhoto: member.profilePhoto,
-    image: member.image,
-    avatar: member.avatar
-  });
   
-  // Validate and fix photo URL if needed
+  // Validate photo URL
   let validPhotoUrl = null;
   if (passportPhoto) {
     try {
-      if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://')) {
+      // Backend should now return full URLs, but handle fallbacks
+      if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://') || passportPhoto.startsWith('data:')) {
         validPhotoUrl = passportPhoto;
       } else if (passportPhoto.startsWith('/')) {
         validPhotoUrl = `http://localhost:3000${passportPhoto}`;
-      } else if (passportPhoto.startsWith('data:')) {
-        validPhotoUrl = passportPhoto;
       } else {
-        // Try the correct API endpoint for passport photos
+        // Fallback for filename-only cases
         validPhotoUrl = `http://localhost:3000/api/uploads/passports/${passportPhoto}`;
       }
       console.log('Processed photo URL:', validPhotoUrl);
     } catch (error) {
       console.log('Error processing photo URL:', error);
       validPhotoUrl = null;
+    }
+  }
+  
+  // Validate signature URL
+  let validSignatureUrl = null;
+  if (member.signature) {
+    try {
+      if (member.signature.startsWith('http://') || member.signature.startsWith('https://') || member.signature.startsWith('data:')) {
+        validSignatureUrl = member.signature;
+      } else if (member.signature.startsWith('/')) {
+        validSignatureUrl = `http://localhost:3000${member.signature}`;
+      } else {
+        validSignatureUrl = `http://localhost:3000/api/uploads/signatures/${member.signature}`;
+      }
+      console.log('Processed signature URL:', validSignatureUrl);
+    } catch (error) {
+      console.log('Error processing signature URL:', error);
+      validSignatureUrl = null;
     }
   }
   
@@ -1833,9 +1842,10 @@ function displayMemberResult(member) {
             ${validPhotoUrl ? 
               `<img src="${validPhotoUrl}" alt="Member Photo" class="member-photo" 
                    onload="handleMemberPhotoLoad(this)"
-                   onerror="handleMemberPhotoError(this, '${validPhotoUrl}')">` :
-              `<div class="member-photo-placeholder">
-                 <i class="fas fa-user"></i>
+                   onerror="handleMemberPhotoError(this, '${validPhotoUrl}')"
+                   style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">` :
+              `<div class="member-photo-placeholder" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px; color: #666;">
+                 <i class="fas fa-user" style="font-size: 2em;"></i>
                </div>`
             }
           </div>
@@ -1905,15 +1915,15 @@ function displayMemberResult(member) {
             <div class="card-photo">
               ${validPhotoUrl ? 
                 `<img id="passportImage" src="${validPhotoUrl}" alt="Passport Photo" class="passport-photo" 
-                     style="display: block;"
+                     style="display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"
                      onload="handleImageLoad(this)"
                      onerror="handleImageError(this, '${validPhotoUrl}')">
-                 <div id="photoFallback" class="passport-photo" style="display: none; align-items: center; justify-content: center; background: #f8f9fa; color: #666; font-size: 12px; text-align: center; flex-direction: column;">
+                 <div id="photoFallback" class="passport-photo" style="display: none; align-items: center; justify-content: center; background: #f8f9fa; color: #666; font-size: 12px; text-align: center; flex-direction: column; border-radius: 4px;">
                    <div style="margin-bottom: 5px;">📷</div>
                    <div>Photo Unavailable</div>
                    <div style="font-size: 10px; margin-top: 5px; color: #999;">Click to retry</div>
                  </div>` :
-                `<div class="passport-photo" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa; color: #666; font-size: 12px; text-align: center; flex-direction: column;">
+                `<div class="passport-photo" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa; color: #666; font-size: 12px; text-align: center; flex-direction: column; border-radius: 4px;">
                    <div style="margin-bottom: 5px;">📷</div>
                    <div>No Photo Available</div>
                  </div>`
@@ -1944,10 +1954,12 @@ function displayMemberResult(member) {
             </div>
           </div>
           
-          ${member.signature ? `
+          ${validSignatureUrl ? `
             <div class="card-signature">
-              <img src="${member.signature}" alt="Signature" class="signature-image"
-                   onerror="this.style.display='none'">
+              <img src="${validSignatureUrl}" alt="Signature" class="signature-image"
+                   style="max-width: 100px; max-height: 40px; object-fit: contain;"
+                   onload="console.log('✅ Signature loaded successfully')"
+                   onerror="this.style.display='none'; console.log('❌ Signature failed to load')">
             </div>
           ` : ''}
         </div>
@@ -1967,6 +1979,25 @@ function displayMemberResult(member) {
   `;
   
   document.getElementById('resultModal').style.display = 'block';
+}
+
+// Test function for member verification
+function testMemberVerification() {
+  console.log('🧪 Testing member verification functionality...');
+  
+  // Test with a sample member code (you can change this)
+  const testCode = 'TEST001';
+  
+  // Simulate the search
+  document.getElementById('memberCode').value = testCode;
+  
+  // Trigger the search
+  const searchForm = document.getElementById('memberSearchForm');
+  if (searchForm) {
+    searchForm.dispatchEvent(new Event('submit'));
+  } else {
+    console.log('❌ Search form not found');
+  }
 }
 
 // Image handlers and utility functions
@@ -2058,12 +2089,12 @@ function handleMemberPhotoError(img, originalUrl) {
   console.log('❌ Member photo failed to load:', originalUrl);
   img.style.display = 'none';
   
-  // Replace the image with a placeholder
+  // Replace the image with a better placeholder
   const photoContainer = img.parentElement;
   if (photoContainer) {
     photoContainer.innerHTML = `
-      <div class="member-photo-placeholder">
-        <i class="fas fa-user"></i>
+      <div class="member-photo-placeholder" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px; color: #666;">
+        <i class="fas fa-user" style="font-size: 2em;"></i>
       </div>
     `;
   }
@@ -3435,6 +3466,9 @@ if (typeof module !== 'undefined' && module.exports) {
     checkBackendHealth
   };
 }
+
+// Expose test function to window for debugging
+window.testMemberVerification = testMemberVerification;
 
   </script>
 </body>

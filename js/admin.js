@@ -3812,6 +3812,16 @@ function showViewMemberModal(member) {
                                  style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;"
                                  onerror="this.src='${DEFAULT_AVATAR}'; console.log('Image failed to load, using default avatar');"
                                  onload="console.log('Image loaded successfully');">
+                            ${member.signature ? `
+                                <div style="margin-top: 15px; text-align: center;">
+                                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Signature:</div>
+                                    <img src="${getImageUrl(member.signature)}" 
+                                         alt="Member Signature" 
+                                         style="max-width: 150px; max-height: 60px; object-fit: contain; border: 1px solid #eee; border-radius: 4px;"
+                                         onerror="this.style.display='none'; console.log('Signature failed to load');"
+                                         onload="console.log('Signature loaded successfully');">
+                                </div>
+                            ` : ''}
                         </div>
                         <div class="member-details-section" style="flex: 1; min-width: 300px;">
                             <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
