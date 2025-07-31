@@ -2000,6 +2000,13 @@ function handleImageError(img, originalUrl) {
 
 function tryAlternativeImageUrls(img, originalUrl) {
   const filename = originalUrl.split('/').pop();
+  
+  // Only try alternative URLs if we have a valid filename
+  if (!filename || filename === '' || filename === originalUrl) {
+    console.log('❌ No valid filename found in URL:', originalUrl);
+    return;
+  }
+  
   const alternativeUrls = [
     `${backendUrl}/api/uploads/passports/${filename}`,
     `${backendUrl}/uploads/passports/${filename}`,
@@ -2081,6 +2088,13 @@ function handleMemberPhotoError(img, originalUrl) {
 
 function tryAlternativeMemberPhotoUrls(img, originalUrl) {
   const filename = originalUrl.split('/').pop();
+  
+  // Only try alternative URLs if we have a valid filename
+  if (!filename || filename === '' || filename === originalUrl) {
+    console.log('❌ No valid filename found in member photo URL:', originalUrl);
+    return;
+  }
+  
   const alternativeUrls = [
     `${backendUrl}/api/uploads/passports/${filename}`,
     `${backendUrl}/api/uploads/signatures/${filename}`,
@@ -2111,25 +2125,7 @@ function tryAlternativeMemberPhotoUrls(img, originalUrl) {
 
 
 
-async function checkPhotoEndpoints() {
-  const endpoints = [
-    `${backendUrl}/uploads/`,
-    `${backendUrl}/public/uploads/`,
-    `${backendUrl}/assets/images/`,
-    `${backendUrl}/static/uploads/`,
-    `${backendUrl}/files/`,
-    `${backendUrl}/media/`
-  ];
-  
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint, { method: 'HEAD' });
-      console.log(`${endpoint}: ${response.status}`);
-    } catch (error) {
-      console.log(`${endpoint}: Failed - ${error.message}`);
-    }
-  }
-}
+// checkPhotoEndpoints function removed as per user request to eliminate debug functionality
 
 async function getPhotoMetadata(url) {
   try {
@@ -2147,7 +2143,6 @@ async function getPhotoMetadata(url) {
 
 // Export debugging tools
 window.debugPhoto = debugPhotoIssue;
-window.checkPhotoEndpoints = checkPhotoEndpoints;
 window.getPhotoMetadata = getPhotoMetadata;
 window.testPhotoUrl = function(url) {
   const img = new Image();
@@ -2306,8 +2301,7 @@ document.addEventListener('DOMContentLoaded', () => {
   `;
   document.head.appendChild(style);
   
-  // Check endpoints after 2 seconds
-  setTimeout(checkPhotoEndpoints, 2000);
+  // Photo endpoint testing removed as per user request
 });
 
 // Updated searchUser function with better data handling
@@ -2846,26 +2840,7 @@ photoStyles.textContent = `
 `;
 document.head.appendChild(photoStyles);
 
-// Function to check backend photo endpoints
-async function checkPhotoEndpoints() {
-  const testEndpoints = [
-    `${backendUrl}/api/uploads/passports/`,
-    `${backendUrl}/api/uploads/signatures/`,
-    `${backendUrl}/uploads/passports/`,
-    `${backendUrl}/uploads/signatures/`
-  ];
-  
-  console.log('🔍 Checking photo endpoints...');
-  
-  for (const endpoint of testEndpoints) {
-    try {
-      const response = await fetch(endpoint, { method: 'HEAD' });
-      console.log(`${endpoint}: ${response.status} ${response.statusText}`);
-    } catch (error) {
-      console.log(`${endpoint}: Failed - ${error.message}`);
-    }
-  }
-}
+// checkPhotoEndpoints function removed as per user request to eliminate debug functionality
 
 // Function to get photo metadata
 async function getPhotoMetadata(url) {
@@ -2961,18 +2936,18 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(updateHelpModal, 1000);
   
   // Check photo endpoints on startup
-  setTimeout(checkPhotoEndpoints, 2000);
+  // Photo endpoint testing removed as per user request
 });
 
 // Export debugging functions for console use
 window.debugPhoto = debugPhotoIssue;
-window.checkPhotoEndpoints = checkPhotoEndpoints;
+// checkPhotoEndpoints removed as per user request
 window.getPhotoMetadata = getPhotoMetadata;
 
 console.log('📸 Photo debugging tools loaded:');
 console.log('- window.testPhotoUrl(url) - Test a specific photo URL');
 console.log('- window.debugPhoto(member) - Debug photo issues for a member');
-console.log('- window.checkPhotoEndpoints() - Check all photo endpoints');
+console.log('- Photo endpoint checking removed as per user request');
 console.log('- window.getPhotoMetadata(url) - Get photo metadata');
 
 
