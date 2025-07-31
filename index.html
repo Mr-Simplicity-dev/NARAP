@@ -3298,6 +3298,30 @@ async function syncPendingData() {
       localStorage.removeItem('narapPendingSync');
       showTemporaryMessage('Data synchronized successfully! ✅', 'success');
     }
+    
+    // Sync pending analytics
+    const pendingAnalytics = JSON.parse(localStorage.getItem('narapPendingAnalytics') || '[]');
+    if (pendingAnalytics.length > 0) {
+      console.log('Syncing pending analytics:', pendingAnalytics.length, 'items');
+      
+      for (const analyticsData of pendingAnalytics) {
+        try {
+          await fetch(`${backendUrl}/api/analytics`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(analyticsData)
+          });
+        } catch (error) {
+          console.log('Failed to sync analytics item:', error);
+        }
+      }
+      
+      // Clear pending analytics after sync attempt
+      localStorage.removeItem('narapPendingAnalytics');
+      console.log('Analytics sync completed');
+    }
   } catch (error) {
     console.log('Failed to sync pending data:', error);
   }
@@ -3335,9 +3359,34 @@ function trackUsage(type, action) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(usageData)
-      }).catch(error => {
-        console.log('Failed to send analytics:', error);
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Analytics sent successfully:', data);
+        // Remove from pending sync if successful
+        const pendingAnalytics = JSON.parse(localStorage.getItem('narapPendingAnalytics') || '[]');
+        const filtered = pendingAnalytics.filter(item => 
+          !(item.type === usageData.type && item.action === usageData.action && item.timestamp === usageData.timestamp)
+        );
+        localStorage.setItem('narapPendingAnalytics', JSON.stringify(filtered));
+      })
+      .catch(error => {
+        console.log('Failed to send analytics:', error.message);
+        // Store for later sync
+        const pendingAnalytics = JSON.parse(localStorage.getItem('narapPendingAnalytics') || '[]');
+        pendingAnalytics.push(usageData);
+        localStorage.setItem('narapPendingAnalytics', JSON.stringify(pendingAnalytics));
       });
+    } else {
+      // Store for later sync when online
+      const pendingAnalytics = JSON.parse(localStorage.getItem('narapPendingAnalytics') || '[]');
+      pendingAnalytics.push(usageData);
+      localStorage.setItem('narapPendingAnalytics', JSON.stringify(pendingAnalytics));
     }
   } catch (error) {
     console.log('Analytics tracking failed:', error);
@@ -3391,6 +3440,12 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   // Track app initialization
   trackUsage('app', 'dom_loaded');
+  
+  // Test CORS connectivity after a short delay
+  setTimeout(() => {
+    testCorsConnectivity();
+    testAnalyticsEndpoint();
+  }, 2000);
 });
 
 // Health check function for backend
@@ -3411,6 +3466,76 @@ async function checkBackendHealth() {
   } catch (error) {
     console.log('Backend health check failed:', error);
     return null;
+  }
+}
+
+// Test CORS connectivity
+async function testCorsConnectivity() {
+  try {
+    console.log('Testing CORS connectivity...');
+    
+    // Test GET request
+    const getResponse = await fetch(`${backendUrl}/api/health/test`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (getResponse.ok) {
+      const getData = await getResponse.json();
+      console.log('✅ GET request successful:', getData);
+    } else {
+      console.log('❌ GET request failed:', getResponse.status, getResponse.statusText);
+    }
+    
+    // Test POST request
+    const postResponse = await fetch(`${backendUrl}/api/health/cors-test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ test: 'data' })
+    });
+    
+    if (postResponse.ok) {
+      const postData = await postResponse.json();
+      console.log('✅ POST request successful:', postData);
+    } else {
+      console.log('❌ POST request failed:', postResponse.status, postResponse.statusText);
+    }
+    
+  } catch (error) {
+    console.log('❌ CORS test failed:', error.message);
+  }
+}
+
+// Test analytics endpoint specifically
+async function testAnalyticsEndpoint() {
+  try {
+    console.log('Testing analytics endpoint...');
+    
+    const response = await fetch(`${backendUrl}/api/analytics`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: 'test',
+        action: 'cors_test',
+        timestamp: new Date().toISOString()
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Analytics endpoint test successful:', data);
+    } else {
+      console.log('❌ Analytics endpoint test failed:', response.status, response.statusText);
+    }
+    
+  } catch (error) {
+    console.log('❌ Analytics endpoint test failed:', error.message);
   }
 }
 
