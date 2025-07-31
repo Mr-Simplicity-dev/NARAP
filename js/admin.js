@@ -3489,6 +3489,12 @@ function closeAddMemberModal() {
         const signatureInput = document.getElementById('memberSignature');
         if (passportInput) clearFileUpload(passportInput, 'passportLabel');
         if (signatureInput) clearFileUpload(signatureInput, 'signatureLabel');
+        
+        // Hide ID card preview
+        const previewContainer = document.getElementById('idCardPreview');
+        if (previewContainer) {
+            previewContainer.classList.add('hidden');
+        }
     }
 }
 
@@ -5496,7 +5502,93 @@ function printCertificate(certificateId = null) {
 // ==================== ID CARD FUNCTIONS ====================
 
 function generateIdCardPreview() {
-    showMessage('ID card preview feature coming soon!', 'info');
+    // Get form data
+    const name = document.getElementById('memberName')?.value || '';
+    const email = document.getElementById('memberEmail')?.value || '';
+    const code = document.getElementById('memberCode')?.value || '';
+    const position = document.getElementById('memberPosition')?.value || '';
+    const state = document.getElementById('memberState')?.value || '';
+    const zone = document.getElementById('memberZone')?.value || '';
+    
+    // Get file inputs
+    const passportInput = document.getElementById('memberPassport');
+    const signatureInput = document.getElementById('memberSignature');
+    
+    // Validate required fields
+    if (!name || !code || !position || !state || !zone) {
+        showMessage('Please fill in all required fields before previewing ID card', 'warning');
+        return;
+    }
+    
+    // Generate passport photo URL
+    let passportPhotoUrl = '';
+    if (passportInput && passportInput.files[0]) {
+        passportPhotoUrl = URL.createObjectURL(passportInput.files[0]);
+    } else {
+        // Use default avatar
+        passportPhotoUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMzAiIGZpbGw9IiM2NjdFRUEiLz4KPHBhdGggZD0iTTMwIDE1QzM0LjE0MjEgMTUgMzcuNSAxOC4zNTc5IDM3LjUgMjIuNUMzNy41IDI2LjY0MjEgMzQuMTQyMSAzMCAzMCAzMEMyNS44NTc5IDMwIDIyLjUgMjYuNjQyMSAyMi41IDIyLjVDMjIuNSAxOC4zNTc5IDI1Ljg1NzkgMTUgMzAgMTVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNNDUgNDVDNDUgMzUuMDU5IDM4LjQ0MSAyOC41IDI5IDI4LjVDMTkuNTU5IDI4LjUgMTMgMzUuMDU5IDEzIDQ1SDQ1WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+';
+    }
+    
+    // Generate signature URL
+    let signatureUrl = '';
+    if (signatureInput && signatureInput.files[0]) {
+        signatureUrl = URL.createObjectURL(signatureInput.files[0]);
+    }
+    
+    // Generate current date
+    const currentDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+    
+    // Create ID card HTML
+    const idCardHTML = `
+        <div class="id-card">
+            <div class="id-card-header">
+                NIGERIAN ASSOCIATION OF REGISTERED ADMINISTRATIVE PROFESSIONALS<br>
+                MEMBER IDENTIFICATION CARD
+            </div>
+            <div class="id-card-content">
+                <img src="${passportPhotoUrl}" alt="Member Photo" class="id-card-photo" 
+                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMzAiIGZpbGw9IiM2NjdFRUEiLz4KPHBhdGggZD0iTTMwIDE1QzM0LjE0MjEgMTUgMzcuNSAxOC4zNTc5IDM3LjUgMjIuNUMzNy41IDI2LjY0MjEgMzQuMTQyMSAzMCAzMCAzMEMyNS44NTc5IDMwIDIyLjUgMjYuNjQyMSAyMi41IDIyLjVDMjIuNSAxOC4zNTc5IDI1Ljg1NzkgMTUgMzAgMTVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNNDUgNDVDNDUgMzUuMDU5IDM4LjQ0MSAyOC41IDI5IDI4LjVDMTkuNTU5IDI4LjUgMTMgMzUuMDU5IDEzIDQ1SDQ1WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+';">
+                <div class="id-card-info">
+                    <div class="id-card-field"><strong>Name:</strong> ${name}</div>
+                    <div class="id-card-field"><strong>Code:</strong> ${code}</div>
+                    <div class="id-card-field"><strong>Position:</strong> ${position}</div>
+                    <div class="id-card-field"><strong>State:</strong> ${state}</div>
+                    <div class="id-card-field"><strong>Zone:</strong> ${zone}</div>
+                    ${email ? `<div class="id-card-field"><strong>Email:</strong> ${email}</div>` : ''}
+                    <div class="id-card-field"><strong>Issue Date:</strong> ${currentDate}</div>
+                </div>
+            </div>
+            ${signatureUrl ? `<img src="${signatureUrl}" alt="Signature" class="id-card-signature">` : ''}
+        </div>
+    `;
+    
+    // Show the preview
+    const previewContainer = document.getElementById('idCardPreview');
+    const generatedIdCard = document.getElementById('generatedIdCard');
+    
+    if (previewContainer && generatedIdCard) {
+        generatedIdCard.innerHTML = idCardHTML;
+        previewContainer.classList.remove('hidden');
+        
+        // Scroll to preview
+        previewContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        showMessage('ID Card preview generated successfully!', 'success');
+    } else {
+        showMessage('Preview container not found', 'error');
+    }
+}
+
+function hideIdCardPreview() {
+    const previewContainer = document.getElementById('idCardPreview');
+    if (previewContainer) {
+        previewContainer.classList.add('hidden');
+        showMessage('ID Card preview hidden', 'info');
+    }
 }
 
 function printIdCard() {
@@ -6045,6 +6137,7 @@ window.autoFillCertificateFields = autoFillCertificateFields;
 window.handleEmailInput = handleEmailInput;
 window.printCertificate = printCertificate;
 window.generateIdCardPreview = generateIdCardPreview;
+window.hideIdCardPreview = hideIdCardPreview;
 window.printIdCard = printIdCard;
 window.downloadIdCard = downloadIdCard;
 window.testServerConnection = testServerConnection;
