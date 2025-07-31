@@ -1586,12 +1586,13 @@ async function loadRecentActivity() {
             
             recentCertificates.forEach(certificate => {
                 const date = new Date(certificate.createdAt || certificate.issueDate || certificate.updatedAt);
+                const recipientName = certificate.memberName || certificate.recipientName || certificate.recipient || 'Unknown';
                 activities.push({
                     type: 'certificate',
                     action: 'Issued',
-                    name: certificate.memberName || certificate.recipientName || 'Unknown',
+                    name: recipientName,
                     date: date,
-                    description: `Certificate issued to: ${certificate.memberName || certificate.recipientName}`
+                    description: `Certificate issued to: ${recipientName}`
                 });
             });
         }
