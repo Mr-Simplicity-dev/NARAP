@@ -1160,8 +1160,11 @@ async function clearAllData() {
         try {
             console.log('🗑️ Clearing backend database...');
             const backendUrl = getBackendUrl();
+            console.log('🔍 Backend URL:', backendUrl);
             
             if (backendUrl && navigator.onLine) {
+                console.log('🌐 Attempting to clear backend at:', `${backendUrl}/api/clear-database`);
+                
                 const response = await fetch(`${backendUrl}/api/clear-database`, {
                     method: 'POST',
                     headers: {
@@ -1169,14 +1172,21 @@ async function clearAllData() {
                     }
                 });
                 
+                console.log('🔍 Backend response status:', response.status);
+                
                 if (response.ok) {
                     const result = await response.json();
                     console.log('✅ Backend database cleared:', result);
                     showMessage(`Backend cleared: ${result.data.totalDeleted} records deleted`, 'success');
                 } else {
-                    const errorData = await response.json().catch(() => ({}));
+                    let errorData = {};
+                    try {
+                        errorData = await response.json();
+                    } catch (parseError) {
+                        errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+                    }
                     console.error('❌ Backend clear failed:', errorData);
-                    showMessage('Backend clear failed: ' + (errorData.message || 'Unknown error'), 'warning');
+                    showMessage(`Backend clear failed: ${errorData.message || `HTTP ${response.status}`}`, 'warning');
                 }
             } else {
                 console.log('⚠️ Backend not accessible, clearing frontend only');
@@ -1184,7 +1194,7 @@ async function clearAllData() {
             }
         } catch (backendError) {
             console.error('❌ Backend clear error:', backendError);
-            showMessage('Backend clear failed, clearing frontend data only', 'warning');
+            showMessage(`Backend clear failed: ${backendError.message}`, 'warning');
         }
         
         // Clear frontend data
