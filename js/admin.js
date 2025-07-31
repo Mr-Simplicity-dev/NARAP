@@ -3063,8 +3063,10 @@ async function addMember(event) {
     // Add text fields with validation
     formDataObj.append('name', formData.name);
     
-    // Add email (now required)
-    formDataObj.append('email', formData.email.trim());
+    // Add email (optional)
+    if (formData.email && formData.email.trim()) {
+        formDataObj.append('email', formData.email.trim());
+    }
     
     formDataObj.append('password', formData.password || 'defaultPassword123');
     formDataObj.append('code', formData.code);
@@ -3094,7 +3096,7 @@ async function addMember(event) {
     }
     
     // Final validation: Check if all required fields are in FormData
-    const requiredFields = ['name', 'email', 'password', 'code', 'state', 'zone'];
+    const requiredFields = ['name', 'password', 'code', 'state', 'zone'];
     const missingFields = [];
     
     for (const field of requiredFields) {
@@ -3113,8 +3115,8 @@ async function addMember(event) {
     console.log('✅ All required fields present in FormData');
     
     // Validate required fields
-    if (!formData.name || !formData.email || !formData.code || !formData.state || !formData.zone) {
-        showMessage('Please fill in all required fields (Name, Email, Code, State, Zone)', 'error');
+    if (!formData.name || !formData.code || !formData.state || !formData.zone) {
+        showMessage('Please fill in all required fields (Name, Code, State, Zone)', 'error');
         return;
     }
     
@@ -4946,7 +4948,7 @@ function getCertificateFormData() {
         
         // Validate required fields
         const requiredFields = [
-            'certificateRecipient', 'certificateEmail', 'certificateTitle', 
+            'certificateRecipient', 'certificateTitle', 
             'certificateType', 'certificateIssueDate'
         ];
         
