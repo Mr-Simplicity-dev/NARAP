@@ -2283,70 +2283,7 @@ window.checkBackendFiles = async function() {
   }
 };
 
-console.log('📸 Photo tools loaded: debugPhoto(), checkPhotoEndpoints(), getPhotoMetadata(), testPhotoUrl(), testMemberVerification(), testCertificateVerification(), checkBackendFiles(), testMemberUpdate()');
 
-// Add a debug button to the page for testing
-document.addEventListener('DOMContentLoaded', () => {
-  // Add debug button if it doesn't exist
-  if (!document.getElementById('debugButton')) {
-    const debugButton = document.createElement('button');
-    debugButton.id = 'debugButton';
-    debugButton.innerHTML = '🔧 Debug Photos';
-    debugButton.style.cssText = `
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 10000;
-      background: #007bff;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    `;
-    debugButton.onclick = () => {
-      console.log('🔧 Starting photo debug session...');
-      testMemberVerification();
-      testCertificateVerification();
-      checkPhotoEndpoints();
-      checkBackendFiles();
-    };
-    document.body.appendChild(debugButton);
-  }
-  
-  // Add update test button
-  if (!document.getElementById('updateTestButton')) {
-    const updateTestButton = document.createElement('button');
-    updateTestButton.id = 'updateTestButton';
-    updateTestButton.innerHTML = '🔄 Test Update';
-    updateTestButton.style.cssText = `
-      position: fixed;
-      top: 50px;
-      right: 10px;
-      z-index: 10000;
-      background: #28a745;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    `;
-    updateTestButton.onclick = () => {
-      console.log('🔄 Starting update test...');
-      // Get the first member for testing
-      const firstMember = window.currentMembers?.[0];
-      if (firstMember) {
-        testMemberUpdate(firstMember._id || firstMember.id);
-      } else {
-        console.log('❌ No members available for testing');
-        showMessage('No members available for testing', 'error');
-      }
-    };
-    document.body.appendChild(updateTestButton);
-  }
-});
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
