@@ -1376,6 +1376,36 @@ body {
 
       <div class="error-message" id="errorMessage"></div>
 
+      <!-- API Demo Section -->
+      <div class="api-demo" style="background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; border: 1px solid #dee2e6;">
+        <h3 style="color: #495057; margin-bottom: 15px; text-align: center;">🔧 API Integration Demo</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div style="text-align: center;">
+            <h4 style="color: #6c757d; margin-bottom: 10px;">Member Verification API</h4>
+            <p style="font-size: 14px; color: #6c757d; margin-bottom: 10px;">
+              <strong>Endpoint:</strong> POST /api/users/members/verify<br>
+              <strong>Test Code:</strong> N/045/ANA/05
+            </p>
+            <button onclick="testMemberVerification()" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+              Test Member API
+            </button>
+          </div>
+          <div style="text-align: center;">
+            <h4 style="color: #6c757d; margin-bottom: 10px;">Certificate Verification API</h4>
+            <p style="font-size: 14px; color: #6c757d; margin-bottom: 10px;">
+              <strong>Endpoint:</strong> POST /api/certificates/verify<br>
+              <strong>Test Number:</strong> CERT-2024-001
+            </p>
+            <button onclick="testCertificateVerification()" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+              Test Certificate API
+            </button>
+          </div>
+        </div>
+        <div style="margin-top: 15px; padding: 10px; background: #e9ecef; border-radius: 4px; font-size: 12px; color: #495057; text-align: center;">
+          <strong>Note:</strong> Open browser console (F12) to see API test results and response data.
+        </div>
+      </div>
+
       <div class="contact-section">
         <a href="#" class="help-link" onclick="showHelp()">❓ Need Help?</a>
         <a href="#" class="contact-link" onclick="showContact()">📞 Contact Support</a>
@@ -1569,7 +1599,7 @@ async function searchUser(event) {
     console.log('🔍 Searching for member with code:', code);
     
     // Try the main Render backend API first
-    let response = await fetch(`${backendUrl}/api/members/verify`, {
+    let response = await fetch(`${backendUrl}/api/users/members/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2210,7 +2240,7 @@ async function searchUser(event) {
     console.log('🔍 Searching for member with code:', code);
     
     // Try the main Render backend API first
-    let response = await fetch(`${backendUrl}/api/members/verify`, {
+    let response = await fetch(`${backendUrl}/api/users/members/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2494,7 +2524,7 @@ async function searchUser(event) {
     console.log('🔍 Searching for member with code:', code);
     
     // Try the main Render backend API first
-    let response = await fetch(`${backendUrl}/api/members/verify`, {
+    let response = await fetch(`${backendUrl}/api/users/members/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2882,7 +2912,7 @@ async function searchUser(event) {
     console.log('🔍 Searching for member with code:', code);
     
     // Try the main Render backend API first
-    let response = await fetch(`${backendUrl}/api/members/verify`, {
+    let response = await fetch(`${backendUrl}/api/users/members/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3642,6 +3672,70 @@ async function testCorrectAPI() {
 
 // Expose test function to window for debugging
 window.testCorrectAPI = testCorrectAPI;
+
+// Test function for certificate verification
+async function testCertificateVerification() {
+  try {
+    console.log('🧪 Testing certificate verification API...');
+    const response = await fetch(`${backendUrl}/api/certificates/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ certificateNumber: 'CERT-2024-001' })
+    });
+    
+    console.log('Certificate API Response status:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Certificate API Response:', data);
+      return data;
+    } else {
+      const errorText = await response.text();
+      console.log('❌ Certificate API Error:', response.status, errorText);
+      return null;
+    }
+  } catch (error) {
+    console.log('❌ Certificate API Test Failed:', error);
+    return null;
+  }
+}
+
+// Expose certificate test function to window for debugging
+window.testCertificateVerification = testCertificateVerification;
+
+// Test function for member verification
+async function testMemberVerification() {
+  try {
+    console.log('🧪 Testing member verification API...');
+    const response = await fetch(`${backendUrl}/api/users/members/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code: 'N/045/ANA/05' })
+    });
+    
+    console.log('Member API Response status:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Member API Response:', data);
+      return data;
+    } else {
+      const errorText = await response.text();
+      console.log('❌ Member API Error:', response.status, errorText);
+      return null;
+    }
+  } catch (error) {
+    console.log('❌ Member API Test Failed:', error);
+    return null;
+  }
+}
+
+// Expose member test function to window for debugging
+window.testMemberVerification = testMemberVerification;
   </script>
 </body>
 </html>
