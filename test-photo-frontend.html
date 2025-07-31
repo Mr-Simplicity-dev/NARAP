@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NARAP Photo Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .test-form {
+            display: grid;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        .image-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 4px;
+        }
+        .log-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        .log-timestamp { color: #6c757d; }
+        .log-level-info { color: #007bff; }
+        .log-level-success { color: #28a745; }
+        .log-level-warning { color: #ffc107; }
+        .log-level-error { color: #dc3545; }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background: #28a745; }
+        .status-offline { background: #dc3545; }
+        .status-unknown { background: #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>🔍 NARAP Photo Upload Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>📊 System Status</h2>
+        <div id="systemStatus">
+            <p><span class="status-indicator status-unknown" id="backendStatus"></span> Backend: <span id="backendStatusText">Checking...</span></p>
+            <p><span class="status-indicator status-unknown" id="databaseStatus"></span> Database: <span id="databaseStatusText">Checking...</span></p>
+            <p><span class="status-indicator status-unknown" id="uploadStatus"></span> Upload Directories: <span id="uploadStatusText">Checking...</span></p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test Member Upload</h2>
+        <form id="testUploadForm" class="test-form">
+            <div class="form-group">
+                <label for="testName">Name:</label>
+                <input type="text" id="testName" value="Test User" required>
+            </div>
+            <div class="form-group">
+                <label for="testEmail">Email (Optional):</label>
+                <input type="email" id="testEmail" value="test@example.com">
+            </div>
+            <div class="form-group">
+                <label for="testCode">Code:</label>
+                <input type="text" id="testCode" value="TEST001" required>
+            </div>
+            <div class="form-group">
+                <label for="testPassword">Password:</label>
+                <input type="password" id="testPassword" value="testpass123" required>
+            </div>
+            <div class="form-group">
+                <label for="testState">State:</label>
+                <input type="text" id="testState" value="Test State" required>
+            </div>
+            <div class="form-group">
+                <label for="testZone">Zone:</label>
+                <input type="text" id="testZone" value="Test Zone" required>
+            </div>
+            <div class="form-group">
+                <label for="testPassport">Passport Photo:</label>
+                <input type="file" id="testPassport" accept="image/*" required>
+                <div class="image-preview" id="passportPreview">
+                    <span>No image selected</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="testSignature">Signature:</label>
+                <input type="file" id="testSignature" accept="image/*">
+                <div class="image-preview" id="signaturePreview">
+                    <span>No image selected</span>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">🚀 Test Upload</button>
+        </form>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Test Member Verification</h2>
+        <div class="test-form">
+            <div class="form-group">
+                <label for="verifyCode">Member Code:</label>
+                <input type="text" id="verifyCode" placeholder="Enter member code to verify">
+            </div>
+            <button onclick="testMemberVerification()" class="btn btn-success">🔍 Verify Member</button>
+        </div>
+        <div id="verificationResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📁 Debug Information</h2>
+        <div class="test-grid">
+            <div>
+                <h3>📂 Upload Files</h3>
+                <button onclick="checkUploadFiles()" class="btn btn-warning">Check Files</button>
+                <div id="uploadFilesResult"></div>
+            </div>
+            <div>
+                <h3>👥 Database Users</h3>
+                <button onclick="checkDatabaseUsers()" class="btn btn-warning">Check Users</button>
+                <div id="databaseUsersResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Test Log</h2>
+        <div class="log-container" id="testLog"></div>
+        <button onclick="clearLog()" class="btn btn-danger">Clear Log</button>
+    </div>
+
+    <script>
+        // Configuration
+        const BACKEND_URL = 'http://localhost:3000'; // Change this to your backend URL
+        let uploadedMember = null;
+
+        // Logging utility
+        function log(message, level = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-level-${level}`;
+            logEntry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> ${message}`;
+            document.getElementById('testLog').appendChild(logEntry);
+            document.getElementById('testLog').scrollTop = document.getElementById('testLog').scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('testLog').innerHTML = '';
+        }
+
+        // Update status indicators
+        function updateStatus(elementId, isOnline) {
+            const indicator = document.getElementById(elementId);
+            const textElement = document.getElementById(elementId + 'Text');
+            
+            if (isOnline) {
+                indicator.className = 'status-indicator status-online';
+                textElement.textContent = 'Online';
+            } else {
+                indicator.className = 'status-indicator status-offline';
+                textElement.textContent = 'Offline';
+            }
+        }
+
+        // Test 1: Check system status
+        async function checkSystemStatus() {
+            log('🔍 Checking system status...', 'info');
+            
+            // Check backend health
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/health`);
+                if (response.ok) {
+                    updateStatus('backendStatus', true);
+                    log('✅ Backend is healthy', 'success');
+                } else {
+                    updateStatus('backendStatus', false);
+                    log('❌ Backend health check failed', 'error');
+                }
+            } catch (error) {
+                updateStatus('backendStatus', false);
+                log(`❌ Backend connection error: ${error.message}`, 'error');
+            }
+
+            // Check upload directories
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/uploads/debug/files`);
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus('uploadStatus', true);
+                    log(`✅ Upload directories exist. Passports: ${data.passports.length}, Signatures: ${data.signatures.length}`, 'success');
+                } else {
+                    updateStatus('uploadStatus', false);
+                    log('❌ Upload directories check failed', 'error');
+                }
+            } catch (error) {
+                updateStatus('uploadStatus', false);
+                log(`❌ Upload directories error: ${error.message}`, 'error');
+            }
+
+            // Check database
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/users/debug/users`);
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus('databaseStatus', true);
+                    log(`✅ Database connection OK. Users: ${data.users.length}`, 'success');
+                } else {
+                    updateStatus('databaseStatus', false);
+                    log('❌ Database check failed', 'error');
+                }
+            } catch (error) {
+                updateStatus('databaseStatus', false);
+                log(`❌ Database error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 2: Handle file previews
+        function setupFilePreviews() {
+            const passportInput = document.getElementById('testPassport');
+            const signatureInput = document.getElementById('testSignature');
+            const passportPreview = document.getElementById('passportPreview');
+            const signaturePreview = document.getElementById('signaturePreview');
+
+            passportInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        passportPreview.innerHTML = `<img src="${e.target.result}" alt="Passport Preview">`;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            signatureInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        signaturePreview.innerHTML = `<img src="${e.target.result}" alt="Signature Preview">`;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        // Test 3: Handle form submission
+        document.getElementById('testUploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            log('🚀 Starting member upload test...', 'info');
+            
+            const formData = new FormData();
+            formData.append('name', document.getElementById('testName').value);
+            formData.append('email', document.getElementById('testEmail').value);
+            formData.append('password', document.getElementById('testPassword').value);
+            formData.append('code', document.getElementById('testCode').value);
+            formData.append('state', document.getElementById('testState').value);
+            formData.append('zone', document.getElementById('testZone').value);
+            
+            const passportFile = document.getElementById('testPassport').files[0];
+            const signatureFile = document.getElementById('testSignature').files[0];
+            
+            if (passportFile) {
+                formData.append('passportPhoto', passportFile);
+                log(`📸 Adding passport photo: ${passportFile.name} (${passportFile.size} bytes)`, 'info');
+            }
+            
+            if (signatureFile) {
+                formData.append('signature', signatureFile);
+                log(`✍️ Adding signature: ${signatureFile.name} (${signatureFile.size} bytes)`, 'info');
+            }
+            
+            try {
+                log('📤 Sending upload request...', 'info');
+                const response = await fetch(`${BACKEND_URL}/api/users/addUser`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                log(`📥 Response status: ${response.status}`, 'info');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    uploadedMember = data.data;
+                    log('✅ Member uploaded successfully!', 'success');
+                    log(`📋 Member details: ${JSON.stringify(data.data, null, 2)}`, 'info');
+                    
+                    // Update verification code field
+                    document.getElementById('verifyCode').value = data.data.code;
+                    
+                    // Test photo accessibility
+                    if (data.data.passportPhoto) {
+                        await testPhotoAccessibility(data.data.passportPhoto);
+                    }
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    log(`❌ Upload failed: ${JSON.stringify(errorData)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Upload error: ${error.message}`, 'error');
+            }
+        });
+
+        // Test 4: Test photo accessibility
+        async function testPhotoAccessibility(filename) {
+            log(`🔍 Testing photo accessibility: ${filename}`, 'info');
+            
+            const photoUrl = `${BACKEND_URL}/api/uploads/passports/${filename}`;
+            
+            try {
+                const response = await fetch(photoUrl);
+                if (response.ok) {
+                    log(`✅ Photo is accessible: ${photoUrl}`, 'success');
+                    log(`📊 Photo size: ${response.headers.get('content-length')} bytes`, 'info');
+                    log(`📋 Content type: ${response.headers.get('content-type')}`, 'info');
+                } else {
+                    log(`❌ Photo not accessible: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Photo test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 5: Test member verification
+        async function testMemberVerification() {
+            const code = document.getElementById('verifyCode').value;
+            if (!code) {
+                log('⚠️ Please enter a member code to verify', 'warning');
+                return;
+            }
+            
+            log(`🔍 Verifying member: ${code}`, 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/users/members/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code: code })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Member verification successful!', 'success');
+                    log(`📋 Member data: ${JSON.stringify(data.member, null, 2)}`, 'info');
+                    
+                    // Display verification result
+                    const resultDiv = document.getElementById('verificationResult');
+                    resultDiv.innerHTML = `
+                        <div class="test-result success">
+                            <h4>✅ Member Found</h4>
+                            <p><strong>Name:</strong> ${data.member.name}</p>
+                            <p><strong>Code:</strong> ${data.member.code}</p>
+                            <p><strong>Email:</strong> ${data.member.email || 'N/A'}</p>
+                            <p><strong>Photo:</strong> ${data.member.passportPhoto || 'N/A'}</p>
+                            <p><strong>Signature:</strong> ${data.member.signature || 'N/A'}</p>
+                        </div>
+                    `;
+                    
+                    // Test photo display
+                    if (data.member.passportPhoto) {
+                        await testPhotoDisplay(data.member.passportPhoto);
+                    }
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    log(`❌ Member verification failed: ${JSON.stringify(errorData)}`, 'error');
+                    
+                    document.getElementById('verificationResult').innerHTML = `
+                        <div class="test-result error">
+                            <h4>❌ Member Not Found</h4>
+                            <p>${errorData.message || 'Unknown error'}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                log(`❌ Verification error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 6: Test photo display
+        async function testPhotoDisplay(filename) {
+            log(`🖼️ Testing photo display: ${filename}`, 'info');
+            
+            const photoUrl = `${BACKEND_URL}/api/uploads/passports/${filename}`;
+            const img = new Image();
+            
+            img.onload = function() {
+                log('✅ Photo loads successfully in browser', 'success');
+                log(`📐 Photo dimensions: ${img.naturalWidth}x${img.naturalHeight}`, 'info');
+            };
+            
+            img.onerror = function() {
+                log('❌ Photo fails to load in browser', 'error');
+            };
+            
+            img.src = photoUrl;
+        }
+
+        // Test 7: Check upload files
+        async function checkUploadFiles() {
+            log('📁 Checking upload files...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/uploads/debug/files`);
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Upload files check successful', 'success');
+                    
+                    const resultDiv = document.getElementById('uploadFilesResult');
+                    resultDiv.innerHTML = `
+                        <div class="test-result info">
+                            <h4>📂 Upload Files</h4>
+                            <p><strong>Passports:</strong> ${data.passports.length} files</p>
+                            <p><strong>Signatures:</strong> ${data.signatures.length} files</p>
+                            <p><strong>Recent Passports:</strong> ${data.passports.slice(-5).join(', ')}</p>
+                            <p><strong>Recent Signatures:</strong> ${data.signatures.slice(-5).join(', ')}</p>
+                        </div>
+                    `;
+                } else {
+                    log('❌ Upload files check failed', 'error');
+                }
+            } catch (error) {
+                log(`❌ Upload files error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 8: Check database users
+        async function checkDatabaseUsers() {
+            log('👥 Checking database users...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/users/debug/users`);
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Database users check successful', 'success');
+                    
+                    const resultDiv = document.getElementById('databaseUsersResult');
+                    resultDiv.innerHTML = `
+                        <div class="test-result info">
+                            <h4>👥 Database Users</h4>
+                            <p><strong>Total Users:</strong> ${data.users.length}</p>
+                            <p><strong>Users with Photos:</strong> ${data.users.filter(u => u.passportPhoto).length}</p>
+                            <p><strong>Users with Signatures:</strong> ${data.users.filter(u => u.signature).length}</p>
+                            <p><strong>Recent Users:</strong> ${data.users.slice(-5).map(u => u.name).join(', ')}</p>
+                        </div>
+                    `;
+                } else {
+                    log('❌ Database users check failed', 'error');
+                }
+            } catch (error) {
+                log(`❌ Database users error: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 NARAP Photo Upload Test Suite initialized', 'info');
+            setupFilePreviews();
+            checkSystemStatus();
+        });
+    </script>
+</body>
+</html> 

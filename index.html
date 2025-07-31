@@ -2123,17 +2123,27 @@ function tryAlternativeMemberPhotoUrls(img, originalUrl) {
 
   let currentIndex = 0;
   function tryNext() {
-    if (currentIndex >= alternativeUrls.length) return;
+    if (currentIndex >= alternativeUrls.length) {
+      console.log('❌ All alternative URLs failed, keeping placeholder');
+      return;
+    }
     
     const testUrl = alternativeUrls[currentIndex];
-    console.log(`Trying alternative member photo URL ${currentIndex + 1}:`, testUrl);
+    console.log(`🔄 Trying alternative member photo URL ${currentIndex + 1}:`, testUrl);
     
     const testImg = new Image();
     testImg.onload = function() {
+      console.log('✅ Alternative URL worked:', testUrl);
       img.src = testUrl;
       img.style.display = 'block';
+      // Hide placeholder
+      const placeholder = img.parentElement.querySelector('.member-photo-placeholder');
+      if (placeholder) {
+        placeholder.style.display = 'none';
+      }
     };
     testImg.onerror = function() {
+      console.log('❌ Alternative URL failed:', testUrl);
       currentIndex++;
       setTimeout(tryNext, 500);
     };
