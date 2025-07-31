@@ -3042,6 +3042,10 @@ async function addMember(event) {
         let backendResponse = null;
         let isOnline = navigator.onLine;
         
+        // Get file inputs first
+        const passportInput = document.getElementById('memberPassport');
+        const signatureInput = document.getElementById('memberSignature');
+        
         // Try to add to backend if online
         if (isOnline) {
             try {
@@ -3090,8 +3094,6 @@ async function addMember(event) {
         };
         
         // Handle file data - always use multipart/form-data approach
-        const passportInput = document.getElementById('memberPassport');
-        const signatureInput = document.getElementById('memberSignature');
         
         // Store file references for offline sync
         if (passportInput && passportInput.files[0]) {
