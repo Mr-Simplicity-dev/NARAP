@@ -1593,7 +1593,7 @@ async function searchUser(event) {
     
     // If main API fails, try legacy API fallback
     try {
-      const legacyResponse = await fetch(`${backendUrl}/api/searchUser`, {
+      const legacyResponse = await fetch(`${backendUrl}/api/users/searchUser`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3459,7 +3459,7 @@ function testPhotoUrl(url) {
 async function testBackendAPI() {
   try {
     console.log('🧪 Testing backend API...');
-    const response = await fetch(`${backendUrl}/api/members/verify`, {
+    const response = await fetch(`${backendUrl}/api/users/members/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3485,6 +3485,38 @@ async function testBackendAPI() {
 
 // Expose test function to window for debugging
 window.testBackendAPI = testBackendAPI;
+
+// Test function to check the correct API endpoint
+async function testCorrectAPI() {
+  try {
+    console.log('🧪 Testing correct API endpoint...');
+    const response = await fetch(`${backendUrl}/api/users/members/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code: 'N/049/ANA/09' })
+    });
+    
+    console.log('Response status:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Correct API Response:', data);
+      return data;
+    } else {
+      const errorText = await response.text();
+      console.log('❌ API Error:', response.status, errorText);
+      return null;
+    }
+  } catch (error) {
+    console.log('❌ API Test Failed:', error);
+    return null;
+  }
+}
+
+// Expose test function to window for debugging
+window.testCorrectAPI = testCorrectAPI;
   </script>
 </body>
 </html>
