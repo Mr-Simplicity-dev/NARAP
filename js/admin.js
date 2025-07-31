@@ -2432,8 +2432,44 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
         // Save merged members to local storage
         saveLocalMembers(mergedMembers);
         
+        // Apply search filter if provided
+        let filteredMembers = mergedMembers;
+        if (searchTerm) {
+            filteredMembers = mergedMembers.filter(member => {
+                const searchLower = searchTerm.toLowerCase();
+                return (
+                    (member.name && member.name.toLowerCase().includes(searchLower)) ||
+                    (member.email && member.email.toLowerCase().includes(searchLower)) ||
+                    (member.code && member.code.toLowerCase().includes(searchLower)) ||
+                    (member.position && member.position.toLowerCase().includes(searchLower)) ||
+                    (member.state && member.state.toLowerCase().includes(searchLower)) ||
+                    (member.zone && member.zone.toLowerCase().includes(searchLower))
+                );
+            });
+        }
+        
+        // Calculate pagination
+        const totalItems = filteredMembers.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+        
+        // Store pagination state
+        window.membersPaginationState = {
+            currentPage: page,
+            totalPages: totalPages,
+            totalItems: totalItems,
+            itemsPerPage: limit
+        };
+        
         if (typeof displayMembers === 'function') {
-            displayMembers(mergedMembers);
+            displayMembers(paginatedMembers, totalItems, page, totalPages, limit);
+        }
+        
+        // Render pagination
+        if (typeof renderPagination === 'function') {
+            renderPagination(page, totalPages, totalItems, limit, 'members');
         }
         
         
@@ -2450,7 +2486,7 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
         }
         
         if (typeof displayMembers === 'function') {
-            displayMembers(localMembers);
+            displayMembers(localMembers, localMembers.length, 1, 1, limit);
         }
         
         return localMembers;
@@ -2726,7 +2762,7 @@ async function getCertificates() {
     }
 }
 
-async function loadCertificates() {
+async function loadCertificates(page = 1, limit = 10, searchTerm = '') {
     
     
     try {
@@ -2746,8 +2782,44 @@ async function loadCertificates() {
             window.currentCertificates = mergedCertificates;
         }
         
+        // Apply search filter if provided
+        let filteredCertificates = mergedCertificates;
+        if (searchTerm) {
+            filteredCertificates = mergedCertificates.filter(certificate => {
+                const searchLower = searchTerm.toLowerCase();
+                return (
+                    (certificate.certificateNumber && certificate.certificateNumber.toLowerCase().includes(searchLower)) ||
+                    (certificate.number && certificate.number.toLowerCase().includes(searchLower)) ||
+                    (certificate.recipientName && certificate.recipientName.toLowerCase().includes(searchLower)) ||
+                    (certificate.name && certificate.name.toLowerCase().includes(searchLower)) ||
+                    (certificate.title && certificate.title.toLowerCase().includes(searchLower)) ||
+                    (certificate.certificateTitle && certificate.certificateTitle.toLowerCase().includes(searchLower))
+                );
+            });
+        }
+        
+        // Calculate pagination
+        const totalItems = filteredCertificates.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedCertificates = filteredCertificates.slice(startIndex, endIndex);
+        
+        // Store pagination state
+        window.certificatesPaginationState = {
+            currentPage: page,
+            totalPages: totalPages,
+            totalItems: totalItems,
+            itemsPerPage: limit
+        };
+        
         if (typeof displayCertificates === 'function') {
-            displayCertificates(mergedCertificates);
+            displayCertificates(paginatedCertificates, totalItems, page, totalPages, limit);
+        }
+        
+        // Render pagination
+        if (typeof renderPagination === 'function') {
+            renderPagination(page, totalPages, totalItems, limit, 'certificates');
         }
         
         
@@ -2762,7 +2834,7 @@ async function loadCertificates() {
         }
         
         if (typeof displayCertificates === 'function') {
-            displayCertificates(localCertificates);
+            displayCertificates(localCertificates, localCertificates.length, 1, 1, limit);
         }
     }
 }
@@ -2822,7 +2894,7 @@ function switchTab(tabName) {
         case 'members':
             if (!window.currentMembers || window.currentMembers.length === 0) {
                 
-                loadMembers();
+                loadMembers(1, 10);
             } else {
                 
                 displayMembers(window.currentMembers);
@@ -2832,7 +2904,7 @@ function switchTab(tabName) {
         case 'certificates':
             if (!window.currentCertificates || window.currentCertificates.length === 0) {
                 
-                loadCertificates();
+                loadCertificates(1, 10);
             } else {
                 
                 displayCertificates(window.currentCertificates);
@@ -2977,7 +3049,7 @@ function closeImportModal() {
 
 // ==================== MEMBER DISPLAY FUNCTIONS ====================
 
-function displayMembers(members) {
+function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
     const tableBody = document.getElementById('membersTableBody');
     if (!tableBody) {
         
@@ -3062,40 +3134,20 @@ function displayMembers(members) {
 }
 
 function filterMembers() {
-    const searchTerm = document.getElementById('memberSearch')?.value.toLowerCase() || '';
+    const searchTerm = document.getElementById('memberSearch')?.value || '';
     const positionFilter = document.getElementById('positionFilter')?.value || '';
     const stateFilter = document.getElementById('stateFilter')?.value || '';
     
-    const members = window.currentMembers || [];
-    
-    const filteredMembers = members.filter(member => {
-        // Case-insensitive search across multiple fields
-        const matchesSearch = !searchTerm || 
-            (member.name && member.name.toLowerCase().includes(searchTerm)) ||
-            (member.email && member.email.toLowerCase().includes(searchTerm)) ||
-            (member.code && member.code.toLowerCase().includes(searchTerm)) ||
-            (member.position && member.position.toLowerCase().includes(searchTerm)) ||
-            (member.state && member.state.toLowerCase().includes(searchTerm)) ||
-            (member.zone && member.zone.toLowerCase().includes(searchTerm));
-        
-        // Case-insensitive filter matching
-        const matchesPosition = !positionFilter || 
-            (member.position && member.position.toLowerCase() === positionFilter.toLowerCase());
-        const matchesState = !stateFilter || 
-            (member.state && member.state.toLowerCase() === stateFilter.toLowerCase());
-        
-        return matchesSearch && matchesPosition && matchesState;
-    });
-    
-    displayMembers(filteredMembers);
+    // Reload members with search term and reset to page 1
+    loadMembers(1, 10, searchTerm);
 }
 
 function refreshMembers() {
     
     // Clear any cached data
     window.currentMembers = null;
-    // Force reload
-    loadMembers();
+    // Force reload with pagination
+    loadMembers(1, 10);
 }
 
 async function deleteMember(memberId) {
@@ -3461,7 +3513,7 @@ async function editMember(event) {
 
 // ==================== CERTIFICATE DISPLAY FUNCTIONS ====================
 
-function displayCertificates(certificates) {
+function displayCertificates(certificates, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
     const tableBody = document.getElementById('certificatesTableBody');
     if (!tableBody) return;
     
@@ -4625,7 +4677,7 @@ function handleEmailInput() {
 // ==================== CERTIFICATE FUNCTIONS ====================
 
 function refreshCertificates() {
-    loadCertificates();
+    loadCertificates(1, 10);
 }
 
 function clearCertificateFilters() {
@@ -4637,7 +4689,7 @@ function clearCertificateFilters() {
     if (statusFilter) statusFilter.value = '';
     if (dateFilter) dateFilter.value = '';
     
-    loadCertificates();
+    loadCertificates(1, 10);
 }
 
 function generateCertificatePreview() {
@@ -5602,12 +5654,12 @@ async function loadInitialData() {
         
         // Load members data (this will load from local storage first, then sync with backend)
         if (typeof loadMembers === 'function') {
-            await loadMembers();
+            await loadMembers(1, 10);
         }
         
         // Load certificates data
         if (typeof loadCertificates === 'function') {
-            await loadCertificates();
+            await loadCertificates(1, 10);
         }
         
 
