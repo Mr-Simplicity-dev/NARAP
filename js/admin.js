@@ -266,6 +266,83 @@ async function testBackendConnection(url = backendUrl) {
     }
 }
 
+// Add after the checkServerStatus function
+async function testCorsConnectivity() {
+    console.log('🔍 Testing CORS connectivity...');
+    
+    try {
+        const response = await fetch(`${backendUrl}/api/health/cors-test`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                test: true,
+                timestamp: new Date().toISOString()
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ CORS test successful:', data);
+            return { success: true, data };
+        } else {
+            console.log('❌ CORS test failed with status:', response.status);
+            return { success: false, status: response.status };
+        }
+    } catch (error) {
+        console.log('❌ CORS test error:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+async function testBackendConnectivity() {
+    console.log('🔍 Testing backend connectivity...');
+    
+    const tests = [
+        { name: 'Health Check', url: '/api/health' },
+        { name: 'Connection Test', url: '/api/health/connection' },
+        { name: 'CORS Test', url: '/api/health/cors-test', method: 'POST' }
+    ];
+    
+    const results = {};
+    
+    for (const test of tests) {
+        try {
+            const response = await fetch(`${backendUrl}${test.url}`, {
+                method: test.method || 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                ...(test.method === 'POST' && {
+                    body: JSON.stringify({ test: true })
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                results[test.name] = { success: true, data };
+                console.log(`✅ ${test.name} successful`);
+            } else {
+                results[test.name] = { success: false, status: response.status };
+                console.log(`❌ ${test.name} failed with status:`, response.status);
+            }
+        } catch (error) {
+            results[test.name] = { success: false, error: error.message };
+            console.log(`❌ ${test.name} error:`, error.message);
+        }
+    }
+    
+    console.log('📊 Connectivity test results:', results);
+    return results;
+}
+
+// Add to window object
+window.testCorsConnectivity = testCorsConnectivity;
+window.testBackendConnectivity = testBackendConnectivity;
+
 // ==================== UTILITY FUNCTIONS ====================
 
 function showMessage(message, type = 'info') {
@@ -2450,28 +2527,58 @@ function getLastSyncTime() {
 async function checkServerStatus() {
     try {
         if (!navigator.onLine) {
+            console.log('🌐 Browser is offline');
             return 'Offline';
         }
         
+        console.log('🔍 Checking server status at:', `${backendUrl}/api/health`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
         const response = await fetch(`${backendUrl}/api/health`, {
             method: 'GET',
-            timeout: 5000
+            signal: controller.signal,
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
         });
+        
+        clearTimeout(timeoutId);
+        
+        console.log('📡 Server response status:', response.status);
         
         if (response.ok) {
             const data = await response.json();
+            console.log('📊 Server health data:', data);
+            
             if (data && data.status === 'healthy') {
+                console.log('✅ Server is healthy');
                 return 'Online';
             } else {
+                console.log('⚠️ Server returned unhealthy status:', data);
                 return 'Error';
             }
         } else {
+            console.log('❌ Server returned error status:', response.status);
             return 'Error';
         }
         
     } catch (error) {
+        console.log('❌ Server status check failed:', error.message);
         
-        return 'Offline';
+        if (error.name === 'AbortError') {
+            console.log('⏰ Server status check timed out');
+            return 'Timeout';
+        }
+        
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            console.log('🌐 Network error - server may be offline');
+            return 'Offline';
+        }
+        
+        return 'Error';
     }
 }
 
