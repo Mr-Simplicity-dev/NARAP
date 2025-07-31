@@ -3623,6 +3623,9 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
                         <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
                             <i class="fas fa-edit"></i>
                         </button>
+                        <button class="btn btn-sm btn-primary" onclick="updateMemberPhoto('${code}')" title="Update Photo">
+                            <i class="fas fa-camera"></i>
+                        </button>
                         <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -6667,6 +6670,51 @@ async function cleanupDatabaseCertificates() {
         showMessage('❌ Failed to cleanup certificates: ' + error.message, 'error');
     }
 }
+
+// Function to update member passport photo
+async function updateMemberPhoto(memberCode) {
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  
+  fileInput.onchange = async function() {
+    const file = this.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('passportPhoto', file);
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/updateMemberPhoto/${memberCode}`, {
+        method: 'PUT',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        showMessage('Member passport photo updated successfully!', 'success');
+        // Refresh the members table
+        refreshMembers();
+      } else {
+        showMessage(result.message || 'Failed to update passport photo', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating member photo:', error);
+      showMessage('Error updating member photo', 'error');
+    }
+    
+    // Clean up
+    document.body.removeChild(fileInput);
+  };
+  
+  document.body.appendChild(fileInput);
+  fileInput.click();
+}
+
+// Expose functions to window for debugging
+window.updateMemberPhoto = updateMemberPhoto;
 
 
 
