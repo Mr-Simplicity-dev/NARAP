@@ -1139,13 +1139,56 @@ async function createBackup() {
 }
 
 async function clearAllData() {
-    if (!confirm('Are you sure you want to clear ALL data? This action cannot be undone!')) {
-        return;
-    }
-    
     try {
+        // Check if there's any data to clear
+        const members = getLocalMembers() || [];
+        const certificates = getLocalCertificates() || [];
+        const pendingSync = getPendingSync();
+        
+        const hasData = members.length > 0 || certificates.length > 0 || 
+                       pendingSync.memberCreations.length > 0 || 
+                       pendingSync.certificateCreations.length > 0;
+        
+        if (!hasData) {
+            showMessage('No data to clear. Database is already empty.', 'info');
+            return;
+        }
+        
         showMessage('Clearing all data...', 'info');
         
+        // Clear backend database first
+        try {
+            console.log('🗑️ Clearing backend database...');
+            const backendUrl = getBackendUrl();
+            
+            if (backendUrl && navigator.onLine) {
+                const response = await fetch(`${backendUrl}/api/clear-database`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ Backend database cleared:', result);
+                    showMessage(`Backend cleared: ${result.data.totalDeleted} records deleted`, 'success');
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('❌ Backend clear failed:', errorData);
+                    showMessage('Backend clear failed: ' + (errorData.message || 'Unknown error'), 'warning');
+                }
+            } else {
+                console.log('⚠️ Backend not accessible, clearing frontend only');
+                showMessage('Backend not accessible, clearing frontend data only', 'warning');
+            }
+        } catch (backendError) {
+            console.error('❌ Backend clear error:', backendError);
+            showMessage('Backend clear failed, clearing frontend data only', 'warning');
+        }
+        
+        // Clear frontend data
+        console.log('🗑️ Clearing frontend data...');
         localStorage.removeItem('narap_certificates');
         localStorage.removeItem('narap_pending_sync');
         localStorage.removeItem('narap_members');
@@ -1162,14 +1205,23 @@ async function clearAllData() {
             memberDeletions: []
         });
         
+        // Refresh the UI
         if (typeof loadMembers === 'function') await loadMembers();
         if (typeof loadCertificates === 'function') await loadCertificates();
         if (typeof loadDashboard === 'function') await loadDashboard();
         
-        showMessage('All data cleared successfully!', 'success');
+        // Show summary of what was cleared
+        const summary = [];
+        if (members.length > 0) summary.push(`${members.length} members`);
+        if (certificates.length > 0) summary.push(`${certificates.length} certificates`);
+        if (pendingSync.memberCreations.length > 0) summary.push(`${pendingSync.memberCreations.length} pending member creations`);
+        if (pendingSync.certificateCreations.length > 0) summary.push(`${pendingSync.certificateCreations.length} pending certificate creations`);
+        
+        const summaryText = summary.length > 0 ? `Cleared: ${summary.join(', ')}` : 'All data cleared';
+        showMessage(`${summaryText} successfully!`, 'success');
         
     } catch (error) {
-        
+        console.error('❌ Clear data error:', error);
         showMessage('Failed to clear data: ' + error.message, 'error');
     }
 }
@@ -5533,7 +5585,37 @@ function refreshMembersTable() {
 
 function confirmClearAllData() {
     const modal = document.getElementById('confirmModal');
-    if (modal) {
+    const title = document.getElementById('confirmTitle');
+    const message = document.getElementById('confirmMessage');
+    const confirmButton = document.getElementById('confirmYes');
+    
+    if (modal && title && message && confirmButton) {
+        // Set up the modal content
+        title.textContent = 'Clear All Data';
+        message.innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #dc3545; margin-bottom: 15px;"></i>
+                <h3 style="color: #dc3545; margin-bottom: 15px;">⚠️ WARNING ⚠️</h3>
+                <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">
+                    This action will permanently delete <strong>ALL</strong> data from both the frontend and backend database.
+                </p>
+                <p style="font-size: 14px; color: #6c757d;">
+                    This includes all members, certificates, and any pending sync data. This action cannot be undone!
+                </p>
+            </div>
+        `;
+        
+        // Remove any existing event listeners
+        const newConfirmButton = confirmButton.cloneNode(true);
+        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+        
+        // Add event listener to the new button
+        newConfirmButton.addEventListener('click', async () => {
+            closeConfirmModal();
+            await clearAllData();
+        });
+        
+        // Show the modal
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
     }
