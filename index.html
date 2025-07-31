@@ -1737,25 +1737,51 @@ function displayMemberResult(member) {
   
   console.log('Member data received:', member);
   console.log('Passport photo URL found:', passportPhoto);
+  console.log('🔍 Full member object:', JSON.stringify(member, null, 2));
   
   // Validate photo URL
   let validPhotoUrl = null;
   if (passportPhoto) {
     try {
+      console.log('🔍 Processing photo URL:', passportPhoto);
+      console.log('🔍 Backend URL:', backendUrl);
+      
       // Backend should now return full URLs, but handle fallbacks
       if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://') || passportPhoto.startsWith('data:')) {
         validPhotoUrl = passportPhoto;
+        console.log('✅ Using full URL:', validPhotoUrl);
       } else if (passportPhoto.startsWith('/')) {
         validPhotoUrl = `${backendUrl}${passportPhoto}`;
+        console.log('✅ Using relative URL:', validPhotoUrl);
       } else {
         // Fallback for filename-only cases
         validPhotoUrl = `${backendUrl}/api/uploads/passports/${passportPhoto}`;
+        console.log('✅ Using filename fallback:', validPhotoUrl);
       }
-      console.log('Processed photo URL:', validPhotoUrl);
+      console.log('🎯 Final photo URL:', validPhotoUrl);
+      
+      // Test if the photo URL is accessible
+      if (validPhotoUrl) {
+        testPhotoUrl(validPhotoUrl).then(isAccessible => {
+          if (!isAccessible) {
+            console.log('⚠️ Photo URL is not accessible, will show placeholder');
+          }
+        });
+      }
     } catch (error) {
-      console.log('Error processing photo URL:', error);
+      console.log('❌ Error processing photo URL:', error);
       validPhotoUrl = null;
     }
+  } else {
+    console.log('❌ No passport photo data found');
+    console.log('🔍 All photo fields:', {
+      passportPhoto: member.passportPhoto,
+      passport: member.passport,
+      photo: member.photo,
+      profilePhoto: member.profilePhoto,
+      image: member.image,
+      avatar: member.avatar
+    });
   }
   
   // Validate signature URL
@@ -3413,6 +3439,52 @@ if (typeof module !== 'undefined' && module.exports) {
 // Expose test function to window for debugging
 window.testMemberVerification = testMemberVerification;
 
+// Function to test if a photo URL is accessible
+function testPhotoUrl(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      console.log('✅ Photo URL is accessible:', url);
+      resolve(true);
+    };
+    img.onerror = () => {
+      console.log('❌ Photo URL is not accessible:', url);
+      resolve(false);
+    };
+    img.src = url;
+  });
+}
+
+// Test function to check backend API response
+async function testBackendAPI() {
+  try {
+    console.log('🧪 Testing backend API...');
+    const response = await fetch(`${backendUrl}/api/members/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code: 'N/049/ANA/09' })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Backend API Response:', data);
+      console.log('📸 Photo data:', {
+        passportPhoto: data.member?.passportPhoto,
+        passport: data.member?.passport,
+        photo: data.member?.photo
+      });
+    } else {
+      console.log('❌ Backend API Error:', response.status, response.statusText);
+    }
+  } catch (error) {
+    console.log('❌ Backend API Test Failed:', error);
+  }
+}
+
+// Expose test function to window for debugging
+window.testBackendAPI = testBackendAPI;
   </script>
 </body>
 </html>
