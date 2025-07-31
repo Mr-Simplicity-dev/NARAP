@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .photo-container {
+            width: 200px;
+            height: 200px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        .photo-container img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 4px;
+        }
+        .placeholder {
+            background: #f8f9fa;
+            color: #666;
+            text-align: center;
+            padding: 20px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #007bff; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Photo Debug Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Member: NARAP/ABJ/0001</h2>
+        <div id="memberInfo">Loading...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Passport Photo Test</h2>
+        <div class="photo-container" id="passportContainer">
+            <div class="placeholder">Loading...</div>
+        </div>
+        <div id="passportInfo"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Signature Test</h2>
+        <div class="photo-container" id="signatureContainer">
+            <div class="placeholder">Loading...</div>
+        </div>
+        <div id="signatureInfo"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Debug Info</h2>
+        <div id="debugInfo"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://narap-backend.onrender.com';
+        
+        async function testPhotoDisplay() {
+            console.log('🔍 Starting photo debug test...');
+            
+            try {
+                // Get member data
+                console.log('📋 Getting member data...');
+                const memberResponse = await fetch(`${BACKEND_URL}/api/users/members/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code: 'NARAP/ABJ/0001' })
+                });
+                
+                if (memberResponse.ok) {
+                    const memberData = await memberResponse.json();
+                    console.log('✅ Member data:', memberData);
+                    
+                    // Display member info
+                    document.getElementById('memberInfo').innerHTML = `
+                        <p><strong>Name:</strong> ${memberData.member.name}</p>
+                        <p><strong>Code:</strong> ${memberData.member.code}</p>
+                        <p><strong>Photo URL:</strong> ${memberData.member.passportPhoto}</p>
+                        <p><strong>Signature URL:</strong> ${memberData.member.signature}</p>
+                    `;
+                    
+                    // Test passport photo
+                    if (memberData.member.passportPhoto) {
+                        testImage(memberData.member.passportPhoto, 'passportContainer', 'passportInfo');
+                    }
+                    
+                    // Test signature
+                    if (memberData.member.signature) {
+                        testImage(memberData.member.signature, 'signatureContainer', 'signatureInfo');
+                    }
+                    
+                } else {
+                    console.log('❌ Member not found:', memberResponse.status);
+                    document.getElementById('memberInfo').innerHTML = '<p class="error">❌ Member not found</p>';
+                }
+                
+            } catch (error) {
+                console.error('❌ Test failed:', error);
+                document.getElementById('debugInfo').innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+        
+        function testImage(url, containerId, infoId) {
+            console.log(`🖼️ Testing image: ${url}`);
+            
+            const container = document.getElementById(containerId);
+            const info = document.getElementById(infoId);
+            
+            // Create image element
+            const img = new Image();
+            
+            img.onload = function() {
+                console.log(`✅ Image loaded successfully: ${url}`);
+                container.innerHTML = '';
+                container.appendChild(img);
+                info.innerHTML = `
+                    <p class="success">✅ Image loaded successfully</p>
+                    <p><strong>Dimensions:</strong> ${img.naturalWidth} x ${img.naturalHeight}</p>
+                    <p><strong>URL:</strong> ${url}</p>
+                `;
+            };
+            
+            img.onerror = function() {
+                console.log(`❌ Image failed to load: ${url}`);
+                container.innerHTML = `
+                    <div class="placeholder">
+                        <div>❌</div>
+                        <div>Failed to load</div>
+                        <div style="font-size: 12px; margin-top: 10px;">${url}</div>
+                    </div>
+                `;
+                info.innerHTML = `
+                    <p class="error">❌ Image failed to load</p>
+                    <p><strong>URL:</strong> ${url}</p>
+                `;
+            };
+            
+            // Set image source
+            img.src = url;
+        }
+        
+        // Start the test when page loads
+        document.addEventListener('DOMContentLoaded', testPhotoDisplay);
+    </script>
+</body>
+</html> 

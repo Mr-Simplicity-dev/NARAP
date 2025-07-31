@@ -1756,6 +1756,9 @@ function displayMemberResult(member) {
                        member.avatar ||
                        null;
   
+  // Get signature URL
+  const signature = member.signature || null;
+  
   console.log('🔍 === MEMBER VERIFICATION DEBUG ===');
   console.log('Member data received:', member);
   console.log('Passport photo URL found:', passportPhoto);
@@ -1816,14 +1819,14 @@ function displayMemberResult(member) {
   
   // Validate signature URL
   let validSignatureUrl = null;
-  if (member.signature) {
+  if (signature) {
     try {
-      if (member.signature.startsWith('http://') || member.signature.startsWith('https://') || member.signature.startsWith('data:')) {
-        validSignatureUrl = member.signature;
-      } else if (member.signature.startsWith('/')) {
-        validSignatureUrl = `${backendUrl}${member.signature}`;
+      if (signature.startsWith('http://') || signature.startsWith('https://') || signature.startsWith('data:')) {
+        validSignatureUrl = signature;
+      } else if (signature.startsWith('/')) {
+        validSignatureUrl = `${backendUrl}${signature}`;
       } else {
-        validSignatureUrl = `${backendUrl}/api/uploads/signatures/${member.signature}`;
+        validSignatureUrl = `${backendUrl}/api/uploads/signatures/${signature}`;
       }
       console.log('Processed signature URL:', validSignatureUrl);
     } catch (error) {
@@ -1844,9 +1847,10 @@ function displayMemberResult(member) {
               `<img src="${validPhotoUrl}" alt="Member Photo" class="member-photo" 
                    onload="handleMemberPhotoLoad(this)"
                    onerror="handleMemberPhotoError(this, '${validPhotoUrl}')"
-                   style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">` :
+                   style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block;">` :
               `<div class="member-photo-placeholder" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px; color: #666;">
                  <i class="fas fa-user" style="font-size: 2em;"></i>
+                 <div style="margin-top: 8px; font-size: 12px;">No Photo Available</div>
                </div>`
             }
           </div>
@@ -2091,6 +2095,13 @@ function retryImageLoad(img, originalUrl, fallback) {
 function handleMemberPhotoLoad(img) {
   console.log('✅ Member photo loaded successfully:', img.src);
   img.style.display = 'block';
+  img.style.opacity = '1';
+  
+  // Hide placeholder if it exists
+  const placeholder = img.parentElement.querySelector('.member-photo-placeholder');
+  if (placeholder) {
+    placeholder.style.display = 'none';
+  }
 }
 
 function handleMemberPhotoError(img, originalUrl) {
@@ -2101,8 +2112,9 @@ function handleMemberPhotoError(img, originalUrl) {
   const photoContainer = img.parentElement;
   if (photoContainer) {
     photoContainer.innerHTML = `
-      <div class="member-photo-placeholder" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px; color: #666;">
-        <i class="fas fa-user" style="font-size: 2em;"></i>
+      <div class="member-photo-placeholder" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px; color: #666; flex-direction: column;">
+        <i class="fas fa-user" style="font-size: 2em; margin-bottom: 8px;"></i>
+        <div style="font-size: 12px; text-align: center;">No Photo Available</div>
       </div>
     `;
   }
