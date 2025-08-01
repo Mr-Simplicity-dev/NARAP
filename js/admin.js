@@ -1437,6 +1437,167 @@ async function clearAllData() {
     }
 }
 
+// Clear all certificates function
+async function clearAllCertificates() {
+    try {
+        // Check if there are certificates to clear
+        const certificates = getLocalCertificates() || [];
+        const pendingSync = getPendingSync();
+        
+        const hasCertificates = certificates.length > 0 || 
+                               pendingSync.certificateCreations.length > 0 ||
+                               pendingSync.certificateUpdates.length > 0 ||
+                               pendingSync.certificateDeletions.length > 0;
+        
+        if (!hasCertificates) {
+            showMessage('No certificates to clear. Certificate database is already empty.', 'info');
+            return;
+        }
+        
+        showMessage('Clearing all certificates...', 'info');
+        
+        // Clear backend certificates first
+        try {
+            console.log('🗑️ Clearing backend certificates...');
+            const backendUrl = getBackendUrl();
+            console.log('🔍 Backend URL:', backendUrl);
+            
+            if (backendUrl && navigator.onLine) {
+                console.log('🌐 Attempting to clear certificates at:', `${backendUrl}/api/clear-certificates`);
+                
+                const response = await fetch(`${backendUrl}/api/clear-certificates`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('🔍 Backend response status:', response.status);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ Backend certificates cleared:', result);
+                    showMessage(`Backend certificates cleared: ${result.data.certificatesDeleted} certificates deleted`, 'success');
+                } else {
+                    let errorData = {};
+                    try {
+                        errorData = await response.json();
+                    } catch (parseError) {
+                        errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+                    }
+                    console.error('❌ Backend certificate clear failed:', errorData);
+                    showMessage(`Backend certificate clear failed: ${errorData.message || `HTTP ${response.status}`}`, 'warning');
+                }
+            } else {
+                console.log('⚠️ Backend not accessible, clearing frontend certificates only');
+                showMessage('Backend not accessible, clearing frontend certificates only', 'warning');
+            }
+        } catch (backendError) {
+            console.error('❌ Backend certificate clear error:', backendError);
+            showMessage(`Backend certificate clear failed: ${backendError.message}`, 'warning');
+        }
+        
+        // Clear frontend certificate data
+        console.log('🗑️ Clearing frontend certificate data...');
+        
+        // Clear certificate-related localStorage items
+        const certificateLocalStorageKeys = [
+            'narap_certificates',
+            'narap_certificates_cache',
+            'narap_certificates_current_page',
+            'narap_certificates_total_pages',
+            'narap_certificates_per_page'
+        ];
+        
+        // Remove certificate-related localStorage items
+        certificateLocalStorageKeys.forEach(key => {
+            localStorage.removeItem(key);
+            console.log(`🗑️ Removed certificate localStorage item: ${key}`);
+        });
+        
+        // Clear certificate-related cache items
+        const allKeys = Object.keys(localStorage);
+        const certificateCacheKeys = allKeys.filter(key => key.startsWith('narap_cache_') && key.includes('certificate'));
+        certificateCacheKeys.forEach(key => {
+            localStorage.removeItem(key);
+            console.log(`🗑️ Removed certificate cache item: ${key}`);
+        });
+        
+        console.log(`✅ Cleared ${certificateLocalStorageKeys.length + certificateCacheKeys.length} certificate localStorage items`);
+        
+        // Clear memory variables
+        if (typeof window.currentCertificates !== 'undefined') window.currentCertificates = [];
+        if (typeof window.certificatesPaginationState !== 'undefined') window.certificatesPaginationState = null;
+        
+        // Clear certificate-related pending sync
+        const currentPendingSync = getPendingSync();
+        currentPendingSync.certificateCreations = [];
+        currentPendingSync.certificateUpdates = [];
+        currentPendingSync.certificateDeletions = [];
+        savePendingSync(currentPendingSync);
+        
+        // Clear certificates table UI
+        console.log('🗑️ Clearing certificates table...');
+        const certificatesTable = document.getElementById('certificatesTable');
+        if (certificatesTable) {
+            const tbody = certificatesTable.querySelector('tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #6c757d;">No certificates found</td></tr>';
+            }
+        }
+        
+        // Clear certificates pagination
+        const certificatesPagination = document.getElementById('certificatesPagination');
+        if (certificatesPagination) certificatesPagination.innerHTML = '';
+        
+        // Clear certificate search input
+        const certificateSearchInput = document.getElementById('certificateSearch');
+        if (certificateSearchInput) certificateSearchInput.value = '';
+        
+        // Update certificate count
+        const certificatesCountElement = document.getElementById('certificatesCount');
+        if (certificatesCountElement) certificatesCountElement.textContent = '0';
+        
+        // Clear certificate-related charts
+        const certificateChartContainers = document.querySelectorAll('.certificate-chart, .certificate-analytics');
+        certificateChartContainers.forEach(container => {
+            if (container) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #6c757d;">No certificate data available</div>';
+            }
+        });
+        
+        console.log('✅ Certificates table cleared successfully');
+        
+        // Show summary of what was cleared
+        const summary = [];
+        if (certificates.length > 0) summary.push(`${certificates.length} certificates`);
+        if (pendingSync.certificateCreations.length > 0) summary.push(`${pendingSync.certificateCreations.length} pending certificate creations`);
+        if (pendingSync.certificateUpdates.length > 0) summary.push(`${pendingSync.certificateUpdates.length} pending certificate updates`);
+        if (pendingSync.certificateDeletions.length > 0) summary.push(`${pendingSync.certificateDeletions.length} pending certificate deletions`);
+        
+        // Add localStorage clearing info
+        const totalCertificateLocalStorageItems = certificateLocalStorageKeys.length + certificateCacheKeys.length;
+        if (totalCertificateLocalStorageItems > 0) {
+            summary.push(`${totalCertificateLocalStorageItems} certificate localStorage items`);
+        }
+        
+        const summaryText = summary.length > 0 ? `Cleared: ${summary.join(', ')}` : 'All certificates cleared';
+        showMessage(`${summaryText} successfully!`, 'success');
+        
+        // Verify certificate localStorage is completely cleared
+        const remainingCertificateItems = Object.keys(localStorage).filter(key => key.includes('certificate'));
+        if (remainingCertificateItems.length > 0) {
+            console.warn('⚠️ Some certificate localStorage items remain:', remainingCertificateItems);
+        } else {
+            console.log('✅ All certificate localStorage items successfully cleared');
+        }
+        
+    } catch (error) {
+        console.error('❌ Clear certificates error:', error);
+        showMessage('Failed to clear certificates: ' + error.message, 'error');
+    }
+}
+
 // ==================== LOGIN FUNCTIONS ====================
 
 function login(event) {
@@ -5962,42 +6123,91 @@ function refreshMembersTable() {
     loadMembers();
 }
 
-function confirmClearAllData() {
+// Password for clearing data and certificates
+const AUTHORIZED_PASSWORD = '07068172915';
+
+// Function to show password dialog
+function showPasswordDialog(action, callback) {
     const modal = document.getElementById('confirmModal');
     const title = document.getElementById('confirmTitle');
     const message = document.getElementById('confirmMessage');
     const confirmButton = document.getElementById('confirmYes');
+    const cancelButton = document.getElementById('confirmNo');
     
-    if (modal && title && message && confirmButton) {
+    if (modal && title && message && confirmButton && cancelButton) {
         // Set up the modal content
-        title.textContent = 'Clear All Data';
+        title.textContent = `Clear ${action}`;
         message.innerHTML = `
             <div style="text-align: center; padding: 20px;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #dc3545; margin-bottom: 15px;"></i>
-                <h3 style="color: #dc3545; margin-bottom: 15px;">⚠️ WARNING ⚠️</h3>
+                <i class="fas fa-lock" style="font-size: 48px; color: #dc3545; margin-bottom: 15px;"></i>
+                <h3 style="color: #dc3545; margin-bottom: 15px;">🔐 AUTHORIZATION REQUIRED</h3>
                 <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">
-                    This action will permanently delete <strong>ALL</strong> data from both the frontend and backend database.
+                    This action will permanently delete <strong>ALL ${action.toUpperCase()}</strong> from both the frontend and backend database.
                 </p>
-                <p style="font-size: 14px; color: #6c757d;">
-                    This includes all members, certificates, and any pending sync data. This action cannot be undone!
+                <p style="font-size: 14px; color: #6c757d; margin-bottom: 20px;">
+                    This action cannot be undone! Please enter the authorized password to continue.
                 </p>
+                <div style="margin-bottom: 20px;">
+                    <input type="password" id="authPassword" placeholder="Enter authorized password" 
+                           style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px;"
+                           onkeypress="if(event.key === 'Enter') document.getElementById('confirmYes').click()">
+                </div>
+                <div id="passwordError" style="color: #dc3545; font-size: 14px; margin-top: 10px; display: none;">
+                    ❌ Incorrect password. Please try again.
+                </div>
             </div>
         `;
         
         // Remove any existing event listeners
         const newConfirmButton = confirmButton.cloneNode(true);
+        const newCancelButton = cancelButton.cloneNode(true);
         confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
         
-        // Add event listener to the new button
-        newConfirmButton.addEventListener('click', async () => {
-            closeConfirmModal();
-            await clearAllData();
+        // Add event listener to the confirm button
+        newConfirmButton.addEventListener('click', () => {
+            const passwordInput = document.getElementById('authPassword');
+            const passwordError = document.getElementById('passwordError');
+            
+            if (passwordInput.value === AUTHORIZED_PASSWORD) {
+                closeConfirmModal();
+                callback();
+            } else {
+                passwordError.style.display = 'block';
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
         });
         
-        // Show the modal
+        // Add event listener to the cancel button
+        newCancelButton.addEventListener('click', () => {
+            closeConfirmModal();
+        });
+        
+        // Show the modal and focus on password input
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+        
+        // Focus on password input after modal is shown
+        setTimeout(() => {
+            const passwordInput = document.getElementById('authPassword');
+            if (passwordInput) {
+                passwordInput.focus();
+            }
+        }, 100);
     }
+}
+
+function confirmClearAllData() {
+    showPasswordDialog('All Data', async () => {
+        await clearAllData();
+    });
+}
+
+function confirmClearCertificates() {
+    showPasswordDialog('Certificates', async () => {
+        await clearAllCertificates();
+    });
 }
 
 function closeConfirmModal() {
@@ -6239,6 +6449,7 @@ window.exportCertificatesButton = exportCertificatesButton;
 window.exportAllData = exportAllData;
 window.createBackup = createBackup;
 window.clearAllData = clearAllData;
+window.clearAllCertificates = clearAllCertificates;
 window.syncWithBackend = syncWithBackend;
 window.syncPendingChanges = syncPendingChanges;
 window.checkPasswordStrength = checkPasswordStrength;
@@ -6277,6 +6488,7 @@ window.downloadIdCard = downloadIdCard;
 window.testServerConnection = testServerConnection;
 window.refreshMembersTable = refreshMembersTable;
 window.confirmClearAllData = confirmClearAllData;
+window.confirmClearCertificates = confirmClearCertificates;
 window.closeConfirmModal = closeConfirmModal;
 window.showRestoreModal = showRestoreModal;
 window.closeRestoreModal = closeRestoreModal;

@@ -387,6 +387,14 @@
                     log(`📋 Content type: ${response.headers.get('content-type')}`, 'info');
                 } else {
                     log(`❌ Photo not accessible: ${response.status}`, 'error');
+                    
+                    // Try to get error details
+                    try {
+                        const errorData = await response.json();
+                        log(`❌ Error details: ${JSON.stringify(errorData)}`, 'error');
+                    } catch (jsonError) {
+                        log(`❌ Could not parse error response`, 'error');
+                    }
                 }
             } catch (error) {
                 log(`❌ Photo test error: ${error.message}`, 'error');
