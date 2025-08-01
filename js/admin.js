@@ -6130,99 +6130,122 @@ const AUTHORIZED_PASSWORD = '07068172915';
 function showPasswordDialog(action, callback) {
     console.log(`🔐 Showing password dialog for: ${action}`);
     
-    const modal = document.getElementById('confirmModal');
-    const title = document.getElementById('confirmTitle');
-    const message = document.getElementById('confirmMessage');
-    const confirmButton = document.getElementById('confirmYes');
-    const cancelButton = document.getElementById('confirmNo');
-    
-    if (!modal || !title || !message || !confirmButton || !cancelButton) {
-        console.error('❌ Modal elements not found:', {
+    // Wait a bit for DOM to be ready
+    setTimeout(() => {
+        const modal = document.getElementById('confirmModal');
+        const title = document.getElementById('confirmTitle');
+        const message = document.getElementById('confirmMessage');
+        const confirmButton = document.getElementById('confirmYes');
+        const cancelButton = document.getElementById('confirmNo');
+        
+        console.log('🔍 Checking modal elements:', {
             modal: !!modal,
             title: !!title,
             message: !!message,
             confirmButton: !!confirmButton,
             cancelButton: !!cancelButton
         });
-        showMessage('Error: Modal elements not found. Please refresh the page.', 'error');
-        return;
-    }
-    
-    // Set up the modal content
-    title.textContent = `Clear ${action}`;
-    message.innerHTML = `
-        <div style="text-align: center; padding: 20px;">
-            <i class="fas fa-lock" style="font-size: 48px; color: #dc3545; margin-bottom: 15px;"></i>
-            <h3 style="color: #dc3545; margin-bottom: 15px;">🔐 AUTHORIZATION REQUIRED</h3>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">
-                This action will permanently delete <strong>ALL ${action.toUpperCase()}</strong> from both the frontend and backend database.
-            </p>
-            <p style="font-size: 14px; color: #6c757d; margin-bottom: 20px;">
-                This action cannot be undone! Please enter the authorized password to continue.
-            </p>
-            <div style="margin-bottom: 20px;">
-                <input type="password" id="authPassword" placeholder="Enter authorized password" 
-                       style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px;"
-                       onkeypress="if(event.key === 'Enter') handlePasswordSubmit()">
-            </div>
-            <div id="passwordError" style="color: #dc3545; font-size: 14px; margin-top: 10px; display: none;">
-                ❌ Incorrect password. Please try again.
-            </div>
-        </div>
-    `;
-    
-    // Clear any existing event listeners by removing and re-adding
-    const newConfirmButton = confirmButton.cloneNode(true);
-    const newCancelButton = cancelButton.cloneNode(true);
-    confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
-    cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
-    
-    // Add event listener to the confirm button
-    newConfirmButton.addEventListener('click', handlePasswordSubmit);
-    
-    // Add event listener to the cancel button
-    newCancelButton.addEventListener('click', () => {
-        console.log('❌ Password dialog cancelled');
-        closeConfirmModal();
-    });
-    
-    // Handle password submission
-    function handlePasswordSubmit() {
-        const passwordInput = document.getElementById('authPassword');
-        const passwordError = document.getElementById('passwordError');
         
-        if (!passwordInput) {
-            console.error('❌ Password input not found');
+        if (!modal || !title || !message || !confirmButton || !cancelButton) {
+            console.error('❌ Modal elements not found:', {
+                modal: !!modal,
+                title: !!title,
+                message: !!message,
+                confirmButton: !!confirmButton,
+                cancelButton: !!cancelButton
+            });
+            
+            // Try to create a simple alert as fallback
+            const password = prompt(`🔐 AUTHORIZATION REQUIRED\n\nThis action will permanently delete ALL ${action.toUpperCase()} from both the frontend and backend database.\n\nThis action cannot be undone! Please enter the authorized password to continue.\n\nPassword: `);
+            
+            if (password === AUTHORIZED_PASSWORD) {
+                console.log('✅ Password correct via fallback, proceeding with action');
+                callback();
+            } else if (password !== null) {
+                console.log('❌ Password incorrect via fallback');
+                alert('❌ Incorrect password. Please try again.');
+            } else {
+                console.log('❌ Password dialog cancelled via fallback');
+            }
             return;
         }
+    
+            // Set up the modal content
+        title.textContent = `Clear ${action}`;
+        message.innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <i class="fas fa-lock" style="font-size: 48px; color: #dc3545; margin-bottom: 15px;"></i>
+                <h3 style="color: #dc3545; margin-bottom: 15px;">🔐 AUTHORIZATION REQUIRED</h3>
+                <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">
+                    This action will permanently delete <strong>ALL ${action.toUpperCase()}</strong> from both the frontend and backend database.
+                </p>
+                <p style="font-size: 14px; color: #6c757d; margin-bottom: 20px;">
+                    This action cannot be undone! Please enter the authorized password to continue.
+                </p>
+                <div style="margin-bottom: 20px;">
+                    <input type="password" id="authPassword" placeholder="Enter authorized password" 
+                           style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px;"
+                           onkeypress="if(event.key === 'Enter') handlePasswordSubmit()">
+                </div>
+                <div id="passwordError" style="color: #dc3545; font-size: 14px; margin-top: 10px; display: none;">
+                    ❌ Incorrect password. Please try again.
+                </div>
+            </div>
+        `;
         
-        console.log(`🔐 Password check for action: ${action}`);
+        // Clear any existing event listeners by removing and re-adding
+        const newConfirmButton = confirmButton.cloneNode(true);
+        const newCancelButton = cancelButton.cloneNode(true);
+        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
         
-        if (passwordInput.value === AUTHORIZED_PASSWORD) {
-            console.log('✅ Password correct, proceeding with action');
+        // Add event listener to the confirm button
+        newConfirmButton.addEventListener('click', handlePasswordSubmit);
+        
+        // Add event listener to the cancel button
+        newCancelButton.addEventListener('click', () => {
+            console.log('❌ Password dialog cancelled');
             closeConfirmModal();
-            callback();
-        } else {
-            console.log('❌ Password incorrect');
-            passwordError.style.display = 'block';
-            passwordInput.value = '';
-            passwordInput.focus();
+        });
+        
+        // Handle password submission
+        function handlePasswordSubmit() {
+            const passwordInput = document.getElementById('authPassword');
+            const passwordError = document.getElementById('passwordError');
+            
+            if (!passwordInput) {
+                console.error('❌ Password input not found');
+                return;
+            }
+            
+            console.log(`🔐 Password check for action: ${action}`);
+            
+            if (passwordInput.value === AUTHORIZED_PASSWORD) {
+                console.log('✅ Password correct, proceeding with action');
+                closeConfirmModal();
+                callback();
+            } else {
+                console.log('❌ Password incorrect');
+                passwordError.style.display = 'block';
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
         }
-    }
-    
-    // Show the modal and focus on password input
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    
-    // Focus on password input after modal is shown
-    setTimeout(() => {
-        const passwordInput = document.getElementById('authPassword');
-        if (passwordInput) {
-            passwordInput.focus();
-        }
-    }, 100);
-    
-    console.log('✅ Password dialog displayed successfully');
+        
+        // Show the modal and focus on password input
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        
+        // Focus on password input after modal is shown
+        setTimeout(() => {
+            const passwordInput = document.getElementById('authPassword');
+            if (passwordInput) {
+                passwordInput.focus();
+            }
+        }, 100);
+        
+        console.log('✅ Password dialog displayed successfully');
+    }, 100); // Small delay to ensure DOM is ready
 }
 
 function confirmClearAllData() {
@@ -6600,11 +6623,63 @@ function testClearButtons() {
         clearCertificatesBtn: !!clearCertificatesBtn
     });
     
+    // Test modal functionality
+    if (modal && title && message && confirmButton && cancelButton) {
+        console.log('✅ All modal elements found - testing modal display...');
+        showPasswordDialog('Test Action', () => {
+            console.log('✅ Modal callback executed successfully');
+        });
+    } else {
+        console.log('❌ Some modal elements missing - check HTML structure');
+    }
+    
     console.log('🎉 Clear buttons test completed!');
 }
 
 // Expose test function
 window.testClearButtons = testClearButtons;
+
+// Function to check modal elements on page load
+function checkModalElements() {
+    console.log('🔍 Checking modal elements on page load...');
+    
+    const modal = document.getElementById('confirmModal');
+    const title = document.getElementById('confirmTitle');
+    const message = document.getElementById('confirmMessage');
+    const confirmButton = document.getElementById('confirmYes');
+    const cancelButton = document.getElementById('confirmNo');
+    
+    const elements = {
+        modal: !!modal,
+        title: !!title,
+        message: !!message,
+        confirmButton: !!confirmButton,
+        cancelButton: !!cancelButton
+    };
+    
+    console.log('📋 Modal elements status:', elements);
+    
+    const allFound = Object.values(elements).every(found => found);
+    
+    if (allFound) {
+        console.log('✅ All modal elements found and ready!');
+    } else {
+        console.log('❌ Some modal elements missing:', Object.keys(elements).filter(key => !elements[key]));
+        console.log('💡 This might cause issues with clear buttons');
+    }
+    
+    return allFound;
+}
+
+// Check modal elements when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkModalElements);
+} else {
+    checkModalElements();
+}
+
+// Expose check function
+window.checkModalElements = checkModalElements;
 
 
 // ==================== FILE UPLOAD FUNCTIONS ====================
