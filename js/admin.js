@@ -6128,85 +6128,126 @@ const AUTHORIZED_PASSWORD = '07068172915';
 
 // Function to show password dialog
 function showPasswordDialog(action, callback) {
+    console.log(`🔐 Showing password dialog for: ${action}`);
+    
     const modal = document.getElementById('confirmModal');
     const title = document.getElementById('confirmTitle');
     const message = document.getElementById('confirmMessage');
     const confirmButton = document.getElementById('confirmYes');
     const cancelButton = document.getElementById('confirmNo');
     
-    if (modal && title && message && confirmButton && cancelButton) {
-        // Set up the modal content
-        title.textContent = `Clear ${action}`;
-        message.innerHTML = `
-            <div style="text-align: center; padding: 20px;">
-                <i class="fas fa-lock" style="font-size: 48px; color: #dc3545; margin-bottom: 15px;"></i>
-                <h3 style="color: #dc3545; margin-bottom: 15px;">🔐 AUTHORIZATION REQUIRED</h3>
-                <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">
-                    This action will permanently delete <strong>ALL ${action.toUpperCase()}</strong> from both the frontend and backend database.
-                </p>
-                <p style="font-size: 14px; color: #6c757d; margin-bottom: 20px;">
-                    This action cannot be undone! Please enter the authorized password to continue.
-                </p>
-                <div style="margin-bottom: 20px;">
-                    <input type="password" id="authPassword" placeholder="Enter authorized password" 
-                           style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px;"
-                           onkeypress="if(event.key === 'Enter') document.getElementById('confirmYes').click()">
-                </div>
-                <div id="passwordError" style="color: #dc3545; font-size: 14px; margin-top: 10px; display: none;">
-                    ❌ Incorrect password. Please try again.
-                </div>
-            </div>
-        `;
-        
-        // Remove any existing event listeners
-        const newConfirmButton = confirmButton.cloneNode(true);
-        const newCancelButton = cancelButton.cloneNode(true);
-        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
-        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
-        
-        // Add event listener to the confirm button
-        newConfirmButton.addEventListener('click', () => {
-            const passwordInput = document.getElementById('authPassword');
-            const passwordError = document.getElementById('passwordError');
-            
-            if (passwordInput.value === AUTHORIZED_PASSWORD) {
-                closeConfirmModal();
-                callback();
-            } else {
-                passwordError.style.display = 'block';
-                passwordInput.value = '';
-                passwordInput.focus();
-            }
+    if (!modal || !title || !message || !confirmButton || !cancelButton) {
+        console.error('❌ Modal elements not found:', {
+            modal: !!modal,
+            title: !!title,
+            message: !!message,
+            confirmButton: !!confirmButton,
+            cancelButton: !!cancelButton
         });
-        
-        // Add event listener to the cancel button
-        newCancelButton.addEventListener('click', () => {
-            closeConfirmModal();
-        });
-        
-        // Show the modal and focus on password input
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        
-        // Focus on password input after modal is shown
-        setTimeout(() => {
-            const passwordInput = document.getElementById('authPassword');
-            if (passwordInput) {
-                passwordInput.focus();
-            }
-        }, 100);
+        showMessage('Error: Modal elements not found. Please refresh the page.', 'error');
+        return;
     }
+    
+    // Set up the modal content
+    title.textContent = `Clear ${action}`;
+    message.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <i class="fas fa-lock" style="font-size: 48px; color: #dc3545; margin-bottom: 15px;"></i>
+            <h3 style="color: #dc3545; margin-bottom: 15px;">🔐 AUTHORIZATION REQUIRED</h3>
+            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">
+                This action will permanently delete <strong>ALL ${action.toUpperCase()}</strong> from both the frontend and backend database.
+            </p>
+            <p style="font-size: 14px; color: #6c757d; margin-bottom: 20px;">
+                This action cannot be undone! Please enter the authorized password to continue.
+            </p>
+            <div style="margin-bottom: 20px;">
+                <input type="password" id="authPassword" placeholder="Enter authorized password" 
+                       style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px;"
+                       onkeypress="if(event.key === 'Enter') handlePasswordSubmit()">
+            </div>
+            <div id="passwordError" style="color: #dc3545; font-size: 14px; margin-top: 10px; display: none;">
+                ❌ Incorrect password. Please try again.
+            </div>
+        </div>
+    `;
+    
+    // Clear any existing event listeners by removing and re-adding
+    const newConfirmButton = confirmButton.cloneNode(true);
+    const newCancelButton = cancelButton.cloneNode(true);
+    confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+    cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
+    
+    // Add event listener to the confirm button
+    newConfirmButton.addEventListener('click', handlePasswordSubmit);
+    
+    // Add event listener to the cancel button
+    newCancelButton.addEventListener('click', () => {
+        console.log('❌ Password dialog cancelled');
+        closeConfirmModal();
+    });
+    
+    // Handle password submission
+    function handlePasswordSubmit() {
+        const passwordInput = document.getElementById('authPassword');
+        const passwordError = document.getElementById('passwordError');
+        
+        if (!passwordInput) {
+            console.error('❌ Password input not found');
+            return;
+        }
+        
+        console.log(`🔐 Password check for action: ${action}`);
+        
+        if (passwordInput.value === AUTHORIZED_PASSWORD) {
+            console.log('✅ Password correct, proceeding with action');
+            closeConfirmModal();
+            callback();
+        } else {
+            console.log('❌ Password incorrect');
+            passwordError.style.display = 'block';
+            passwordInput.value = '';
+            passwordInput.focus();
+        }
+    }
+    
+    // Show the modal and focus on password input
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Focus on password input after modal is shown
+    setTimeout(() => {
+        const passwordInput = document.getElementById('authPassword');
+        if (passwordInput) {
+            passwordInput.focus();
+        }
+    }, 100);
+    
+    console.log('✅ Password dialog displayed successfully');
 }
 
 function confirmClearAllData() {
+    console.log('🗑️ Clear All Data button clicked');
     showPasswordDialog('All Data', async () => {
-        await clearAllData();
+        console.log('✅ Password verified, starting clear all data...');
+        try {
+            await clearAllData();
+        } catch (error) {
+            console.error('❌ Error in clearAllData:', error);
+            showMessage('Failed to clear all data: ' + error.message, 'error');
+        }
     });
 }
 
 function confirmClearCertificates() {
+    console.log('🗑️ Clear Certificates button clicked');
     showPasswordDialog('Certificates', async () => {
-        await clearAllCertificates();
+        console.log('✅ Password verified, starting clear certificates...');
+        try {
+            await clearAllCertificates();
+        } catch (error) {
+            console.error('❌ Error in clearAllCertificates:', error);
+            showMessage('Failed to clear certificates: ' + error.message, 'error');
+        }
     });
 }
 
@@ -6524,6 +6565,46 @@ window.clearFileUpload = clearFileUpload;
 window.testPassportUpload = testPassportUpload;
 window.debugFileUpload = debugFileUpload;
 window.getImageUrl = getImageUrl;
+
+// Test function to verify clear buttons are working
+function testClearButtons() {
+    console.log('🧪 Testing clear buttons...');
+    
+    // Test if functions are accessible
+    console.log('✅ clearAllData function accessible:', typeof clearAllData);
+    console.log('✅ clearAllCertificates function accessible:', typeof clearAllCertificates);
+    console.log('✅ confirmClearAllData function accessible:', typeof confirmClearAllData);
+    console.log('✅ confirmClearCertificates function accessible:', typeof confirmClearCertificates);
+    
+    // Test if modal elements exist
+    const modal = document.getElementById('confirmModal');
+    const title = document.getElementById('confirmTitle');
+    const message = document.getElementById('confirmMessage');
+    const confirmButton = document.getElementById('confirmYes');
+    const cancelButton = document.getElementById('confirmNo');
+    
+    console.log('✅ Modal elements check:', {
+        modal: !!modal,
+        title: !!title,
+        message: !!message,
+        confirmButton: !!confirmButton,
+        cancelButton: !!cancelButton
+    });
+    
+    // Test if buttons exist in HTML
+    const clearAllDataBtn = document.querySelector('button[onclick="confirmClearAllData()"]');
+    const clearCertificatesBtn = document.querySelector('button[onclick="confirmClearCertificates()"]');
+    
+    console.log('✅ HTML buttons check:', {
+        clearAllDataBtn: !!clearAllDataBtn,
+        clearCertificatesBtn: !!clearCertificatesBtn
+    });
+    
+    console.log('🎉 Clear buttons test completed!');
+}
+
+// Expose test function
+window.testClearButtons = testClearButtons;
 
 
 // ==================== FILE UPLOAD FUNCTIONS ====================
