@@ -2776,6 +2776,50 @@ body {
     max-height: 50px;
 }
 
+/* Enhanced passport photo styling for better ID card appearance */
+.img-thumbnail {
+    width: 45px;
+    height: 55px; /* Standard passport photo ratio (3:4) */
+    border-radius: 6px;
+    border: 2px solid #e8e9ea;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.img-thumbnail:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Professional ID card photo styling */
+.passport-photo {
+    position: relative;
+    display: inline-block;
+}
+
+.passport-photo::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+    border-radius: 8px;
+    z-index: -1;
+}
+
+/* Enhanced table photo styling */
+.data-table .img-thumbnail {
+    cursor: pointer;
+    background: #fff;
+}
+
+.data-table .img-thumbnail:active {
+    transform: scale(0.98);
+}
+
 /* Table container to prevent overflow */
 .data-table-container {
     width: 100%;
@@ -2824,8 +2868,8 @@ body {
     /* Responsive column widths for member table (8 columns) */
     .data-table th:nth-child(1), /* Photo */
     .data-table td:nth-child(1) {
-        width: 8%;
-        min-width: 50px;
+        width: 10%;
+        min-width: 60px;
     }
     
     .data-table th:nth-child(2), /* Name */
@@ -3042,12 +3086,18 @@ body {
 }
 
 .member-view-photo {
-    width: 120px;
-    height: 150px;
+    width: 90px;
+    height: 120px; /* Standard passport photo ratio (3:4) */
     object-fit: cover;
-    border-radius: 10px;
+    border-radius: 8px;
     border: 3px solid #e8e9ea;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.member-view-photo:hover {
+    transform: scale(1.02);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
 }
 
 .member-details-section {
@@ -3186,8 +3236,8 @@ body {
     }
     
     .member-view-photo {
-        width: 80px;
-        height: 100px;
+        width: 70px;
+        height: 90px; /* Maintain passport ratio on mobile */
     }
     
     .detail-row {
