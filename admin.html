@@ -569,13 +569,11 @@
         </i>
         Issue Certificate
        </button>
-       <button onclick="openCertificateImportModal()">Import Certificates (CSV)</button>
-
-<!-- Modal (similar to member import) -->
-<div id="certificateImportModal">
-    <input type="file" id="importCertificateFile" accept=".csv">
-    <button onclick="importCertificateData()">Upload</button>
-</div>
+      <button class="btn btn-info" onclick="showImportModal()">
+        <i class="fas fa-upload">
+        </i>
+        Import CSV
+       </button>
        <button class="btn btn-success" onclick="exportCertificatesButton()">
         <i class="fas fa-download">
         </i>
