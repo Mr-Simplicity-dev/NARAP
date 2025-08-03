@@ -1568,48 +1568,44 @@
     </div>
    </div>
   </div>
-  <!-- Import Modal -->
-  <div class="modal" id="importModal">
-   <div class="modal-backdrop" onclick="closeImportModal()">
-   </div>
-   <div class="modal-content">
+   <!-- Import Modal -->
+<div class="modal" id="importModal">
+  <div class="modal-backdrop" onclick="closeImportModal()"></div>
+  <div class="modal-content">
     <div class="modal-header">
-     <h2 class="modal-title">
-      Import Data
-     </h2>
-     <button class="close-btn" onclick="closeImportModal()">
-      ×
-     </button>
+      <h2 class="modal-title">Import Data</h2>
+      <button class="close-btn" onclick="closeImportModal()">×</button>
     </div>
+    
+    <!-- Add this new dropdown -->
     <div class="form-group">
-     <label for="importFile">
-      Select CSV File
-     </label>
-     <div class="file-upload">
-      <input accept=".csv" id="importFile" onchange="handleFileUpload(this, 'importFileLabel')" type="file"/>
-      <label class="file-upload-label" for="importFile" id="importFileLabel">
-       <i class="fas fa-file-csv">
-       </i>
-       Choose CSV file
-      </label>
-     </div>
+      <label for="importType">Import Type:</label>
+      <select id="importType" class="form-control" onchange="updateCsvFormat()">
+        <option value="members">Members</option>
+        <option value="certificates">Certificates</option>
+      </select>
     </div>
+
     <div class="form-group">
-     <label>
-      CSV Format Requirements:
-     </label>
-     <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 12px;">
-      <strong>
-       Required columns:
-      </strong>
-      Name, Email, Code, Position, State, Zone
-      <br/>
-      <strong>
-       Optional columns:
-      </strong>
-      Password (will be auto-generated if not provided)
-     </div>
+      <label for="importFile">Select CSV File</label>
+      <div class="file-upload">
+        <input accept=".csv" id="importFile" onchange="handleFileUpload(this, 'importFileLabel')" type="file"/>
+        <label class="file-upload-label" for="importFile" id="importFileLabel">
+          <i class="fas fa-file-csv"></i> Choose CSV file
+        </label>
+      </div>
     </div>
+
+    <!-- Updated dynamic help text -->
+    <div class="form-group">
+      <label>CSV Format Requirements:</label>
+      <div id="csvFormatHelp" style="background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 12px;">
+        <strong>Required columns:</strong> Name, Email, Code, Position, State, Zone<br/>
+        <strong>Optional columns:</strong> Password (auto-generated if missing)
+      </div>
+    </div>
+  </div>
+</div>
     <div class="form-buttons">
      <button class="btn btn-success" onclick="importData()">
       <i class="fas fa-upload">
