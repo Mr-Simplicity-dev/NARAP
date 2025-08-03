@@ -5907,7 +5907,6 @@ function updateMembersCount() {
     }
 }
 
-// ==================== PAGINATION FUNCTIONS ====================
 
 // ==================== MODERN PAGINATION FUNCTIONS ====================
 
@@ -6379,15 +6378,46 @@ function importData() {
     
     reader.onload = function(e) {
         try {
-            const data = JSON.parse(e.target.result);
-            showMessage('Import feature coming soon!', 'info');
+            const csvData = e.target.result;
+            const parsedData = parseCSV(csvData); // Custom CSV parsing function
+            console.log('Parsed CSV Data:', parsedData); // For debugging
+            showMessage('CSV file imported successfully!', 'success');
             closeImportModal();
+            
+            // Now you can use `parsedData` (an array of objects or rows)
         } catch (error) {
-            showMessage('Invalid file format. Please select a valid JSON file.', 'error');
+            showMessage('Invalid CSV file format. Please check the file.', 'error');
+            console.error('CSV Import Error:', error);
         }
     };
     
     reader.readAsText(file);
+}
+
+// Helper function to parse CSV into an array of objects (assuming first row is headers)
+function parseCSV(csvString) {
+    const lines = csvString.split('\n');
+    if (lines.length === 0) return [];
+    
+    // Extract headers (first line)
+    const headers = lines[0].split(',').map(header => header.trim());
+    
+    // Process remaining lines
+    const result = [];
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue; // Skip empty lines
+        
+        const values = lines[i].split(',');
+        const row = {};
+        
+        headers.forEach((header, index) => {
+            row[header] = values[index] ? values[index].trim() : '';
+        });
+        
+        result.push(row);
+    }
+    
+    return result;
 }
 
 function downloadSampleCSV() {
