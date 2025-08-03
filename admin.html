@@ -563,18 +563,19 @@
        Certificates Management
       </h2>
       <!-- Action Buttons -->
-      <!-- Update your certificate action buttons section -->
-      <div class="action-buttons">
+       <div class="action-buttons">
        <button class="btn btn-primary" onclick="showIssueCertificateModal()">
         <i class="fas fa-plus">
         </i>
         Issue Certificate
        </button>
-       <button class="btn btn-info" onclick="showImportModal()">
-        <i class="fas fa-upload">
-        </i>
-        Import CSV
-       </button>
+       <button onclick="openCertificateImportModal()">Import Certificates (CSV)</button>
+
+<!-- Modal (similar to member import) -->
+<div id="certificateImportModal">
+    <input type="file" id="importCertificateFile" accept=".csv">
+    <button onclick="importCertificateData()">Upload</button>
+</div>
        <button class="btn btn-success" onclick="exportCertificatesButton()">
         <i class="fas fa-download">
         </i>
