@@ -6446,6 +6446,53 @@ function downloadSampleCSV() {
     showMessage('Sample CSV downloaded!', 'success');
 }
 
+function importCertificateData() {
+    const fileInput = document.getElementById('importCertificateFile');
+    if (!fileInput?.files[0]) {
+        showMessage('No file selected', 'warning');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const csvData = e.target.result;
+            const parsedData = parseCSV(csvData);
+
+            // Transform CSV into certificate objects
+            const newCertificates = parsedData.map(row => ({
+                id: row.CertificateID || generateId(),
+                memberId: row.MemberID, // Must exist in members[]
+                type: row.Type || 'Standard',
+                issueDate: row.IssueDate || new Date().toISOString(),
+                expiryDate: row.ExpiryDate || null,
+                status: 'Active'
+            }));
+
+            // Validate MemberIDs
+            const invalidMembers = newCertificates.filter(cert => 
+                !window.members.some(m => m.id === cert.memberId)
+            );
+            if (invalidMembers.length > 0) {
+                throw new Error(`Invalid MemberIDs: ${invalidMembers.map(c => c.memberId).join(', ')}`);
+            }
+
+            // Merge with existing certificates
+            window.certificates = [...window.certificates, ...newCertificates];
+            localStorage.setItem('certificates', JSON.stringify(window.certificates));
+
+            // Refresh UI
+            renderCertificates();
+            showMessage(`Imported ${newCertificates.length} certificates`, 'success');
+            closeModal('certificateImportModal');
+        } catch (error) {
+            showMessage(`Import failed: ${error.message}`, 'error');
+            console.error(error);
+        }
+    };
+    reader.readAsText(fileInput.files[0]);
+}
+
 function restoreBackup() {
     const fileInput = document.getElementById('restoreFile');
     if (!fileInput || !fileInput.files[0]) {
