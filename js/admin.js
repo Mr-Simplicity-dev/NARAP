@@ -6372,25 +6372,40 @@ function importData() {
         showMessage('Please select a file to import', 'warning');
         return;
     }
-    
+
     const file = fileInput.files[0];
     const reader = new FileReader();
-    
+
     reader.onload = function(e) {
         try {
             const csvData = e.target.result;
-            const parsedData = parseCSV(csvData); // Custom CSV parsing function
-            console.log('Parsed CSV Data:', parsedData); // For debugging
-            showMessage('CSV file imported successfully!', 'success');
+            const parsedData = parseCSV(csvData);
+
+            // 1. Update the global `members` array with imported data
+            members = parsedData.map(row => ({
+                id: generateId(), // Ensure each member has a unique ID
+                name: row.Name || '',
+                email: row.Email || '',
+                role: row.Role || 'member',
+                status: 'active'
+            }));
+
+            // 2. Save to localStorage (if applicable)
+            if (typeof Storage !== 'undefined') {
+                localStorage.setItem('members', JSON.stringify(members));
+            }
+
+            // 3. Re-render the table
+            renderMembers();
+
+            showMessage('CSV imported successfully!', 'success');
             closeImportModal();
-            
-            // Now you can use `parsedData` (an array of objects or rows)
         } catch (error) {
-            showMessage('Invalid CSV file format. Please check the file.', 'error');
+            showMessage('Failed to import CSV: ' + error.message, 'error');
             console.error('CSV Import Error:', error);
         }
     };
-    
+
     reader.readAsText(file);
 }
 
