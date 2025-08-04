@@ -3794,13 +3794,31 @@ function showEditMemberModal(memberId) {
         if (member) {
             const form = document.getElementById('editMemberForm');
             if (form) {
-                form.querySelector('#editMemberName').value = member.name || '';
-                form.querySelector('#editMemberEmail').value = member.email || '';
-                form.querySelector('#editMemberCode').value = member.code || '';
-                form.querySelector('#editMemberPosition').value = member.position || '';
-                form.querySelector('#editMemberState').value = member.state || '';
-                form.querySelector('#editMemberZone').value = member.zone || '';
+                // Populate all form fields with member data
+                const nameField = form.querySelector('#editMemberName');
+                const emailField = form.querySelector('#editMemberEmail');
+                const codeField = form.querySelector('#editMemberCode');
+                const positionField = form.querySelector('#editMemberPosition');
+                const stateField = form.querySelector('#editMemberState');
+                const zoneField = form.querySelector('#editMemberZone');
+                
+                if (nameField) nameField.value = member.name || '';
+                if (emailField) emailField.value = member.email || '';
+                if (codeField) codeField.value = member.code || '';
+                if (positionField) positionField.value = member.position || '';
+                if (stateField) stateField.value = member.state || '';
+                if (zoneField) zoneField.value = member.zone || '';
+                
                 form.dataset.memberId = memberId;
+                
+                console.log('📋 Populated edit form with member data:', {
+                    name: member.name,
+                    email: member.email,
+                    code: member.code,
+                    position: member.position,
+                    state: member.state,
+                    zone: member.zone
+                });
                 
                 // Show existing photos if available
                 const passportPreview = document.getElementById('editMemberPassportPreview');
@@ -3810,12 +3828,14 @@ function showEditMemberModal(memberId) {
                     const photoUrl = getImageUrl(member.passportPhoto);
                     passportPreview.src = photoUrl;
                     passportPreview.style.display = 'block';
+                    console.log('📸 Showing existing passport photo:', photoUrl);
                 }
                 
                 if (signaturePreview && member.signature) {
                     const signatureUrl = getImageUrl(member.signature);
                     signaturePreview.src = signatureUrl;
                     signaturePreview.style.display = 'block';
+                    console.log('✍️ Showing existing signature:', signatureUrl);
                 }
             }
         } else {
@@ -4236,28 +4256,74 @@ async function editMember(event) {
         return;
     }
     
+    console.log('🔄 Starting member update for ID:', memberId);
+    
+    // Get form elements with error checking
+    const nameField = form.querySelector('#editMemberName');
+    const emailField = form.querySelector('#editMemberEmail');
+    const codeField = form.querySelector('#editMemberCode');
+    const positionField = form.querySelector('#editMemberPosition');
+    const stateField = form.querySelector('#editMemberState');
+    const zoneField = form.querySelector('#editMemberZone');
+    
+    // Check if all form elements exist
+    if (!nameField || !codeField || !positionField || !stateField || !zoneField) {
+        console.error('❌ Form elements not found:', {
+            nameField: !!nameField,
+            codeField: !!codeField,
+            positionField: !!positionField,
+            stateField: !!stateField,
+            zoneField: !!zoneField
+        });
+        showMessage('Form elements not found. Please refresh the page.', 'error');
+        return;
+    }
+    
+    const passwordField = form.querySelector('#editMemberPassword');
+    
     const formData = {
-        name: form.querySelector('#editMemberName').value.trim(),
-        email: form.querySelector('#editMemberEmail').value.trim(),
-        code: form.querySelector('#editMemberCode').value.trim(),
-        position: form.querySelector('#editMemberPosition').value,
-        state: form.querySelector('#editMemberState').value.trim(),
-        zone: form.querySelector('#editMemberZone').value.trim()
+        name: nameField.value.trim(),
+        email: emailField ? emailField.value.trim() : '',
+        code: codeField.value.trim(),
+        position: positionField.value,
+        state: stateField.value.trim(),
+        zone: zoneField.value.trim(),
+        password: passwordField ? passwordField.value : ''
     };
+    
+    console.log('📋 Form data collected:', formData);
     
     // Create FormData for file upload
     const formDataObj = new FormData();
     
-    // Add text fields
+    // Add text fields with validation
     formDataObj.append('name', formData.name);
-    // Only add email if it has a value
+    
+    // Add email (optional)
     if (formData.email && formData.email.trim()) {
         formDataObj.append('email', formData.email.trim());
     }
+    
     formDataObj.append('code', formData.code);
     formDataObj.append('position', formData.position);
     formDataObj.append('state', formData.state);
     formDataObj.append('zone', formData.zone);
+    
+    // Debug: Log all FormData entries
+    console.log('🔍 FormData contents:');
+    for (let [key, value] of formDataObj.entries()) {
+        if (value instanceof File) {
+            console.log(`  ${key}: [File] ${value.name} (${value.size} bytes)`);
+        } else {
+            console.log(`  ${key}: "${value}"`);
+        }
+    }
+    
+    // Add password only if provided
+    if (formData.password && formData.password.trim()) {
+        formDataObj.append('password', formData.password.trim());
+        console.log('🔐 Password update included');
+    }
     
     // Add files
     const passportInput = document.getElementById('editMemberPassport');
@@ -4265,14 +4331,27 @@ async function editMember(event) {
     
     if (passportInput && passportInput.files[0]) {
         formDataObj.append('passportPhoto', passportInput.files[0]);
+        console.log('📸 Passport photo added to update:', passportInput.files[0].name);
     }
     if (signatureInput && signatureInput.files[0]) {
         formDataObj.append('signature', signatureInput.files[0]);
+        console.log('✍️ Signature added to update:', signatureInput.files[0].name);
     }
     
-    // Validate required fields
-    if (!formData.name || !formData.code || !formData.state || !formData.zone) {
-        showMessage('Please fill in all required fields (Name, Code, State, Zone)', 'error');
+    // Final validation: Check if all required fields are in FormData
+    const requiredFields = ['name', 'code', 'position', 'state', 'zone'];
+    const missingFields = [];
+    
+    for (const field of requiredFields) {
+        const value = formDataObj.get(field);
+        if (!value || value.toString().trim() === '') {
+            missingFields.push(field);
+        }
+    }
+    
+    if (missingFields.length > 0) {
+        console.error('❌ Missing required fields:', missingFields);
+        showMessage(`Missing required fields: ${missingFields.join(', ')}`, 'error');
         return;
     }
     
@@ -4292,9 +4371,11 @@ async function editMember(event) {
         const originalMember = currentMembers[memberIndex];
         let isOnline = navigator.onLine;
         
+        console.log('🔍 Original member data:', originalMember);
+        
         // Try to update in backend if online and member exists in backend
         let backendResponse = null;
-        if (isOnline && originalMember.isFromBackend && !originalMember._id.startsWith('local_')) {
+        if (isOnline && originalMember._id && !originalMember._id.startsWith('local_')) {
             try {
                 console.log('🔄 Updating member in backend:', memberId);
                 console.log('📤 FormData contents:', Array.from(formDataObj.entries()));
@@ -4303,6 +4384,8 @@ async function editMember(event) {
                     method: 'PUT',
                     body: formDataObj // Don't set Content-Type header for FormData
                 });
+                
+                console.log('📡 Backend response status:', response.status);
                 
                 if (response.ok) {
                     backendResponse = await response.json();
@@ -4315,7 +4398,10 @@ async function editMember(event) {
             } catch (error) {
                 console.log('❌ Backend update error:', error);
                 isOnline = false;
+                showMessage(`Backend update failed: ${error.message}. Continuing with local update.`, 'warning');
             }
+        } else {
+            console.log('ℹ️ Skipping backend update (offline or local member)');
         }
         
         // Update member in current members
@@ -4326,25 +4412,32 @@ async function editMember(event) {
             pendingSync: !isOnline
         };
         
-        // Handle file data - always use multipart/form-data approach
-        // Store file references for offline sync
+        // Handle file data
         if (passportInput && passportInput.files[0]) {
-            updatedMember.passportFile = passportInput.files[0]; // Store file reference
+            if (isOnline && backendResponse && backendResponse.data && backendResponse.data.passportPhoto) {
+                // Use filename from backend response
+                updatedMember.passportPhoto = backendResponse.data.passportPhoto;
+                console.log('📸 Updated passport photo from backend:', updatedMember.passportPhoto);
+            } else {
+                // Store file reference for offline sync
+                updatedMember.passportFile = passportInput.files[0];
+                console.log('📸 Stored passport file for offline sync:', passportInput.files[0].name);
+            }
         }
         
         if (signatureInput && signatureInput.files[0]) {
-            updatedMember.signatureFile = signatureInput.files[0]; // Store file reference
+            if (isOnline && backendResponse && backendResponse.data && backendResponse.data.signature) {
+                // Use filename from backend response
+                updatedMember.signature = backendResponse.data.signature;
+                console.log('✍️ Updated signature from backend:', updatedMember.signature);
+            } else {
+                // Store file reference for offline sync
+                updatedMember.signatureFile = signatureInput.files[0];
+                console.log('✍️ Stored signature file for offline sync:', signatureInput.files[0].name);
+            }
         }
         
-        // For online storage, use the filename from backend response
-        if (isOnline && backendResponse && backendResponse.data && backendResponse.data.passportPhoto) {
-            updatedMember.passportPhoto = backendResponse.data.passportPhoto;
-            
-        }
-        if (isOnline && backendResponse && backendResponse.data && backendResponse.data.signature) {
-            updatedMember.signature = backendResponse.data.signature;
-            
-        }
+        console.log('📝 Updated member data:', updatedMember);
         
         const updatedMembers = [...currentMembers];
         updatedMembers[memberIndex] = updatedMember;
