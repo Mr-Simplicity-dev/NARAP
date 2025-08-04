@@ -6392,39 +6392,44 @@ function setupAutoSync() {
 
 // ==================== IMPORT/EXPORT FUNCTIONS ====================
 
-function importData() {
+async function importData() {
     const fileInput = document.getElementById('importFile');
+    const importType = document.getElementById('importType')?.value || 'members';
+    
     if (!fileInput || !fileInput.files[0]) {
         showMessage('Please select a file to import', 'warning');
         return;
     }
 
     const file = fileInput.files[0];
+    
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+        showMessage('Please select a valid CSV file', 'error');
+        return;
+    }
+
     const reader = new FileReader();
 
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const csvData = e.target.result;
             const parsedData = parseCSV(csvData);
 
-            // 1. Update the global `members` array with imported data
-            members = parsedData.map(row => ({
-                id: generateId(), // Ensure each member has a unique ID
-                name: row.Name || '',
-                email: row.Email || '',
-                role: row.Role || 'member',
-                status: 'active'
-            }));
-
-            // 2. Save to localStorage (if applicable)
-            if (typeof Storage !== 'undefined') {
-                localStorage.setItem('members', JSON.stringify(members));
+            if (parsedData.length === 0) {
+                showMessage('No valid data found in CSV file', 'error');
+                return;
             }
 
-            // 3. Re-render the table
-            renderMembers();
+            console.log('📊 Parsed CSV data:', parsedData);
 
-            showMessage('CSV imported successfully!', 'success');
+            if (importType === 'members') {
+                await importMembersData(parsedData);
+            } else if (importType === 'certificates') {
+                await importCertificateData(parsedData);
+            }
+
+            showMessage(`${importType} imported successfully!`, 'success');
             closeImportModal();
         } catch (error) {
             showMessage('Failed to import CSV: ' + error.message, 'error');
@@ -6435,6 +6440,88 @@ function importData() {
     reader.readAsText(file);
 }
 
+async function importMembersData(parsedData) {
+    console.log('🔄 Importing members data...');
+    
+    const newMembers = [];
+    const errors = [];
+    
+    for (let i = 0; i < parsedData.length; i++) {
+        const row = parsedData[i];
+        const rowNumber = i + 2; // +2 because CSV has header and arrays are 0-indexed
+        
+        try {
+            // Validate required fields
+            if (!row.Name || !row.Code || !row.State || !row.Zone) {
+                errors.push(`Row ${rowNumber}: Missing required fields (Name, Code, State, Zone)`);
+                continue;
+            }
+            
+            // Check for duplicate codes
+            const existingMember = window.members?.find(m => m.code === row.Code.toUpperCase());
+            if (existingMember) {
+                errors.push(`Row ${rowNumber}: Code '${row.Code}' already exists`);
+                continue;
+            }
+            
+            // Create member object
+            const member = {
+                name: row.Name.trim(),
+                email: row.Email ? row.Email.trim() : '',
+                code: row.Code.toUpperCase().trim(),
+                position: row.Position || 'MEMBER',
+                state: row.State.trim(),
+                zone: row.Zone.trim(),
+                password: row.Password || generateDefaultPassword(),
+                dateAdded: new Date().toISOString(),
+                cardGenerated: false
+            };
+            
+            // Add to backend
+            try {
+                const response = await fetch(`${backendUrl}/api/users/addUser`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(member)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    newMembers.push(result.data);
+                    console.log(`✅ Member imported: ${member.name} (${member.code})`);
+                } else {
+                    const errorData = await response.json();
+                    errors.push(`Row ${rowNumber}: ${errorData.message || 'Failed to add member'}`);
+                }
+            } catch (error) {
+                errors.push(`Row ${rowNumber}: Network error - ${error.message}`);
+            }
+            
+        } catch (error) {
+            errors.push(`Row ${rowNumber}: ${error.message}`);
+        }
+    }
+    
+    // Update local members array
+    if (newMembers.length > 0) {
+        if (!window.members) window.members = [];
+        window.members = [...window.members, ...newMembers];
+        
+        // Refresh the members table
+        await loadMembers();
+    }
+    
+    // Show results
+    if (errors.length > 0) {
+        showMessage(`Import completed with ${errors.length} errors. Check console for details.`, 'warning');
+        console.error('❌ Import errors:', errors);
+    } else {
+        showMessage(`Successfully imported ${newMembers.length} members!`, 'success');
+    }
+}
+
 // Helper function to parse CSV into an array of objects (assuming first row is headers)
 function parseCSV(csvString) {
     const lines = csvString.split('\n');
@@ -6443,80 +6530,193 @@ function parseCSV(csvString) {
     // Extract headers (first line)
     const headers = lines[0].split(',').map(header => header.trim());
     
+    console.log('📋 CSV Headers:', headers);
+    
     // Process remaining lines
     const result = [];
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue; // Skip empty lines
         
-        const values = lines[i].split(',');
+        // Handle quoted values and commas within quotes
+        const values = parseCSVLine(lines[i]);
         const row = {};
         
         headers.forEach((header, index) => {
             row[header] = values[index] ? values[index].trim() : '';
         });
         
-        result.push(row);
+        // Only add rows that have at least some data
+        const hasData = Object.values(row).some(value => value && value.trim() !== '');
+        if (hasData) {
+            result.push(row);
+        }
     }
+    
+    console.log(`📊 Parsed ${result.length} rows from CSV`);
+    return result;
+}
+
+// Helper function to parse CSV line with proper quote handling
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                // Escaped quote
+                current += '"';
+                i++; // Skip next quote
+            } else {
+                // Toggle quote state
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            // End of field
+            result.push(current);
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    // Add the last field
+    result.push(current);
     
     return result;
 }
 
 function downloadSampleCSV() {
-    const sampleData = [
-        { name: 'John Doe', email: 'john@example.com', code: 'NARAP001', position: 'MEMBER', state: 'Lagos', zone: 'South West' },
-        { name: 'Jane Smith', email: 'jane@example.com', code: 'NARAP002', position: 'SECRETARY', state: 'Abuja', zone: 'North Central' }
-    ];
+    const importType = document.getElementById('importType')?.value || 'members';
     
-    const csvContent = convertToCSV(sampleData);
-    downloadFile(csvContent, 'sample_members.csv', 'text/csv');
-    showMessage('Sample CSV downloaded!', 'success');
+    if (importType === 'members') {
+        const sampleData = [
+            { Name: 'John Doe', Email: 'john@example.com', Code: 'NARAP001', Position: 'MEMBER', State: 'Lagos', Zone: 'South West', Password: 'password123' },
+            { Name: 'Jane Smith', Email: 'jane@example.com', Code: 'NARAP002', Position: 'SECRETARY', State: 'Abuja', Zone: 'North Central', Password: 'password123' },
+            { Name: 'Mike Johnson', Email: 'mike@example.com', Code: 'NARAP003', Position: 'TREASURER', State: 'Kano', Zone: 'North West', Password: 'password123' }
+        ];
+        
+        const csvContent = convertToCSV(sampleData);
+        downloadFile(csvContent, 'sample_members.csv', 'text/csv');
+        showMessage('Sample members CSV downloaded!', 'success');
+    } else if (importType === 'certificates') {
+        const sampleData = [
+            { CertificateID: 'CERT001', MemberID: 'NARAP001', Type: 'Standard', IssueDate: '2024-01-15', ExpiryDate: '2025-01-15', Status: 'Active' },
+            { CertificateID: 'CERT002', MemberID: 'NARAP002', Type: 'Premium', IssueDate: '2024-02-20', ExpiryDate: '2025-02-20', Status: 'Active' }
+        ];
+        
+        const csvContent = convertToCSV(sampleData);
+        downloadFile(csvContent, 'sample_certificates.csv', 'text/csv');
+        showMessage('Sample certificates CSV downloaded!', 'success');
+    }
 }
 
-function importCertificateData() {
-    const fileInput = document.getElementById('importCertificateFile');
-    if (!fileInput?.files[0]) {
-        showMessage('No file selected', 'warning');
-        return;
+function generateDefaultPassword() {
+    return 'NARAP' + Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function updateCsvFormat() {
+    const importType = document.getElementById('importType')?.value || 'members';
+    const helpDiv = document.getElementById('csvFormatHelp');
+    
+    if (!helpDiv) return;
+    
+    if (importType === 'members') {
+        helpDiv.innerHTML = `
+            <strong>Required columns:</strong> Name, Code, State, Zone<br/>
+            <strong>Optional columns:</strong> Email, Position, Password (auto-generated if missing)<br/>
+            <strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password
+        `;
+    } else if (importType === 'certificates') {
+        helpDiv.innerHTML = `
+            <strong>Required columns:</strong> CertificateID, MemberID, Type<br/>
+            <strong>Optional columns:</strong> IssueDate, ExpiryDate, Status<br/>
+            <strong>Example:</strong> CertificateID,MemberID,Type,IssueDate,ExpiryDate,Status
+        `;
     }
+}
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
+async function importCertificateData(parsedData) {
+    console.log('🔄 Importing certificates data...');
+    
+    const newCertificates = [];
+    const errors = [];
+    
+    for (let i = 0; i < parsedData.length; i++) {
+        const row = parsedData[i];
+        const rowNumber = i + 2; // +2 because CSV has header and arrays are 0-indexed
+        
         try {
-            const csvData = e.target.result;
-            const parsedData = parseCSV(csvData);
-
-            // Transform CSV into certificate objects
-            const newCertificates = parsedData.map(row => ({
-                id: row.CertificateID || generateId(),
-                memberId: row.MemberID, // Must exist in members[]
-                type: row.Type || 'Standard',
+            // Validate required fields
+            if (!row.CertificateID || !row.MemberID || !row.Type) {
+                errors.push(`Row ${rowNumber}: Missing required fields (CertificateID, MemberID, Type)`);
+                continue;
+            }
+            
+            // Check if member exists
+            const memberExists = window.members?.find(m => m.code === row.MemberID.toUpperCase());
+            if (!memberExists) {
+                errors.push(`Row ${rowNumber}: Member with code '${row.MemberID}' not found`);
+                continue;
+            }
+            
+            // Create certificate object
+            const certificate = {
+                certificateNumber: row.CertificateID,
+                memberId: memberExists._id,
+                memberCode: row.MemberID.toUpperCase(),
+                type: row.Type,
                 issueDate: row.IssueDate || new Date().toISOString(),
                 expiryDate: row.ExpiryDate || null,
-                status: 'Active'
-            }));
-
-            // Validate MemberIDs
-            const invalidMembers = newCertificates.filter(cert => 
-                !window.members.some(m => m.id === cert.memberId)
-            );
-            if (invalidMembers.length > 0) {
-                throw new Error(`Invalid MemberIDs: ${invalidMembers.map(c => c.memberId).join(', ')}`);
+                status: row.Status || 'Active'
+            };
+            
+            // Add to backend
+            try {
+                const response = await fetch(`${backendUrl}/api/certificates`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(certificate)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    newCertificates.push(result.data);
+                    console.log(`✅ Certificate imported: ${certificate.certificateNumber} for ${certificate.memberCode}`);
+                } else {
+                    const errorData = await response.json();
+                    errors.push(`Row ${rowNumber}: ${errorData.message || 'Failed to add certificate'}`);
+                }
+            } catch (error) {
+                errors.push(`Row ${rowNumber}: Network error - ${error.message}`);
             }
-
-            // Merge with existing certificates
-            window.certificates = [...window.certificates, ...newCertificates];
-            localStorage.setItem('certificates', JSON.stringify(window.certificates));
-
-            // Refresh UI
-            renderCertificates();
-            showMessage(`Imported ${newCertificates.length} certificates`, 'success');
-            closeModal('certificateImportModal');
+            
         } catch (error) {
-            showMessage(`Import failed: ${error.message}`, 'error');
-            console.error(error);
+            errors.push(`Row ${rowNumber}: ${error.message}`);
         }
-    };
-    reader.readAsText(fileInput.files[0]);
+    }
+    
+    // Update local certificates array
+    if (newCertificates.length > 0) {
+        if (!window.certificates) window.certificates = [];
+        window.certificates = [...window.certificates, ...newCertificates];
+        
+        // Refresh the certificates table
+        await loadCertificates();
+    }
+    
+    // Show results
+    if (errors.length > 0) {
+        showMessage(`Import completed with ${errors.length} errors. Check console for details.`, 'warning');
+        console.error('❌ Import errors:', errors);
+    } else {
+        showMessage(`Successfully imported ${newCertificates.length} certificates!`, 'success');
+    }
 }
 
 function restoreBackup() {
@@ -7338,6 +7538,10 @@ async function updateMemberPhoto(memberCode) {
 
 // Expose functions to window for debugging
 window.updateMemberPhoto = updateMemberPhoto;
+window.importData = importData;
+window.downloadSampleCSV = downloadSampleCSV;
+window.updateCsvFormat = updateCsvFormat;
+window.generateDefaultPassword = generateDefaultPassword;
 
 // Test function for member update
 window.testMemberUpdate = async function(memberId) {
