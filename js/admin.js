@@ -7588,20 +7588,22 @@ function debugFileUpload(input, labelId) {
 // ==================== UTILITY FUNCTIONS ====================
 
 function getImageUrl(imagePath) {
-    
+    console.log('🔍 getImageUrl called with:', imagePath);
     
     if (!imagePath) {
-        
+        console.log('❌ No image path provided, using default avatar');
         return DEFAULT_AVATAR;
     }
     
-    // If it's already a full URL, return as is
+    // If it's already a full URL (including Cloudinary), return as is
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        console.log('✅ Full URL detected:', imagePath);
         return imagePath;
     }
     
     // If it's a base64 data URL (legacy support), validate it
     if (imagePath.startsWith('data:image/')) {
+        console.log('🔍 Base64 data URL detected');
         // Check if base64 data is complete and valid
         if (imagePath.length > 100 && imagePath.includes('base64,')) {
             try {
@@ -7610,31 +7612,47 @@ function getImageUrl(imagePath) {
                 if (base64Part && base64Part.length > 100) { // Increased minimum length
                     // Additional validation: check if base64 ends properly
                     if (base64Part.length % 4 === 0) { // Base64 should be divisible by 4
+                        console.log('✅ Valid base64 data URL');
                         return imagePath;
                     } else {
+                        console.log('❌ Invalid base64 data, using default avatar');
                         return DEFAULT_AVATAR;
                     }
                 } else {
+                    console.log('❌ Base64 data too short, using default avatar');
                     return DEFAULT_AVATAR;
                 }
             } catch (error) {
+                console.log('❌ Base64 validation error, using default avatar');
                 return DEFAULT_AVATAR;
             }
         } else {
+            console.log('❌ Invalid base64 format, using default avatar');
             return DEFAULT_AVATAR;
         }
     }
     
-    // If it's a filename (from Multer upload), construct the URL
+    // Try to construct Cloudinary URL if it's a filename
     if (imagePath.includes('.') && !imagePath.includes('/')) {
-        return `${backendUrl}/api/uploads/passports/${imagePath}`;
+        // Check if it looks like a Cloudinary filename
+        if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
+            const cloudinaryUrl = `https://res.cloudinary.com/NARAP_IMAGES/image/upload/v1/NARAP/passportPhoto/${imagePath}`;
+            console.log('🔍 Constructed Cloudinary URL:', cloudinaryUrl);
+            return cloudinaryUrl;
+        }
+        
+        // Fallback to old local file system
+        const localUrl = `${backendUrl}/api/uploads/passports/${imagePath}`;
+        console.log('🔍 Constructed local URL:', localUrl);
+        return localUrl;
     }
     
     // If it's a full path from Multer upload, extract filename and construct URL
     if (imagePath.includes('uploads/passports/')) {
         const filename = imagePath.split('uploads/passports/').pop();
         const url = `${backendUrl}/api/uploads/passports/${filename}`;
-        
+        console.log('🔍 Extracted filename from path:', filename);
+        console.log('🔍 Constructed URL:', url);
         return url;
     }
     
@@ -7642,18 +7660,22 @@ function getImageUrl(imagePath) {
     if (imagePath.includes('uploads/signatures/')) {
         const filename = imagePath.split('uploads/signatures/').pop();
         const url = `${backendUrl}/api/uploads/signatures/${filename}`;
-        
+        console.log('🔍 Extracted signature filename from path:', filename);
+        console.log('🔍 Constructed signature URL:', url);
         return url;
     }
     
     // If it's a full absolute path (Windows or Unix), extract just the filename
     if (imagePath.includes('\\') || imagePath.includes('/')) {
         const filename = imagePath.split(/[\\/]/).pop();
-        
-        return `${backendUrl}/api/uploads/passports/${filename}`;
+        const url = `${backendUrl}/api/uploads/passports/${filename}`;
+        console.log('🔍 Extracted filename from absolute path:', filename);
+        console.log('🔍 Constructed URL:', url);
+        return url;
     }
     
     // Default fallback
+    console.log('❌ No matching pattern found, using default avatar');
     return DEFAULT_AVATAR;
 }
 
