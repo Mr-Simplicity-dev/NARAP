@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Search Test - NARAP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .search-input {
+            flex: 1;
+            padding: 10px 15px;
+            padding-right: 40px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .clear-search-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        .clear-search-btn:hover {
+            background: #f0f0f0;
+            color: #666;
+        }
+        .results {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .member-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .member-photo {
+            max-width: 100px;
+            max-height: 100px;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        .search-examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .example-btn {
+            background: #e9ecef;
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 12px;
+        }
+        .example-btn:hover {
+            background: #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Member Search Test - NARAP</h1>
+    
+    <div class="test-container">
+        <h2>Test Overview</h2>
+        <p>This page tests the member search functionality for the NARAP system. It verifies:</p>
+        <ul>
+            <li>Search by member code (exact and partial matches)</li>
+            <li>Search by member name</li>
+            <li>Search by email address</li>
+            <li>Search by position</li>
+            <li>Search by state/zone</li>
+            <li>Case-insensitive search</li>
+            <li>Real-time search results</li>
+        </ul>
+    </div>
+
+    <div class="test-container">
+        <h2>1. Backend Connection Test</h2>
+        <div class="test-section">
+            <h3>Test Backend Connectivity</h3>
+            <button class="test-button" onclick="testBackendConnection()">Test Connection</button>
+            <div id="backendTestResults" class="results"></div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>2. Load Members Test</h2>
+        <div class="test-section">
+            <h3>Load All Members</h3>
+            <button class="test-button" onclick="loadAllMembers()">Load Members</button>
+            <div id="allMembersList" class="results"></div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>3. Search Functionality Test</h2>
+        <div class="test-section">
+            <h3>Test Search</h3>
+            <div class="search-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search by name, code, email, position, state, or zone..." oninput="performSearch()">
+                <button class="clear-search-btn" onclick="clearSearch()" title="Clear search">×</button>
+            </div>
+            
+            <h4>Quick Search Examples:</h4>
+            <div class="search-examples">
+                <div class="example-btn" onclick="searchByExample('NARAP')">Search by "NARAP"</div>
+                <div class="example-btn" onclick="searchByExample('MEMBER')">Search by "MEMBER"</div>
+                <div class="example-btn" onclick="searchByExample('Lagos')">Search by "Lagos"</div>
+                <div class="example-btn" onclick="searchByExample('@')">Search by "@" (emails)</div>
+                <div class="example-btn" onclick="searchByExample('PRESIDENT')">Search by "PRESIDENT"</div>
+                <div class="example-btn" onclick="searchByExample('001')">Search by "001"</div>
+            </div>
+            
+            <div id="searchResults" class="results"></div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>4. Code-Specific Search Test</h2>
+        <div class="test-section">
+            <h3>Test Code Search</h3>
+            <button class="test-button" onclick="testCodeSearch()">Test Code Search</button>
+            <div id="codeSearchResults" class="results"></div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>5. Search Performance Test</h2>
+        <div class="test-section">
+            <h3>Test Search Performance</h3>
+            <button class="test-button" onclick="testSearchPerformance()">Test Performance</button>
+            <div id="performanceResults" class="results"></div>
+        </div>
+    </div>
+
+    <script>
+        const backendUrl = 'https://narap-backend.onrender.com';
+        let allMembers = [];
+
+        // Test backend connection
+        async function testBackendConnection() {
+            const resultsDiv = document.getElementById('backendTestResults');
+            resultsDiv.innerHTML = '<p class="info">Testing backend connection...</p>';
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    resultsDiv.innerHTML = `
+                        <p class="success">✅ Backend connection successful!</p>
+                        <p>Status: ${data.status}</p>
+                        <p>Timestamp: ${data.timestamp}</p>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <p class="error">❌ Backend connection failed: ${response.status}</p>
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <p class="error">❌ Backend connection error: ${error.message}</p>
+                `;
+            }
+        }
+
+        // Load all members
+        async function loadAllMembers() {
+            const resultsDiv = document.getElementById('allMembersList');
+            resultsDiv.innerHTML = '<p class="info">Loading all members...</p>';
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/users/members`);
+                if (response.ok) {
+                    const data = await response.json();
+                    allMembers = data.members || data || [];
+                    
+                    if (allMembers.length === 0) {
+                        resultsDiv.innerHTML = '<p class="warning">⚠️ No members found</p>';
+                        return;
+                    }
+                    
+                    const membersHtml = allMembers.map(member => `
+                        <div class="member-card">
+                            <h4>${member.name} (${member.code})</h4>
+                            <p><strong>Email:</strong> ${member.email || 'N/A'}</p>
+                            <p><strong>Position:</strong> ${member.position}</p>
+                            <p><strong>State:</strong> ${member.state}</p>
+                            <p><strong>Zone:</strong> ${member.zone}</p>
+                            <p><strong>ID:</strong> ${member._id}</p>
+                            ${member.passportPhoto ? `<img src="${backendUrl}/api/uploads/passports/${member.passportPhoto}" class="member-photo" alt="Passport">` : ''}
+                            ${member.signature ? `<img src="${backendUrl}/api/uploads/signatures/${member.signature}" class="member-photo" alt="Signature">` : ''}
+                        </div>
+                    `).join('');
+                    
+                    resultsDiv.innerHTML = `
+                        <p class="success">✅ Loaded ${allMembers.length} members</p>
+                        <div>${membersHtml}</div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <p class="error">❌ Failed to load members: ${response.status}</p>
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <p class="error">❌ Error loading members: ${error.message}</p>
+                `;
+            }
+        }
+
+        // Perform search
+        function performSearch() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (!searchTerm) {
+                resultsDiv.innerHTML = '<p class="info">Enter a search term to see results</p>';
+                return;
+            }
+            
+            if (allMembers.length === 0) {
+                resultsDiv.innerHTML = '<p class="warning">⚠️ Please load members first</p>';
+                return;
+            }
+            
+            const searchLower = searchTerm.toLowerCase();
+            console.log('🔍 Searching for:', searchLower);
+            
+            const filteredMembers = allMembers.filter(member => {
+                const matches = (
+                    (member.name && member.name.toLowerCase().includes(searchLower)) ||
+                    (member.email && member.email.toLowerCase().includes(searchLower)) ||
+                    (member.code && member.code.toLowerCase().includes(searchLower)) ||
+                    (member.position && member.position.toLowerCase().includes(searchLower)) ||
+                    (member.state && member.state.toLowerCase().includes(searchLower)) ||
+                    (member.zone && member.zone.toLowerCase().includes(searchLower))
+                );
+                
+                if (matches) {
+                    console.log(`✅ Found match: ${member.name} (${member.code})`);
+                }
+                
+                return matches;
+            });
+            
+            console.log(`🔍 Search results: ${filteredMembers.length} members found for "${searchTerm}"`);
+            
+            if (filteredMembers.length === 0) {
+                resultsDiv.innerHTML = `
+                    <p class="warning">⚠️ No members found for "${searchTerm}"</p>
+                    <p>Try searching for:</p>
+                    <ul>
+                        <li>Member codes (e.g., "NARAP", "001")</li>
+                        <li>Names (e.g., "John", "Smith")</li>
+                        <li>Positions (e.g., "MEMBER", "PRESIDENT")</li>
+                        <li>States (e.g., "Lagos", "Abuja")</li>
+                        <li>Zones (e.g., "South West", "North Central")</li>
+                    </ul>
+                `;
+            } else {
+                const membersHtml = filteredMembers.map(member => `
+                    <div class="member-card">
+                        <h4>${member.name} (${member.code})</h4>
+                        <p><strong>Email:</strong> ${member.email || 'N/A'}</p>
+                        <p><strong>Position:</strong> ${member.position}</p>
+                        <p><strong>State:</strong> ${member.state}</p>
+                        <p><strong>Zone:</strong> ${member.zone}</p>
+                        <p><strong>ID:</strong> ${member._id}</p>
+                        ${member.passportPhoto ? `<img src="${backendUrl}/api/uploads/passports/${member.passportPhoto}" class="member-photo" alt="Passport">` : ''}
+                        ${member.signature ? `<img src="${backendUrl}/api/uploads/signatures/${member.signature}" class="member-photo" alt="Signature">` : ''}
+                    </div>
+                `).join('');
+                
+                resultsDiv.innerHTML = `
+                    <p class="success">✅ Found ${filteredMembers.length} member(s) for "${searchTerm}"</p>
+                    <div>${membersHtml}</div>
+                `;
+            }
+        }
+
+        // Search by example
+        function searchByExample(term) {
+            document.getElementById('searchInput').value = term;
+            performSearch();
+        }
+
+        // Clear search
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '<p class="info">Enter a search term to see results</p>';
+        }
+
+        // Test code search specifically
+        async function testCodeSearch() {
+            const resultsDiv = document.getElementById('codeSearchResults');
+            resultsDiv.innerHTML = '<p class="info">Testing code search...</p>';
+            
+            if (allMembers.length === 0) {
+                resultsDiv.innerHTML = '<p class="warning">⚠️ Please load members first</p>';
+                return;
+            }
+            
+            const testCodes = allMembers.slice(0, 3).map(member => member.code);
+            let testResults = [];
+            
+            for (const code of testCodes) {
+                const searchLower = code.toLowerCase();
+                const matches = allMembers.filter(member => 
+                    member.code && member.code.toLowerCase().includes(searchLower)
+                );
+                
+                testResults.push({
+                    code: code,
+                    matches: matches.length,
+                    success: matches.length > 0
+                });
+            }
+            
+            const resultsHtml = testResults.map(result => `
+                <div class="member-card">
+                    <h4>Code: ${result.code}</h4>
+                    <p><strong>Matches:</strong> ${result.matches}</p>
+                    <p><strong>Status:</strong> <span class="${result.success ? 'success' : 'error'}">${result.success ? '✅ Success' : '❌ Failed'}</span></p>
+                </div>
+            `).join('');
+            
+            resultsDiv.innerHTML = `
+                <p class="success">✅ Code search test completed</p>
+                <div>${resultsHtml}</div>
+            `;
+        }
+
+        // Test search performance
+        function testSearchPerformance() {
+            const resultsDiv = document.getElementById('performanceResults');
+            resultsDiv.innerHTML = '<p class="info">Testing search performance...</p>';
+            
+            if (allMembers.length === 0) {
+                resultsDiv.innerHTML = '<p class="warning">⚠️ Please load members first</p>';
+                return;
+            }
+            
+            const testTerms = ['NARAP', 'MEMBER', 'Lagos', '@', 'PRESIDENT', '001'];
+            const results = [];
+            
+            for (const term of testTerms) {
+                const startTime = performance.now();
+                const searchLower = term.toLowerCase();
+                
+                const filteredMembers = allMembers.filter(member => {
+                    return (
+                        (member.name && member.name.toLowerCase().includes(searchLower)) ||
+                        (member.email && member.email.toLowerCase().includes(searchLower)) ||
+                        (member.code && member.code.toLowerCase().includes(searchLower)) ||
+                        (member.position && member.position.toLowerCase().includes(searchLower)) ||
+                        (member.state && member.state.toLowerCase().includes(searchLower)) ||
+                        (member.zone && member.zone.toLowerCase().includes(searchLower))
+                    );
+                });
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                results.push({
+                    term: term,
+                    matches: filteredMembers.length,
+                    duration: duration.toFixed(2)
+                });
+            }
+            
+            const resultsHtml = results.map(result => `
+                <div class="member-card">
+                    <h4>Search: "${result.term}"</h4>
+                    <p><strong>Matches:</strong> ${result.matches}</p>
+                    <p><strong>Duration:</strong> ${result.duration}ms</p>
+                </div>
+            `).join('');
+            
+            const avgDuration = (results.reduce((sum, r) => sum + parseFloat(r.duration), 0) / results.length).toFixed(2);
+            
+            resultsDiv.innerHTML = `
+                <p class="success">✅ Performance test completed</p>
+                <p><strong>Average search time:</strong> ${avgDuration}ms</p>
+                <p><strong>Total members:</strong> ${allMembers.length}</p>
+                <div>${resultsHtml}</div>
+            `;
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔍 Member Search Test Page Loaded');
+            // Auto-test backend connection
+            testBackendConnection();
+        });
+    </script>
+</body>
+</html> 

@@ -262,7 +262,12 @@
       </div>
       <!-- Search and Filter -->
       <div class="search-filter-bar">
-       <input class="form-group input search-input" id="memberSearch" oninput="filterMembers()" placeholder="Search members..." type="text"/>
+               <div class="search-container">
+            <input class="form-group input search-input" id="memberSearch" oninput="filterMembers()" placeholder="Search by name, code, email, position, state, or zone..." type="text"/>
+            <button class="clear-search-btn" onclick="clearMemberSearch()" title="Clear search">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
        <select class="form-group select" id="positionFilter" onchange="filterMembers()">
         <option value="">
          All Positions

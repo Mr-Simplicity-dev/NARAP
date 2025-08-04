@@ -645,9 +645,38 @@ body {
     flex-wrap: wrap;
 }
 
+.search-container {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    align-items: center;
+}
+
 .search-input {
     flex: 1;
     min-width: 200px;
+    padding-right: 40px;
+}
+
+.clear-search-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.clear-search-btn:hover {
+    background: #f0f0f0;
+    color: #666;
 }
 
 .action-buttons {

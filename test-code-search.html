@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Search Test - NARAP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .results {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        .code-example {
+            background: #e9ecef;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Code Search Test - NARAP</h1>
+    
+    <div class="test-container">
+        <h2>Test Overview</h2>
+        <p>This page tests the code search functionality in the NARAP system. The search should work for:</p>
+        <ul>
+            <li>Member codes with slashes (e.g., <span class="code-example">N/781/LAG/731</span>)</li>
+            <li>Partial code matches (e.g., <span class="code-example">N/781</span>, <span class="code-example">LAG</span>)</li>
+            <li>Case-insensitive search</li>
+            <li>Real-time filtering</li>
+        </ul>
+    </div>
+
+    <div class="test-container">
+        <h2>1. Load Members Test</h2>
+        <button class="test-button" onclick="loadMembersTest()">Load Members</button>
+        <div id="membersList" class="results"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>2. Code Search Test</h2>
+        <input type="text" id="searchInput" class="search-input" placeholder="Enter member code to search (e.g., N/781, LAG, 731)..." oninput="performCodeSearch()">
+        <div id="searchResults" class="results"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>3. Quick Test Examples</h2>
+        <p><strong>Test different parts of the code format:</strong></p>
+        <button class="test-button" onclick="testSearch('N/781')">Search "N/781"</button>
+        <button class="test-button" onclick="testSearch('LAG')">Search "LAG"</button>
+        <button class="test-button" onclick="testSearch('731')">Search "731"</button>
+        <button class="test-button" onclick="testSearch('N/799')">Search "N/799"</button>
+        <button class="test-button" onclick="testSearch('EDO')">Search "EDO"</button>
+        <button class="test-button" onclick="testSearch('MEMBER')">Search "MEMBER"</button>
+        <button class="test-button" onclick="clearSearch()">Clear Search</button>
+    </div>
+
+    <div class="test-container">
+        <h2>4. Code Format Examples</h2>
+        <p>Based on the database, member codes follow this pattern:</p>
+        <ul>
+            <li><span class="code-example">N/781/LAG/731</span> - Lagos members</li>
+            <li><span class="code-example">N/215/EDO/164</span> - Edo members</li>
+            <li><span class="code-example">N/052/BAU/01</span> - Bauchi members</li>
+            <li><span class="code-example">N/864/NIG/814</span> - Niger members</li>
+        </ul>
+        <p><strong>Search Tips:</strong></p>
+        <ul>
+            <li>Search by prefix: <span class="code-example">N/781</span></li>
+            <li>Search by state: <span class="code-example">LAG</span>, <span class="code-example">EDO</span></li>
+            <li>Search by number: <span class="code-example">731</span>, <span class="code-example">164</span></li>
+            <li>Search by full code: <span class="code-example">N/781/LAG/731</span></li>
+        </ul>
+    </div>
+
+    <script>
+        const backendUrl = 'https://narap-backend.onrender.com';
+        let allMembers = [];
+
+        async function loadMembersTest() {
+            const resultsDiv = document.getElementById('membersList');
+            resultsDiv.innerHTML = '<p class="info">Loading members...</p>';
+
+            try {
+                // Load members using the same logic as the main app
+                const response = await fetch(`${backendUrl}/api/users/getUsers`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Handle different response formats
+                    if (Array.isArray(data)) {
+                        allMembers = data;
+                    } else if (data && Array.isArray(data.members)) {
+                        allMembers = data.members;
+                    } else if (data && Array.isArray(data.data)) {
+                        allMembers = data.data;
+                    } else if (data && data.success && Array.isArray(data.data)) {
+                        allMembers = data.data;
+                    } else {
+                        allMembers = [];
+                    }
+
+                    // Show sample members with their codes
+                    const sampleMembers = allMembers.slice(0, 10);
+                    resultsDiv.innerHTML = `
+                        <p class="success">✅ Loaded ${allMembers.length} members successfully</p>
+                        <h4>Sample Members (first 10):</h4>
+                        <ul>
+                            ${sampleMembers.map(member => 
+                                `<li><strong>${member.name}</strong> - Code: <code class="code-example">${member.code}</code> - ${member.position} - ${member.state}</li>`
+                            ).join('')}
+                        </ul>
+                        ${allMembers.length > 10 ? `<p><em>... and ${allMembers.length - 10} more members</em></p>` : ''}
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">❌ Error loading members: ${error.message}</p>`;
+            }
+        }
+
+        function performCodeSearch() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (!searchTerm) {
+                resultsDiv.innerHTML = '<p class="info">Enter a search term to see results</p>';
+                return;
+            }
+
+            if (allMembers.length === 0) {
+                resultsDiv.innerHTML = '<p class="error">❌ Please load members first</p>';
+                return;
+            }
+
+            const searchLower = searchTerm.toLowerCase();
+            const filteredMembers = allMembers.filter(member => {
+                return (
+                    (member.name && member.name.toLowerCase().includes(searchLower)) ||
+                    (member.email && member.email.toLowerCase().includes(searchLower)) ||
+                    (member.code && member.code.toLowerCase().includes(searchLower)) ||
+                    (member.position && member.position.toLowerCase().includes(searchLower)) ||
+                    (member.state && member.state.toLowerCase().includes(searchLower)) ||
+                    (member.zone && member.zone.toLowerCase().includes(searchLower))
+                );
+            });
+
+            if (filteredMembers.length === 0) {
+                resultsDiv.innerHTML = `<p class="error">❌ No members found for "${searchTerm}"</p>`;
+            } else {
+                resultsDiv.innerHTML = `
+                    <p class="success">✅ Found ${filteredMembers.length} member(s) for "${searchTerm}"</p>
+                    <h4>Search Results:</h4>
+                    <ul>
+                        ${filteredMembers.map(member => 
+                            `<li><strong>${member.name}</strong> - Code: <code class="code-example">${member.code}</code> - ${member.position} - ${member.state}</li>`
+                        ).join('')}
+                    </ul>
+                `;
+            }
+        }
+
+        function testSearch(searchTerm) {
+            document.getElementById('searchInput').value = searchTerm;
+            performCodeSearch();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '<p class="info">Search cleared</p>';
+        }
+
+        // Auto-load members when page loads
+        window.addEventListener('load', loadMembersTest);
+    </script>
+</body>
+</html> 

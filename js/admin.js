@@ -3138,10 +3138,12 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
         
         // Apply search filter if provided
         let filteredMembers = mergedMembers;
-        if (searchTerm) {
+        if (searchTerm && searchTerm.trim()) {
+            const searchLower = searchTerm.toLowerCase().trim();
+            console.log('🔍 Searching for:', searchLower);
+            
             filteredMembers = mergedMembers.filter(member => {
-                const searchLower = searchTerm.toLowerCase();
-                return (
+                const matches = (
                     (member.name && member.name.toLowerCase().includes(searchLower)) ||
                     (member.email && member.email.toLowerCase().includes(searchLower)) ||
                     (member.code && member.code.toLowerCase().includes(searchLower)) ||
@@ -3149,7 +3151,15 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
                     (member.state && member.state.toLowerCase().includes(searchLower)) ||
                     (member.zone && member.zone.toLowerCase().includes(searchLower))
                 );
+                
+                if (matches) {
+                    console.log(`✅ Found match: ${member.name} (${member.code})`);
+                }
+                
+                return matches;
             });
+            
+            console.log(`🔍 Search results: ${filteredMembers.length} members found for "${searchTerm}"`);
         }
         
         // Calculate pagination
@@ -3990,6 +4000,12 @@ function filterMembers() {
     const positionFilter = document.getElementById('positionFilter')?.value || '';
     const stateFilter = document.getElementById('stateFilter')?.value || '';
     
+    console.log('🔍 Filtering members with:', {
+        searchTerm,
+        positionFilter,
+        stateFilter
+    });
+    
     // Reload members with search term and reset to page 1
     loadMembers(1, 10, searchTerm);
 }
@@ -4000,6 +4016,15 @@ function refreshMembers() {
     window.currentMembers = null;
     // Force reload with pagination
     loadMembers(1, 10);
+}
+
+function clearMemberSearch() {
+    const searchInput = document.getElementById('memberSearch');
+    if (searchInput) {
+        searchInput.value = '';
+        console.log('🧹 Cleared member search');
+        filterMembers(); // Reload without search term
+    }
 }
 
 async function deleteMember(memberId) {
@@ -6934,6 +6959,7 @@ window.showAddMemberModal = showAddMemberModal;
 window.closeAddMemberModal = closeAddMemberModal;
 window.showEditMemberModal = showEditMemberModal;
 window.closeEditMemberModal = closeEditMemberModal;
+window.clearMemberSearch = clearMemberSearch;
 window.showImportModal = showImportModal;
 window.closeImportModal = closeImportModal;
 window.displayMembers = displayMembers;
