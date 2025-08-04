@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Server Status Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status-indicator {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-online { background: #d4edda; color: #155724; }
+        .status-offline { background: #f8d7da; color: #721c24; animation: pulse 2s infinite; }
+        .status-error { background: #fff3cd; color: #856404; }
+        .status-timeout { background: #ffeaa7; color: #d63031; }
+        .status-cors-error { background: #fd79a8; color: #2d3436; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn:disabled { background: #6c757d; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Frontend Server Status Test</h1>
+    
+    <div class="test-container">
+        <h2>Current Status</h2>
+        <div id="currentStatus" class="status-indicator status-offline">Checking...</div>
+        <p>Last checked: <span id="lastChecked">Never</span></p>
+        <button class="btn" onclick="checkStatus()">Check Status Now</button>
+        <button class="btn" onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test Log</h2>
+        <div id="log" class="log"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Configuration</h2>
+        <p><strong>Backend URL:</strong> <span id="backendUrl"></span></p>
+        <p><strong>Browser Online:</strong> <span id="browserOnline"></span></p>
+        <p><strong>User Agent:</strong> <span id="userAgent"></span></p>
+    </div>
+
+    <script>
+        const backendUrl = 'https://narap-backend.onrender.com';
+        let logElement;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logElement.innerHTML += logEntry + '\n';
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(logEntry);
+        }
+        
+        function clearLog() {
+            logElement.innerHTML = '';
+        }
+        
+        function updateStatus(status, className) {
+            const statusElement = document.getElementById('currentStatus');
+            statusElement.textContent = status;
+            statusElement.className = `status-indicator ${className}`;
+            
+            document.getElementById('lastChecked').textContent = new Date().toLocaleString();
+        }
+        
+        async function checkServerStatus() {
+            try {
+                if (!navigator.onLine) {
+                    log('🌐 Browser is offline');
+                    return 'Offline';
+                }
+                
+                log('🔍 Checking server status at: ' + backendUrl + '/api/health');
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => {
+                    log('⏰ Server status check timed out after 15 seconds');
+                    controller.abort();
+                }, 15000);
+                
+                try {
+                    const response = await fetch(`${backendUrl}/api/health`, {
+                        method: 'GET',
+                        signal: controller.signal,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        },
+                        mode: 'cors',
+                        credentials: 'omit'
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    log('📡 Server response status: ' + response.status);
+                    log('📡 Server response headers: ' + JSON.stringify(Object.fromEntries(response.headers.entries())));
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        log('📊 Server health data: ' + JSON.stringify(data));
+                        
+                        if (data && data.status === 'healthy') {
+                            log('✅ Server is healthy');
+                            return 'Online';
+                        } else {
+                            log('⚠️ Server returned unhealthy status: ' + JSON.stringify(data));
+                            return 'Error';
+                        }
+                    } else {
+                        const text = await response.text();
+                        log('❌ Server returned error status: ' + response.status);
+                        log('❌ Response text: ' + text);
+                        return 'Error';
+                    }
+                    
+                } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    throw fetchError;
+                }
+                
+            } catch (error) {
+                log('❌ Server status check failed: ' + error.message);
+                log('❌ Error type: ' + error.name);
+                
+                if (error.name === 'AbortError') {
+                    log('⏰ Server status check timed out');
+                    return 'Timeout';
+                }
+                
+                if (error.message.includes('Failed to fetch') || 
+                    error.message.includes('NetworkError') ||
+                    error.message.includes('ERR_NETWORK') ||
+                    error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+                    log('🌐 Network error - server may be offline');
+                    return 'Offline';
+                }
+                
+                if (error.message.includes('CORS') || error.message.includes('cross-origin')) {
+                    log('🚫 CORS error - server may be blocking requests');
+                    return 'CORS Error';
+                }
+                
+                return 'Error';
+            }
+        }
+        
+        async function checkStatus() {
+            const status = await checkServerStatus();
+            
+            let className = 'status-error';
+            if (status === 'Online') className = 'status-online';
+            else if (status === 'Offline') className = 'status-offline';
+            else if (status === 'Timeout') className = 'status-timeout';
+            else if (status === 'CORS Error') className = 'status-cors-error';
+            
+            updateStatus(status, className);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            logElement = document.getElementById('log');
+            
+            // Set configuration info
+            document.getElementById('backendUrl').textContent = backendUrl;
+            document.getElementById('browserOnline').textContent = navigator.onLine ? 'Yes' : 'No';
+            document.getElementById('userAgent').textContent = navigator.userAgent;
+            
+            // Initial status check
+            setTimeout(checkStatus, 1000);
+            
+            // Set up periodic checks
+            setInterval(checkStatus, 30000);
+            
+            // Listen for online/offline events
+            window.addEventListener('online', () => {
+                log('🌐 Browser came online');
+                checkStatus();
+            });
+            
+            window.addEventListener('offline', () => {
+                log('🌐 Browser went offline');
+                updateStatus('Offline', 'status-offline');
+            });
+        });
+    </script>
+</body>
+</html> 

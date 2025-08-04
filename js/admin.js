@@ -2687,6 +2687,7 @@ function getLastSyncTime() {
 
 async function checkServerStatus() {
     try {
+        // First check if browser is online
         if (!navigator.onLine) {
             console.log('🌐 Browser is offline');
             return 'Offline';
@@ -2694,49 +2695,74 @@ async function checkServerStatus() {
         
         console.log('🔍 Checking server status at:', `${backendUrl}/api/health`);
         
+        // Create a more robust timeout mechanism
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const timeoutId = setTimeout(() => {
+            console.log('⏰ Server status check timed out after 15 seconds');
+            controller.abort();
+        }, 15000); // Increased timeout to 15 seconds
         
-        const response = await fetch(`${backendUrl}/api/health`, {
-            method: 'GET',
-            signal: controller.signal,
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        clearTimeout(timeoutId);
-        
-        console.log('📡 Server response status:', response.status);
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('📊 Server health data:', data);
+        try {
+            const response = await fetch(`${backendUrl}/api/health`, {
+                method: 'GET',
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache' // Prevent caching issues
+                },
+                mode: 'cors', // Explicitly set CORS mode
+                credentials: 'omit' // Don't send credentials for health check
+            });
             
-            if (data && data.status === 'healthy') {
-                console.log('✅ Server is healthy');
-                return 'Online';
+            clearTimeout(timeoutId);
+            
+            console.log('📡 Server response status:', response.status);
+            console.log('📡 Server response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📊 Server health data:', data);
+                
+                if (data && data.status === 'healthy') {
+                    console.log('✅ Server is healthy');
+                    return 'Online';
+                } else {
+                    console.log('⚠️ Server returned unhealthy status:', data);
+                    return 'Error';
+                }
             } else {
-                console.log('⚠️ Server returned unhealthy status:', data);
+                console.log('❌ Server returned error status:', response.status);
+                console.log('❌ Response text:', await response.text());
                 return 'Error';
             }
-        } else {
-            console.log('❌ Server returned error status:', response.status);
-            return 'Error';
+            
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+            throw fetchError;
         }
         
     } catch (error) {
         console.log('❌ Server status check failed:', error.message);
+        console.log('❌ Error type:', error.name);
+        console.log('❌ Error stack:', error.stack);
         
         if (error.name === 'AbortError') {
             console.log('⏰ Server status check timed out');
             return 'Timeout';
         }
         
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        if (error.message.includes('Failed to fetch') || 
+            error.message.includes('NetworkError') ||
+            error.message.includes('ERR_NETWORK') ||
+            error.message.includes('ERR_INTERNET_DISCONNECTED')) {
             console.log('🌐 Network error - server may be offline');
             return 'Offline';
+        }
+        
+        if (error.message.includes('CORS') || error.message.includes('cross-origin')) {
+            console.log('🚫 CORS error - server may be blocking requests');
+            return 'CORS Error';
         }
         
         return 'Error';
@@ -7021,6 +7047,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update sync status
         updateSyncStatus();
+        
+        // Set up periodic server status check (every 30 seconds)
+        setInterval(async () => {
+            if (document.getElementById('serverStatus')) {
+                const status = await checkServerStatus();
+                updateSystemStat('serverStatus', status);
+            }
+        }, 30000);
+        
+        // Initial server status check
+        setTimeout(async () => {
+            if (document.getElementById('serverStatus')) {
+                const status = await checkServerStatus();
+                updateSystemStat('serverStatus', status);
+            }
+        }, 2000);
         
         // Initialize pagination visibility - hide by default
         const membersPaginationContainer = document.getElementById('membersPagination');

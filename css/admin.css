@@ -1062,6 +1062,28 @@ body {
     color: #856404;
 }
 
+.server-status.timeout {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+.server-status.cors-error {
+    background: #fd79a8;
+    color: #2d3436;
+}
+
+.server-status.offline {
+    background: #f8d7da;
+    color: #721c24;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
 .system-logs {
     max-height: 400px;
     overflow-y: auto;
