@@ -3053,7 +3053,7 @@ async function exportAllData() {
 
 // ==================== MEMBER FUNCTIONS ====================
 
-async function loadMembers(page = 1, limit = 10, searchTerm = '') {
+async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter = '', stateFilter = '') {
     try {
         
         
@@ -3136,13 +3136,15 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
         // Save merged members to local storage
         saveLocalMembers(mergedMembers);
         
-        // Apply search filter if provided
+        // Apply all filters
         let filteredMembers = mergedMembers;
+        
+        // Apply search filter if provided
         if (searchTerm && searchTerm.trim()) {
             const searchLower = searchTerm.toLowerCase().trim();
             console.log('🔍 Searching for:', searchLower);
             
-            filteredMembers = mergedMembers.filter(member => {
+            filteredMembers = filteredMembers.filter(member => {
                 const matches = (
                     (member.name && member.name.toLowerCase().includes(searchLower)) ||
                     (member.email && member.email.toLowerCase().includes(searchLower)) ||
@@ -3153,13 +3155,47 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '') {
                 );
                 
                 if (matches) {
-                    console.log(`✅ Found match: ${member.name} (${member.code})`);
+                    console.log(`✅ Found search match: ${member.name} (${member.code})`);
                 }
                 
                 return matches;
             });
             
             console.log(`🔍 Search results: ${filteredMembers.length} members found for "${searchTerm}"`);
+        }
+        
+        // Apply position filter if provided
+        if (positionFilter && positionFilter.trim()) {
+            console.log('🔍 Filtering by position:', positionFilter);
+            
+            filteredMembers = filteredMembers.filter(member => {
+                const matches = member.position && member.position === positionFilter;
+                
+                if (matches) {
+                    console.log(`✅ Found position match: ${member.name} (${member.position})`);
+                }
+                
+                return matches;
+            });
+            
+            console.log(`🔍 Position filter results: ${filteredMembers.length} members found for position "${positionFilter}"`);
+        }
+        
+        // Apply state filter if provided
+        if (stateFilter && stateFilter.trim()) {
+            console.log('🔍 Filtering by state:', stateFilter);
+            
+            filteredMembers = filteredMembers.filter(member => {
+                const matches = member.state && member.state === stateFilter;
+                
+                if (matches) {
+                    console.log(`✅ Found state match: ${member.name} (${member.state})`);
+                }
+                
+                return matches;
+            });
+            
+            console.log(`🔍 State filter results: ${filteredMembers.length} members found for state "${stateFilter}"`);
         }
         
         // Calculate pagination
@@ -4006,25 +4042,44 @@ function filterMembers() {
         stateFilter
     });
     
-    // Reload members with search term and reset to page 1
-    loadMembers(1, 10, searchTerm);
+    // Reload members with all filters and reset to page 1
+    loadMembers(1, 10, searchTerm, positionFilter, stateFilter);
 }
 
 function refreshMembers() {
-    
     // Clear any cached data
     window.currentMembers = null;
+    
+    // Clear all filters
+    const searchInput = document.getElementById('memberSearch');
+    const positionFilter = document.getElementById('positionFilter');
+    const stateFilter = document.getElementById('stateFilter');
+    
+    if (searchInput) searchInput.value = '';
+    if (positionFilter) positionFilter.value = '';
+    if (stateFilter) stateFilter.value = '';
+    
     // Force reload with pagination
     loadMembers(1, 10);
 }
 
 function clearMemberSearch() {
     const searchInput = document.getElementById('memberSearch');
+    const positionFilter = document.getElementById('positionFilter');
+    const stateFilter = document.getElementById('stateFilter');
+    
     if (searchInput) {
         searchInput.value = '';
-        console.log('🧹 Cleared member search');
-        filterMembers(); // Reload without search term
     }
+    if (positionFilter) {
+        positionFilter.value = '';
+    }
+    if (stateFilter) {
+        stateFilter.value = '';
+    }
+    
+    console.log('🧹 Cleared all member filters');
+    filterMembers(); // Reload without any filters
 }
 
 async function deleteMember(memberId) {
@@ -6061,8 +6116,13 @@ function changeMembersPerPage() {
     // Store preference
     localStorage.setItem('narap_members_per_page', perPage);
     
-    // Reload members with new pagination
-    loadMembers(1, perPage);
+    // Get current filters
+    const searchTerm = document.getElementById('memberSearch')?.value || '';
+    const positionFilter = document.getElementById('positionFilter')?.value || '';
+    const stateFilter = document.getElementById('stateFilter')?.value || '';
+    
+    // Reload members with new pagination and current filters
+    loadMembers(1, perPage, searchTerm, positionFilter, stateFilter);
 }
 
 function changeCertificatesPerPage() {
@@ -6080,7 +6140,12 @@ function goToMembersPage(page) {
     const perPageSelect = document.getElementById('membersPerPage');
     const perPage = perPageSelect ? parseInt(perPageSelect.value) : 25;
     
-    loadMembers(page, perPage);
+    // Get current filters
+    const searchTerm = document.getElementById('memberSearch')?.value || '';
+    const positionFilter = document.getElementById('positionFilter')?.value || '';
+    const stateFilter = document.getElementById('stateFilter')?.value || '';
+    
+    loadMembers(page, perPage, searchTerm, positionFilter, stateFilter);
 }
 
 function goToCertificatesPage(page) {
