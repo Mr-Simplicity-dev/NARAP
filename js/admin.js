@@ -3185,11 +3185,42 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
         if (stateFilter && stateFilter.trim()) {
             console.log('🔍 Filtering by state:', stateFilter);
             
+            // Debug: Log all member states before filtering
+            console.log('🔍 All member states before filtering:', filteredMembers.map(m => ({ name: m.name, state: m.state, stateType: typeof m.state })));
+            
             filteredMembers = filteredMembers.filter(member => {
-                const matches = member.state && member.state === stateFilter;
+                // Debug: Log member state data
+                console.log(`🔍 Checking member: ${member.name}, state: "${member.state}" (type: ${typeof member.state})`);
+                
+                // More flexible matching - handle different formats
+                let matches = false;
+                if (member.state) {
+                    // Exact match
+                    if (member.state === stateFilter) {
+                        matches = true;
+                        console.log(`  ✅ Exact match`);
+                    }
+                    // Case-insensitive match
+                    else if (member.state.toLowerCase() === stateFilter.toLowerCase()) {
+                        matches = true;
+                        console.log(`  ✅ Case-insensitive match`);
+                    }
+                    // Trimmed match
+                    else if (member.state.trim() === stateFilter.trim()) {
+                        matches = true;
+                        console.log(`  ✅ Trimmed match`);
+                    }
+                    // Handle potential extra spaces
+                    else if (member.state.replace(/\s+/g, ' ').trim() === stateFilter.replace(/\s+/g, ' ').trim()) {
+                        matches = true;
+                        console.log(`  ✅ Normalized spaces match`);
+                    }
+                }
                 
                 if (matches) {
                     console.log(`✅ Found state match: ${member.name} (${member.state})`);
+                } else {
+                    console.log(`❌ No state match: ${member.name} (${member.state}) vs "${stateFilter}"`);
                 }
                 
                 return matches;
@@ -4037,9 +4068,17 @@ function filterMembers() {
     const stateFilter = document.getElementById('stateFilter')?.value || '';
     
     console.log('🔍 Filtering members with:', {
-        searchTerm,
-        positionFilter,
-        stateFilter
+        searchTerm: `"${searchTerm}"`,
+        positionFilter: `"${positionFilter}"`,
+        stateFilter: `"${stateFilter}"`
+    });
+    
+    // Debug: Log the actual DOM elements
+    const stateFilterElement = document.getElementById('stateFilter');
+    console.log('🔍 State filter element:', {
+        value: stateFilterElement?.value,
+        selectedIndex: stateFilterElement?.selectedIndex,
+        options: stateFilterElement?.options ? Array.from(stateFilterElement.options).map(opt => ({ value: opt.value, text: opt.text })) : []
     });
     
     // Reload members with all filters and reset to page 1
@@ -4080,6 +4119,32 @@ function clearMemberSearch() {
     
     console.log('🧹 Cleared all member filters');
     filterMembers(); // Reload without any filters
+}
+
+// Debug function to test state filtering
+function debugStateFilter() {
+    console.log('🔍 === STATE FILTER DEBUG ===');
+    
+    // Get current members
+    const currentMembers = window.currentMembers || [];
+    console.log('Total members:', currentMembers.length);
+    
+    // Get state filter value
+    const stateFilter = document.getElementById('stateFilter')?.value || '';
+    console.log('Current state filter value:', `"${stateFilter}"`);
+    
+    // Show all unique states in the data
+    const uniqueStates = [...new Set(currentMembers.map(m => m.state).filter(s => s))];
+    console.log('Unique states in data:', uniqueStates);
+    
+    // Test filtering manually
+    if (stateFilter) {
+        const filtered = currentMembers.filter(m => m.state === stateFilter);
+        console.log(`Manual filter results for "${stateFilter}":`, filtered.length, 'members');
+        console.log('Filtered members:', filtered.map(m => ({ name: m.name, state: m.state })));
+    }
+    
+    console.log('🔍 === END DEBUG ===');
 }
 
 async function deleteMember(memberId) {
