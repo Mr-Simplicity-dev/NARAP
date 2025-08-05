@@ -5,166 +5,202 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Debug Test</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .test-section {
-            background: white;
-            margin: 20px 0;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .photo-container {
-            width: 200px;
-            height: 200px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 10px 0;
-        }
-        .photo-container img {
-            max-width: 100%;
-            max-height: 100%;
-            border-radius: 4px;
-        }
-        .placeholder {
-            background: #f8f9fa;
-            color: #666;
-            text-align: center;
-            padding: 20px;
-        }
-        .success { color: #28a745; }
-        .error { color: #dc3545; }
-        .info { color: #007bff; }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .test-image { max-width: 100px; max-height: 100px; border: 1px solid #ddd; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
     </style>
 </head>
 <body>
-    <h1>🔍 Photo Debug Test</h1>
+    <h1>Photo Debug Test</h1>
+    <p>This page tests the getImageUrl function with different photo path formats.</p>
     
-    <div class="test-section">
-        <h2>Test Member: NARAP/ABJ/0001</h2>
-        <div id="memberInfo">Loading...</div>
-    </div>
+    <div id="testResults"></div>
     
-    <div class="test-section">
-        <h2>Passport Photo Test</h2>
-        <div class="photo-container" id="passportContainer">
-            <div class="placeholder">Loading...</div>
-        </div>
-        <div id="passportInfo"></div>
-    </div>
-    
-    <div class="test-section">
-        <h2>Signature Test</h2>
-        <div class="photo-container" id="signatureContainer">
-            <div class="placeholder">Loading...</div>
-        </div>
-        <div id="signatureInfo"></div>
-    </div>
-    
-    <div class="test-section">
-        <h2>Debug Info</h2>
-        <div id="debugInfo"></div>
-    </div>
-
     <script>
-        const BACKEND_URL = 'https://narap-backend.onrender.com';
-        
-        async function testPhotoDisplay() {
-            console.log('🔍 Starting photo debug test...');
+        // Copy the getImageUrl function from admin.js
+        const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K';
+        const backendUrl = 'https://narap-backend.onrender.com';
+
+        function getImageUrl(imagePath) {
+            console.log('🔍 getImageUrl called with:', imagePath);
             
-            try {
-                // Get member data
-                console.log('📋 Getting member data...');
-                const memberResponse = await fetch(`${BACKEND_URL}/api/users/members/verify`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ code: 'NARAP/ABJ/0001' })
-                });
-                
-                if (memberResponse.ok) {
-                    const memberData = await memberResponse.json();
-                    console.log('✅ Member data:', memberData);
-                    
-                    // Display member info
-                    document.getElementById('memberInfo').innerHTML = `
-                        <p><strong>Name:</strong> ${memberData.member.name}</p>
-                        <p><strong>Code:</strong> ${memberData.member.code}</p>
-                        <p><strong>Photo URL:</strong> ${memberData.member.passportPhoto}</p>
-                        <p><strong>Signature URL:</strong> ${memberData.member.signature}</p>
-                    `;
-                    
-                    // Test passport photo
-                    if (memberData.member.passportPhoto) {
-                        testImage(memberData.member.passportPhoto, 'passportContainer', 'passportInfo');
+            if (!imagePath) {
+                console.log('❌ No image path provided, using default avatar');
+                return DEFAULT_AVATAR;
+            }
+            
+            // If it's already a full URL (including Cloudinary), return as is
+            if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+                console.log('✅ Full URL detected:', imagePath);
+                return imagePath;
+            }
+            
+            // If it's a base64 data URL (legacy support), validate it
+            if (imagePath.startsWith('data:image/')) {
+                console.log('🔍 Base64 data URL detected');
+                // Check if base64 data is complete and valid
+                if (imagePath.length > 100 && imagePath.includes('base64,')) {
+                    try {
+                        // Try to validate the base64 data
+                        const base64Part = imagePath.split('base64,')[1];
+                        if (base64Part && base64Part.length > 100) { // Increased minimum length
+                            // Additional validation: check if base64 ends properly
+                            if (base64Part.length % 4 === 0) { // Base64 should be divisible by 4
+                                console.log('✅ Valid base64 data URL');
+                                return imagePath;
+                            } else {
+                                console.log('❌ Invalid base64 data, using default avatar');
+                                return DEFAULT_AVATAR;
+                            }
+                        } else {
+                            console.log('❌ Base64 data too short, using default avatar');
+                            return DEFAULT_AVATAR;
+                        }
+                    } catch (error) {
+                        console.log('❌ Base64 validation error, using default avatar');
+                        return DEFAULT_AVATAR;
                     }
-                    
-                    // Test signature
-                    if (memberData.member.signature) {
-                        testImage(memberData.member.signature, 'signatureContainer', 'signatureInfo');
-                    }
-                    
                 } else {
-                    console.log('❌ Member not found:', memberResponse.status);
-                    document.getElementById('memberInfo').innerHTML = '<p class="error">❌ Member not found</p>';
+                    console.log('❌ Invalid base64 format, using default avatar');
+                    return DEFAULT_AVATAR;
+                }
+            }
+            
+            // Check if it's already a Cloudinary URL (production backend might return full URLs)
+            if (imagePath.includes('res.cloudinary.com')) {
+                console.log('✅ Already a Cloudinary URL:', imagePath);
+                return imagePath;
+            }
+            
+            // Try to construct Cloudinary URL if it's a filename
+            if (imagePath.includes('.') && !imagePath.includes('/')) {
+                // Check if it looks like a Cloudinary filename
+                if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
+                    // Determine the field type based on filename
+                    const fieldType = imagePath.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
+                    const cloudinaryUrl = `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/${fieldType}/${imagePath}`;
+                    console.log('🔍 Constructed Cloudinary URL:', cloudinaryUrl);
+                    return cloudinaryUrl;
                 }
                 
-            } catch (error) {
-                console.error('❌ Test failed:', error);
-                document.getElementById('debugInfo').innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+                // Fallback to old local file system
+                const localUrl = `${backendUrl}/api/uploads/passports/${imagePath}`;
+                console.log('🔍 Constructed local URL:', localUrl);
+                return localUrl;
             }
+            
+            // If it's a full path from Multer upload, extract filename and construct URL
+            if (imagePath.includes('uploads/passports/')) {
+                const filename = imagePath.split('uploads/passports/').pop();
+                const url = `${backendUrl}/api/uploads/passports/${filename}`;
+                console.log('🔍 Extracted filename from path:', filename);
+                console.log('🔍 Constructed URL:', url);
+                return url;
+            }
+            
+            // If it's a full path from Multer upload, extract filename and construct URL
+            if (imagePath.includes('uploads/signatures/')) {
+                const filename = imagePath.split('uploads/signatures/').pop();
+                const url = `${backendUrl}/api/uploads/signatures/${filename}`;
+                console.log('🔍 Extracted signature filename from path:', filename);
+                console.log('🔍 Constructed signature URL:', url);
+                return url;
+            }
+            
+            // If it's a full absolute path (Windows or Unix), extract just the filename
+            if (imagePath.includes('\\') || imagePath.includes('/')) {
+                const filename = imagePath.split(/[\\/]/).pop();
+                const url = `${backendUrl}/api/uploads/passports/${filename}`;
+                console.log('🔍 Extracted filename from absolute path:', filename);
+                console.log('🔍 Constructed URL:', url);
+                return url;
+            }
+            
+            // Default fallback
+            console.log('❌ No matching pattern found, using default avatar');
+            return DEFAULT_AVATAR;
         }
-        
-        function testImage(url, containerId, infoId) {
-            console.log(`🖼️ Testing image: ${url}`);
-            
-            const container = document.getElementById(containerId);
-            const info = document.getElementById(infoId);
-            
-            // Create image element
-            const img = new Image();
-            
-            img.onload = function() {
-                console.log(`✅ Image loaded successfully: ${url}`);
-                container.innerHTML = '';
-                container.appendChild(img);
-                info.innerHTML = `
-                    <p class="success">✅ Image loaded successfully</p>
-                    <p><strong>Dimensions:</strong> ${img.naturalWidth} x ${img.naturalHeight}</p>
-                    <p><strong>URL:</strong> ${url}</p>
+
+        // Test cases
+        const testCases = [
+            {
+                name: 'Null/Undefined',
+                input: null,
+                expected: 'default avatar'
+            },
+            {
+                name: 'Empty string',
+                input: '',
+                expected: 'default avatar'
+            },
+            {
+                name: 'Cloudinary filename (passport)',
+                input: 'passportPhoto-1234567890-123456789.jpg',
+                expected: 'Cloudinary URL'
+            },
+            {
+                name: 'Cloudinary filename (signature)',
+                input: 'signature-1234567890-123456789.png',
+                expected: 'Cloudinary URL'
+            },
+            {
+                name: 'Regular filename',
+                input: 'photo.jpg',
+                expected: 'Local URL'
+            },
+            {
+                name: 'Full Cloudinary URL',
+                input: 'https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/test.jpg',
+                expected: 'Same URL'
+            },
+            {
+                name: 'Local path',
+                input: 'uploads/passports/photo.jpg',
+                expected: 'Local URL'
+            },
+            {
+                name: 'Absolute path',
+                input: 'C:\\uploads\\passports\\photo.jpg',
+                expected: 'Local URL'
+            },
+            {
+                name: 'Base64 data URL',
+                input: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=',
+                expected: 'Same base64 URL'
+            }
+        ];
+
+        function runTests() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '';
+
+            testCases.forEach((testCase, index) => {
+                console.log(`\n🧪 Testing: ${testCase.name}`);
+                const result = getImageUrl(testCase.input);
+                
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-case info';
+                
+                const status = result !== DEFAULT_AVATAR ? 'success' : 'error';
+                testDiv.classList.add(status);
+                
+                testDiv.innerHTML = `
+                    <h3>Test ${index + 1}: ${testCase.name}</h3>
+                    <p><strong>Input:</strong> ${testCase.input || 'null/undefined'}</p>
+                    <p><strong>Output:</strong> ${result}</p>
+                    <p><strong>Expected:</strong> ${testCase.expected}</p>
+                    <img src="${result}" alt="Test Image" class="test-image" onerror="this.style.display='none'">
                 `;
-            };
-            
-            img.onerror = function() {
-                console.log(`❌ Image failed to load: ${url}`);
-                container.innerHTML = `
-                    <div class="placeholder">
-                        <div>❌</div>
-                        <div>Failed to load</div>
-                        <div style="font-size: 12px; margin-top: 10px;">${url}</div>
-                    </div>
-                `;
-                info.innerHTML = `
-                    <p class="error">❌ Image failed to load</p>
-                    <p><strong>URL:</strong> ${url}</p>
-                `;
-            };
-            
-            // Set image source
-            img.src = url;
+                
+                resultsDiv.appendChild(testDiv);
+            });
         }
-        
-        // Start the test when page loads
-        document.addEventListener('DOMContentLoaded', testPhotoDisplay);
+
+        // Run tests when page loads
+        window.onload = runTests;
     </script>
 </body>
 </html> 

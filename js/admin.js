@@ -3087,6 +3087,17 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
                         backendMembers = [];
                     }
                     
+                    // Debug photo data from backend
+                    console.log('🔍 Backend members received:', backendMembers.length);
+                    if (backendMembers.length > 0) {
+                        console.log('🔍 Sample member photo data:', {
+                            name: backendMembers[0].name,
+                            passportPhoto: backendMembers[0].passportPhoto,
+                            passport: backendMembers[0].passport,
+                            signature: backendMembers[0].signature
+                        });
+                    }
+                    
                     // Don't immediately save backend members to local storage
                     // We'll merge them properly below
                 }
@@ -7636,9 +7647,17 @@ function getImageUrl(imagePath) {
     if (imagePath.includes('.') && !imagePath.includes('/')) {
         // Check if it looks like a Cloudinary filename
         if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
-            const cloudinaryUrl = `https://res.cloudinary.com/NARAP_IMAGES/image/upload/v1/NARAP/passportPhoto/${imagePath}`;
+            // Determine the field type based on filename
+            const fieldType = imagePath.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
+            const cloudinaryUrl = `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/${fieldType}/${imagePath}`;
             console.log('🔍 Constructed Cloudinary URL:', cloudinaryUrl);
             return cloudinaryUrl;
+        }
+        
+        // Check if it's already a Cloudinary URL (production backend might return full URLs)
+        if (imagePath.includes('res.cloudinary.com')) {
+            console.log('✅ Already a Cloudinary URL:', imagePath);
+            return imagePath;
         }
         
         // Fallback to old local file system
