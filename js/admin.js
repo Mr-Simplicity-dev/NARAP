@@ -6215,7 +6215,7 @@ function updateMembersCount() {
 
 function changeMembersPerPage() {
     const perPageSelect = document.getElementById('membersPerPage');
-    const perPage = perPageSelect ? parseInt(perPageSelect.value) : 25;
+    const perPage = perPageSelect ? parseInt(perPageSelect.value) : 10;
     
     // Store preference
     localStorage.setItem('narap_members_per_page', perPage);
@@ -6242,7 +6242,7 @@ function changeCertificatesPerPage() {
 
 function goToMembersPage(page) {
     const perPageSelect = document.getElementById('membersPerPage');
-    const perPage = perPageSelect ? parseInt(perPageSelect.value) : 25;
+    const perPage = perPageSelect ? parseInt(perPageSelect.value) : 10;
     
     // Get current filters
     const searchTerm = document.getElementById('memberSearch')?.value || '';
@@ -7444,23 +7444,33 @@ function clearFileUpload(input, labelId) {
 async function loadInitialData() {
     try {
         
+        // Get user's saved pagination preferences
+        const savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
+        const savedCertificatesPerPage = parseInt(localStorage.getItem('narap_certificates_per_page')) || 10;
         
         // Load members data (this will load from local storage first, then sync with backend)
         if (typeof loadMembers === 'function') {
-            await loadMembers(1, 10);
+            await loadMembers(1, savedMembersPerPage);
         }
         
         // Load certificates data
         if (typeof loadCertificates === 'function') {
-            await loadCertificates(1, 10);
+            await loadCertificates(1, savedCertificatesPerPage);
         }
         
-
+        // Update pagination selectors to reflect saved preferences
+        const membersPerPageSelect = document.getElementById('membersPerPage');
+        if (membersPerPageSelect) {
+            membersPerPageSelect.value = savedMembersPerPage;
+        }
         
-        
+        const certificatesPerPageSelect = document.getElementById('certificatesPerPage');
+        if (certificatesPerPageSelect) {
+            certificatesPerPageSelect.value = savedCertificatesPerPage;
+        }
         
     } catch (error) {
-        
+        console.error('Error loading initial data:', error);
     }
 }
 
