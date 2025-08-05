@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Existence Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .test-image { max-width: 100px; max-height: 100px; border: 1px solid #ddd; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .url { word-break: break-all; font-family: monospace; background: #f8f9fa; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Photo Existence Test</h1>
+    <p>Testing if the photo exists in different locations.</p>
+    
+    <div id="testResults"></div>
+    
+    <script>
+        const backendUrl = 'https://narap-backend.onrender.com';
+        const testFilename = 'passportPhoto-1754305054377-936666238.png';
+        
+        async function testPhotoExistence() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<div class="test-case info">Testing photo existence...</div>';
+            
+            const tests = [
+                {
+                    name: 'Cloudinary URL (with v1)',
+                    url: `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/${testFilename}`
+                },
+                {
+                    name: 'Cloudinary URL (without v1)',
+                    url: `https://res.cloudinary.com/dh5wjtvlf/image/upload/NARAP/passportPhoto/${testFilename}`
+                },
+                {
+                    name: 'Backend Local Storage',
+                    url: `${backendUrl}/api/uploads/passports/${testFilename}`
+                },
+                {
+                    name: 'Backend Direct Upload',
+                    url: `${backendUrl}/uploads/passports/${testFilename}`
+                }
+            ];
+            
+            for (let i = 0; i < tests.length; i++) {
+                const test = tests[i];
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-case info';
+                testDiv.innerHTML = `
+                    <h3>Test ${i + 1}: ${test.name}</h3>
+                    <p><strong>URL:</strong></p>
+                    <div class="url">${test.url}</div>
+                    <p><strong>Status:</strong> <span id="status${i}">Testing...</span></p>
+                    <img id="img${i}" class="test-image" style="display: none;">
+                `;
+                resultsDiv.appendChild(testDiv);
+                
+                try {
+                    const response = await fetch(test.url, { method: 'HEAD' });
+                    const status = document.getElementById(`status${i}`);
+                    const img = document.getElementById(`img${i}`);
+                    
+                    if (response.ok) {
+                        status.textContent = `✅ Success (Status: ${response.status})`;
+                        testDiv.classList.add('success');
+                        img.src = test.url;
+                        img.style.display = 'block';
+                    } else {
+                        status.textContent = `❌ Failed (Status: ${response.status})`;
+                        testDiv.classList.add('error');
+                    }
+                } catch (error) {
+                    const status = document.getElementById(`status${i}`);
+                    status.textContent = `❌ Error: ${error.message}`;
+                    testDiv.classList.add('error');
+                }
+            }
+        }
+        
+        // Run tests when page loads
+        window.onload = testPhotoExistence;
+    </script>
+</body>
+</html> 

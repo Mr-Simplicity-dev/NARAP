@@ -3096,6 +3096,17 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
                             passport: backendMembers[0].passport,
                             signature: backendMembers[0].signature
                         });
+                        
+                        // Check all members for photo data
+                        backendMembers.forEach((member, index) => {
+                            if (member.passportPhoto || member.passport) {
+                                console.log(`🔍 Member ${index + 1} (${member.name}):`, {
+                                    passportPhoto: member.passportPhoto,
+                                    passport: member.passport,
+                                    constructedUrl: getImageUrl(member.passportPhoto || member.passport)
+                                });
+                            }
+                        });
                     }
                     
                     // Don't immediately save backend members to local storage
@@ -4034,9 +4045,23 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
                 imageUrl: imageUrl
             });
             
+            // Add error handling for broken images with fallback
+            const fieldType = (member.passportPhoto || member.passport)?.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
+            const filename = member.passportPhoto || member.passport;
+            const cloudinaryFallback = filename ? `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/${fieldType}/${filename}` : '';
+            
+            const imgElement = `
+                <img alt="Passport" class="img-thumbnail" height="50" width="50" 
+                     src="${imageUrl}" 
+                     onerror="this.src='${cloudinaryFallback}'; console.log('❌ Backend URL failed, trying Cloudinary:', '${imageUrl}');" 
+                     onload="this.style.display='block'; console.log('✅ Image loaded successfully:', '${imageUrl}');" 
+                     style="display:none"
+                     onerror="this.src='${DEFAULT_AVATAR}'; console.log('❌ All URLs failed, using default avatar');">
+            `;
+            
             const rowHTML = `
                 <tr>
-                    <td><img alt="Passport" class="img-thumbnail" height="50" width="50" src="${imageUrl}" onerror="this.src='${DEFAULT_AVATAR}'" onload="this.style.display='block'" style="display:none"></td>
+                    <td>${imgElement}</td>
                     <td>${name}</td>
                     <td>${email}</td>
                     <td>${code}</td>
@@ -7645,20 +7670,39 @@ function getImageUrl(imagePath) {
     
     // Try to construct Cloudinary URL if it's a filename
     if (imagePath.includes('.') && !imagePath.includes('/')) {
-        // Check if it looks like a Cloudinary filename
-        if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
-            // Determine the field type based on filename
-            const fieldType = imagePath.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
-            const cloudinaryUrl = `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/${fieldType}/${imagePath}`;
-            console.log('🔍 Constructed Cloudinary URL:', cloudinaryUrl);
-            return cloudinaryUrl;
-        }
+                    // Check if it looks like a Cloudinary filename
+            if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
+                // Determine the field type based on filename
+                const fieldType = imagePath.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
+                
+                // Use backend upload endpoint (which handles both local and Cloudinary files)
+                const uploadUrl = `${backendUrl}/api/uploads/${fieldType === 'passportPhoto' ? 'passports' : 'signatures'}/${imagePath}`;
+                console.log('🔍 Using backend upload endpoint:', uploadUrl);
+                
+                // Also log the Cloudinary URL as fallback
+                const cloudinaryUrl = `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/${fieldType}/${imagePath}`;
+                console.log('🔍 Cloudinary fallback URL:', cloudinaryUrl);
+                
+                return uploadUrl;
+            }
+            
+            // If it's already a full URL (Cloudinary or other), return as is
+            if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+                console.log('✅ Full URL detected:', imagePath);
+                return imagePath;
+            }
         
-        // Check if it's already a Cloudinary URL (production backend might return full URLs)
-        if (imagePath.includes('res.cloudinary.com')) {
-            console.log('✅ Already a Cloudinary URL:', imagePath);
-            return imagePath;
-        }
+            // Check if it's already a Cloudinary URL (production backend might return full URLs)
+    if (imagePath.includes('res.cloudinary.com')) {
+        console.log('✅ Already a Cloudinary URL:', imagePath);
+        return imagePath;
+    }
+    
+    // Check if it's already a full URL (http/https)
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        console.log('✅ Full URL detected:', imagePath);
+        return imagePath;
+    }
         
         // Fallback to old local file system
         const localUrl = `${backendUrl}/api/uploads/passports/${imagePath}`;

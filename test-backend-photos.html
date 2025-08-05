@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Photo Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .test-image { max-width: 100px; max-height: 100px; border: 1px solid #ddd; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .member-data { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Backend Photo Test</h1>
+    <p>Testing what the backend returns for member data and photo URLs.</p>
+    
+    <button onclick="testBackendData()">Test Backend Data</button>
+    <div id="testResults"></div>
+    
+    <script>
+        const backendUrl = 'https://narap-backend.onrender.com';
+        
+        async function testBackendData() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<div class="test-case info">Testing backend data...</div>';
+            
+            try {
+                // Test 1: Get members from backend
+                const response = await fetch(`${backendUrl}/api/users/members`);
+                const data = await response.json();
+                
+                console.log('Backend response:', data);
+                
+                let members = [];
+                if (Array.isArray(data)) {
+                    members = data;
+                } else if (data && Array.isArray(data.members)) {
+                    members = data.members;
+                } else if (data && Array.isArray(data.data)) {
+                    members = data.data;
+                }
+                
+                resultsDiv.innerHTML = `
+                    <div class="test-case success">
+                        <h3>✅ Backend Connection Successful</h3>
+                        <p>Found ${members.length} members</p>
+                    </div>
+                `;
+                
+                // Show member data with photos
+                members.forEach((member, index) => {
+                    if (member.passportPhoto || member.passport) {
+                        const memberDiv = document.createElement('div');
+                        memberDiv.className = 'test-case info';
+                        memberDiv.innerHTML = `
+                            <h4>Member ${index + 1}: ${member.name}</h4>
+                            <div class="member-data">
+                                <p><strong>Passport Photo:</strong> ${member.passportPhoto || 'null'}</p>
+                                <p><strong>Passport:</strong> ${member.passport || 'null'}</p>
+                                <p><strong>Signature:</strong> ${member.signature || 'null'}</p>
+                            </div>
+                            <div>
+                                <p><strong>Photo URL:</strong></p>
+                                <img src="${member.passportPhoto || member.passport}" 
+                                     alt="Member Photo" 
+                                     class="test-image"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                     onload="this.nextElementSibling.style.display='none';">
+                                <p style="display:none; color: red;">❌ Image failed to load</p>
+                            </div>
+                        `;
+                        resultsDiv.appendChild(memberDiv);
+                    }
+                });
+                
+                if (members.length === 0) {
+                    resultsDiv.innerHTML += `
+                        <div class="test-case error">
+                            <h3>❌ No members found</h3>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="test-case error">
+                        <h3>❌ Backend Connection Failed</h3>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html> 

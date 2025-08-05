@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudinary URL Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .test-image { max-width: 200px; max-height: 200px; border: 1px solid #ddd; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .url { word-break: break-all; font-family: monospace; background: #f8f9fa; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Cloudinary URL Test</h1>
+    <p>Testing if the Cloudinary URL is accessible.</p>
+    
+    <div id="testResults"></div>
+    
+    <script>
+        const testFilename = 'passportPhoto-1754305054377-936666238.png';
+        const cloudinaryUrl = `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/${testFilename}`;
+        
+        function testImageUrl(url, description) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const startTime = Date.now();
+                
+                img.onload = function() {
+                    const loadTime = Date.now() - startTime;
+                    resolve({
+                        success: true,
+                        loadTime: loadTime,
+                        width: img.width,
+                        height: img.height
+                    });
+                };
+                
+                img.onerror = function() {
+                    resolve({
+                        success: false,
+                        error: 'Failed to load image'
+                    });
+                };
+                
+                img.src = url;
+                
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    if (!img.complete) {
+                        resolve({
+                            success: false,
+                            error: 'Timeout after 10 seconds'
+                        });
+                    }
+                }, 10000);
+            });
+        }
+        
+        async function runTests() {
+            const resultsDiv = document.getElementById('testResults');
+            
+            // Test 1: Direct Cloudinary URL
+            const test1Div = document.createElement('div');
+            test1Div.className = 'test-case info';
+            test1Div.innerHTML = `
+                <h3>Test 1: Direct Cloudinary URL</h3>
+                <p><strong>URL:</strong></p>
+                <div class="url">${cloudinaryUrl}</div>
+                <p><strong>Status:</strong> <span id="status1">Testing...</span></p>
+                <img id="img1" class="test-image" style="display: none;">
+            `;
+            resultsDiv.appendChild(test1Div);
+            
+            const result1 = await testImageUrl(cloudinaryUrl, 'Direct Cloudinary URL');
+            const status1 = document.getElementById('status1');
+            const img1 = document.getElementById('img1');
+            
+            if (result1.success) {
+                status1.textContent = `✅ Success (${result1.loadTime}ms, ${result1.width}x${result1.height})`;
+                test1Div.classList.add('success');
+                img1.src = cloudinaryUrl;
+                img1.style.display = 'block';
+            } else {
+                status1.textContent = `❌ Failed: ${result1.error}`;
+                test1Div.classList.add('error');
+            }
+            
+            // Test 2: Alternative Cloudinary URL format
+            const alternativeUrl = `https://res.cloudinary.com/dh5wjtvlf/image/upload/NARAP/passportPhoto/${testFilename}`;
+            const test2Div = document.createElement('div');
+            test2Div.className = 'test-case info';
+            test2Div.innerHTML = `
+                <h3>Test 2: Alternative Cloudinary URL (without v1)</h3>
+                <p><strong>URL:</strong></p>
+                <div class="url">${alternativeUrl}</div>
+                <p><strong>Status:</strong> <span id="status2">Testing...</span></p>
+                <img id="img2" class="test-image" style="display: none;">
+            `;
+            resultsDiv.appendChild(test2Div);
+            
+            const result2 = await testImageUrl(alternativeUrl, 'Alternative Cloudinary URL');
+            const status2 = document.getElementById('status2');
+            const img2 = document.getElementById('img2');
+            
+            if (result2.success) {
+                status2.textContent = `✅ Success (${result2.loadTime}ms, ${result2.width}x${result2.height})`;
+                test2Div.classList.add('success');
+                img2.src = alternativeUrl;
+                img2.style.display = 'block';
+            } else {
+                status2.textContent = `❌ Failed: ${result2.error}`;
+                test2Div.classList.add('error');
+            }
+            
+            // Test 3: Check if file exists via fetch
+            const test3Div = document.createElement('div');
+            test3Div.className = 'test-case info';
+            test3Div.innerHTML = `
+                <h3>Test 3: Check file existence via fetch</h3>
+                <p><strong>URL:</strong></p>
+                <div class="url">${cloudinaryUrl}</div>
+                <p><strong>Status:</strong> <span id="status3">Testing...</span></p>
+            `;
+            resultsDiv.appendChild(test3Div);
+            
+            try {
+                const response = await fetch(cloudinaryUrl, { method: 'HEAD' });
+                const status3 = document.getElementById('status3');
+                
+                if (response.ok) {
+                    status3.textContent = `✅ File exists (Status: ${response.status})`;
+                    test3Div.classList.add('success');
+                } else {
+                    status3.textContent = `❌ File not found (Status: ${response.status})`;
+                    test3Div.classList.add('error');
+                }
+            } catch (error) {
+                const status3 = document.getElementById('status3');
+                status3.textContent = `❌ Error: ${error.message}`;
+                test3Div.classList.add('error');
+            }
+        }
+        
+        // Run tests when page loads
+        window.onload = runTests;
+    </script>
+</body>
+</html> 
