@@ -3788,7 +3788,9 @@ function switchTab(tabName) {
         case 'members':
             if (!window.currentMembers || window.currentMembers.length === 0) {
                 
-                loadMembers(1, 10);
+                // Get user's saved pagination preference
+                const savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
+                loadMembers(1, savedMembersPerPage);
             } else {
                 
                 displayMembers(window.currentMembers);
@@ -4120,8 +4122,11 @@ function filterMembers() {
         options: stateFilterElement?.options ? Array.from(stateFilterElement.options).map(opt => ({ value: opt.value, text: opt.text })) : []
     });
     
+    // Get user's saved pagination preference
+    const savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
+    
     // Reload members with all filters and reset to page 1
-    loadMembers(1, 10, searchTerm, positionFilter, stateFilter);
+    loadMembers(1, savedMembersPerPage, searchTerm, positionFilter, stateFilter);
 }
 
 function refreshMembers() {
@@ -4137,8 +4142,11 @@ function refreshMembers() {
     if (positionFilter) positionFilter.value = '';
     if (stateFilter) stateFilter.value = '';
     
+    // Get user's saved pagination preference
+    const savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
+    
     // Force reload with pagination
-    loadMembers(1, 10);
+    loadMembers(1, savedMembersPerPage);
 }
 
 function clearMemberSearch() {
@@ -6432,7 +6440,9 @@ function testServerConnection() {
 }
 
 function refreshMembersTable() {
-    loadMembers();
+    // Get user's saved pagination preference
+    const savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
+    loadMembers(1, savedMembersPerPage);
 }
 
 // Password for clearing data and certificates
