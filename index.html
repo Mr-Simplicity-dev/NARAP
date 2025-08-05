@@ -648,6 +648,120 @@ body {
   .member-verification-card {
     padding: 18px;
   }
+}
+
+/* Impersonation Warning Styles */
+.impersonation-warning {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+  transition: all 0.3s ease;
+}
+
+.impersonation-warning:hover {
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.15);
+  transform: translateY(-1px);
+}
+
+.impersonation-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.impersonation-text {
+  flex: 1;
+  min-width: 250px;
+}
+
+.impersonation-title {
+  color: #856404;
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.impersonation-description {
+  margin: 0;
+  color: #856404;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.task-force-button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.task-force-button:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+  color: white;
+  text-decoration: none;
+}
+
+.task-force-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+/* Mobile responsive styles for impersonation warning */
+@media (max-width: 768px) {
+  .impersonation-content {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .impersonation-text {
+    min-width: auto;
+  }
+  
+  .task-force-button {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 24px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .impersonation-warning {
+    padding: 16px;
+    margin-top: 15px;
+  }
+  
+  .impersonation-title {
+    font-size: 15px;
+  }
+  
+  .impersonation-description {
+    font-size: 13px;
+  }
+  
+  .task-force-button {
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+}
   
   .details-grid {
     gap: 12px;
@@ -1839,7 +1953,7 @@ function displayMemberResult(member) {
   
   resultContent.innerHTML = `
     <div class="details-container">
-      <!-- Member Verification Card -->
+      <!-- Member Verification Card with Photo and Status -->
       <div class="member-verification-card">
         <div class="member-card-header">
           <div class="member-photo-container">
@@ -1865,6 +1979,7 @@ function displayMemberResult(member) {
         </div>
       </div>
 
+      <!-- Personal Details Section -->
       <div class="personal-details-section">
         <h4 style="color: #667eea; margin-bottom: 20px; font-size: 18px;">📋 Personal Details</h4>
         <div class="details-grid">
@@ -1906,71 +2021,9 @@ function displayMemberResult(member) {
           </div>
         </div>
       </div>
-      
-      <div class="id-card-section">
-        <h4 style="color: #667eea; margin-bottom: 20px; font-size: 18px;">🆔 ID Card Preview</h4>
-        
-        <div class="id-card">
-          <div class="card-header">
-            <div class="card-title">Nigerian Association Of Refrigeration And Air Conditioning Practitioners</div>
-            <div class="card-subtitle">(NARAP) - IDENTITY CARD</div>
-          </div>
-          
-          <div class="card-body">
-            <div class="card-photo">
-              ${validPhotoUrl ? 
-                `<img id="passportImage" src="${validPhotoUrl}" alt="Passport Photo" class="passport-photo" 
-                     style="display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"
-                     onload="handleImageLoad(this)"
-                     onerror="handleImageError(this, '${validPhotoUrl}')">
-                 <div id="photoFallback" class="passport-photo" style="display: none; align-items: center; justify-content: center; background: #f8f9fa; color: #666; font-size: 12px; text-align: center; flex-direction: column; border-radius: 4px;">
-                   <div style="margin-bottom: 5px;">📷</div>
-                   <div>Photo Unavailable</div>
-                   <div style="font-size: 10px; margin-top: 5px; color: #999;">Click to retry</div>
-                 </div>` :
-                `<div class="passport-photo" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa; color: #666; font-size: 12px; text-align: center; flex-direction: column; border-radius: 4px;">
-                   <div style="margin-bottom: 5px;">📷</div>
-                   <div>No Photo Available</div>
-                 </div>`
-              }
-            </div>
-            
-            <div class="card-details">
-              <div class="card-field">
-                <strong>Name:</strong>
-                <span>${member.name || member.fullName || 'N/A'}</span>
-              </div>
-              <div class="card-field">
-                <strong>Position:</strong>
-                <span>${member.position || member.role || 'MEMBER'}</span>
-              </div>
-              <div class="card-field">
-                <strong>State:</strong>
-                <span>${member.state || 'N/A'}</span>
-              </div>
-              <div class="card-field">
-                <strong>Zone:</strong>
-                <span>${member.zone || 'N/A'}</span>
-              </div>
-              <div class="card-field">
-                <strong>Code:</strong>
-                <span>${member.code || member.narapCode || 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-          
-          ${validSignatureUrl ? `
-            <div class="card-signature">
-              <img src="${validSignatureUrl}" alt="Signature" class="signature-image"
-                   style="max-width: 100px; max-height: 40px; object-fit: contain;"
-                   onload="console.log('✅ Signature loaded successfully')"
-                   onerror="this.style.display='none'; console.log('❌ Signature failed to load')">
-            </div>
-          ` : ''}
-        </div>
-      </div>
     </div>
     
+    <!-- Verification Success Message -->
     <div style="background: #e8f5e8; padding: 20px; border-radius: 12px; margin-top: 25px; border-left: 4px solid #28a745;">
       <strong style="color: #155724; display: flex; align-items: center; margin-bottom: 10px;">
         ✅ Verification Successful
@@ -1980,10 +2033,57 @@ function displayMemberResult(member) {
         All information displayed is authentic and up-to-date as of ${new Date().toLocaleDateString()}.
       </p>
     </div>
-        
+
+    <!-- Impersonation Warning and Task Force Button -->
+    <div class="impersonation-warning">
+      <div class="impersonation-content">
+        <div class="impersonation-text">
+          <h5 class="impersonation-title">
+            <i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
+            Impersonation Warning
+          </h5>
+          <p class="impersonation-description">
+            If you suspect this member is being impersonated or if you notice any suspicious activity, 
+            please contact the NARAP Task Force immediately. They are available 24/7 to handle security concerns.
+          </p>
+        </div>
+        <div>
+          <button onclick="callTaskForce()" class="task-force-button">
+            <i class="fas fa-phone" style="font-size: 14px;"></i>
+            Task Force
+          </button>
+        </div>
+      </div>
+    </div>
   `;
   
   document.getElementById('resultModal').style.display = 'block';
+}
+
+// Task Force call function
+function callTaskForce() {
+  const phoneNumber = '07067012884';
+  
+  // Show confirmation dialog
+  if (confirm(`Do you want to call the NARAP Task Force?\n\nPhone: ${phoneNumber}\n\nThis will initiate a phone call.`)) {
+    // Check if running on mobile device
+    if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      // Mobile device - use tel: protocol
+      window.location.href = `tel:${phoneNumber}`;
+    } else {
+      // Desktop device - show phone number and instructions
+      alert(`Please call the NARAP Task Force at:\n\n${phoneNumber}\n\nOr copy this number to your phone.`);
+      
+      // Copy to clipboard if supported
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(phoneNumber).then(() => {
+          console.log('Phone number copied to clipboard');
+        }).catch(err => {
+          console.log('Failed to copy phone number:', err);
+        });
+      }
+    }
+  }
 }
 
 // Test function for member verification
