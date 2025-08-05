@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NARAP - Comprehensive Photo Display Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 2px solid #f0f0f0;
+            border-radius: 10px;
+        }
+        
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f9f9f9;
+        }
+        
+        .test-card h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        
+        .photo-container {
+            width: 100px;
+            height: 120px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            position: relative;
+        }
+        
+        .photo-container img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 6px;
+        }
+        
+        .photo-placeholder {
+            color: #666;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .status {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn.secondary {
+            background: #6c757d;
+        }
+        
+        .btn.secondary:hover {
+            background: #5a6268;
+        }
+        
+        .log-container {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .log-entry.success { color: #28a745; }
+        .log-entry.error { color: #dc3545; }
+        .log-entry.warning { color: #ffc107; }
+        .log-entry.info { color: #17a2b8; }
+        
+        .member-info {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .member-info h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .member-info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .url-test {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 NARAP Photo Display Comprehensive Test</h1>
+        
+        <!-- Test Configuration -->
+        <div class="test-section">
+            <h2>⚙️ Test Configuration</h2>
+            <div class="test-grid">
+                <div class="test-card">
+                    <h3>Backend URL</h3>
+                    <input type="text" id="backendUrl" value="https://narap-backend.onrender.com" style="width: 100%; padding: 8px; margin: 5px 0;">
+                    <button class="btn" onclick="testBackendConnection()">Test Connection</button>
+                    <div id="backendStatus" class="status"></div>
+                </div>
+                
+                <div class="test-card">
+                    <h3>Test Member Code</h3>
+                    <input type="text" id="testMemberCode" value="N/045/ANA/05" style="width: 100%; padding: 8px; margin: 5px 0;">
+                    <button class="btn" onclick="testMemberVerification()">Test Member</button>
+                </div>
+                
+                <div class="test-card">
+                    <h3>Test Certificate Number</h3>
+                    <input type="text" id="testCertificateNumber" value="CERT-2024-001" style="width: 100%; padding: 8px; margin: 5px 0;">
+                    <button class="btn" onclick="testCertificateVerification()">Test Certificate</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Member Table Photo Test -->
+        <div class="test-section">
+            <h2>👥 Member Table Photo Test</h2>
+            <button class="btn" onclick="testMemberTablePhotos()">Test Member Table Photos</button>
+            <button class="btn secondary" onclick="clearMemberTableResults()">Clear Results</button>
+            
+            <div id="memberTableResults"></div>
+        </div>
+        
+        <!-- Member Verification Photo Test -->
+        <div class="test-section">
+            <h2>🔍 Member Verification Photo Test</h2>
+            <button class="btn" onclick="testMemberVerificationPhotos()">Test Member Verification Photos</button>
+            <button class="btn secondary" onclick="clearVerificationResults()">Clear Results</button>
+            
+            <div id="verificationResults"></div>
+        </div>
+        
+        <!-- Certificate Photo Test -->
+        <div class="test-section">
+            <h2>📜 Certificate Photo Test</h2>
+            <button class="btn" onclick="testCertificatePhotos()">Test Certificate Photos</button>
+            <button class="btn secondary" onclick="clearCertificateResults()">Clear Results</button>
+            
+            <div id="certificateResults"></div>
+        </div>
+        
+        <!-- URL Construction Test -->
+        <div class="test-section">
+            <h2>🔗 URL Construction Test</h2>
+            <button class="btn" onclick="testUrlConstruction()">Test URL Construction</button>
+            <button class="btn secondary" onclick="clearUrlResults()">Clear Results</button>
+            
+            <div id="urlResults"></div>
+        </div>
+        
+        <!-- Cloudinary Direct Test -->
+        <div class="test-section">
+            <h2>☁️ Cloudinary Direct Test</h2>
+            <button class="btn" onclick="testCloudinaryDirect()">Test Cloudinary URLs</button>
+            <button class="btn secondary" onclick="clearCloudinaryResults()">Clear Results</button>
+            
+            <div id="cloudinaryResults"></div>
+        </div>
+        
+        <!-- Test Log -->
+        <div class="test-section">
+            <h2>📋 Test Log</h2>
+            <button class="btn secondary" onclick="clearLog()">Clear Log</button>
+            <div id="testLog" class="log-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        let backendUrl = 'https://narap-backend.onrender.com';
+        const cloudinaryCloudName = 'dh5wjtvlf';
+        
+        // Test data
+        const testFilenames = [
+            'passportPhoto-1754305054377-936666238.png',
+            'signature-1754305054378-123456789.png',
+            'passportPhoto-1754305054379-987654321.jpg'
+        ];
+        
+        // Utility functions
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+        
+        function clearResults(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+        
+        // Backend connection test
+        async function testBackendConnection() {
+            backendUrl = document.getElementById('backendUrl').value;
+            log(`Testing backend connection to: ${backendUrl}`, 'info');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus('backendStatus', '✅ Backend Connected', 'success');
+                    log(`Backend health check: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    updateStatus('backendStatus', '❌ Backend Error', 'error');
+                    log(`Backend error: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                updateStatus('backendStatus', '❌ Connection Failed', 'error');
+                log(`Connection failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Member table photo test
+        async function testMemberTablePhotos() {
+            log('Testing member table photo display...', 'info');
+            const resultsDiv = document.getElementById('memberTableResults');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/users/members`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                const members = data.members || data.data || [];
+                
+                log(`Found ${members.length} members`, 'info');
+                
+                let resultsHTML = '<div class="test-grid">';
+                
+                // Test first 5 members with photos
+                const membersWithPhotos = members.filter(m => m.passportPhoto || m.passport).slice(0, 5);
+                
+                membersWithPhotos.forEach((member, index) => {
+                    const photoUrl = member.passportPhoto || member.passport;
+                    const imageUrl = getImageUrl(photoUrl);
+                    
+                    resultsHTML += `
+                        <div class="test-card">
+                            <h3>Member ${index + 1}: ${member.name}</h3>
+                            <div class="member-info">
+                                <p><strong>Code:</strong> ${member.code}</p>
+                                <p><strong>Photo Field:</strong> ${photoUrl || 'None'}</p>
+                                <div class="url-test">${imageUrl}</div>
+                            </div>
+                            <div class="photo-container">
+                                <img src="${imageUrl}" 
+                                     alt="Member Photo" 
+                                     onload="log('✅ Photo loaded: ' + this.src, 'success')"
+                                     onerror="log('❌ Photo failed: ' + this.src, 'error')">
+                            </div>
+                            <div class="status success">Testing...</div>
+                        </div>
+                    `;
+                });
+                
+                resultsHTML += '</div>';
+                resultsDiv.innerHTML = resultsHTML;
+                
+                log(`Testing ${membersWithPhotos.length} member photos`, 'success');
+                
+            } catch (error) {
+                log(`Member table test failed: ${error.message}`, 'error');
+                resultsDiv.innerHTML = `<div class="status error">Test failed: ${error.message}</div>`;
+            }
+        }
+        
+        // Member verification photo test
+        async function testMemberVerificationPhotos() {
+            log('Testing member verification photo display...', 'info');
+            const resultsDiv = document.getElementById('verificationResults');
+            const memberCode = document.getElementById('testMemberCode').value;
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/users/members/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: memberCode })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.success && data.member) {
+                    const member = data.member;
+                    const photoUrl = member.passportPhoto || member.passport;
+                    
+                    log(`Member found: ${member.name} (${member.code})`, 'success');
+                    log(`Photo URL from backend: ${photoUrl}`, 'info');
+                    
+                    const resultsHTML = `
+                        <div class="test-card">
+                            <h3>Verification Result: ${member.name}</h3>
+                            <div class="member-info">
+                                <p><strong>Code:</strong> ${member.code}</p>
+                                <p><strong>Position:</strong> ${member.position}</p>
+                                <p><strong>State:</strong> ${member.state}</p>
+                                <p><strong>Photo URL:</strong> ${photoUrl || 'None'}</p>
+                            </div>
+                            ${photoUrl ? `
+                                <div class="photo-container">
+                                    <img src="${photoUrl}" 
+                                         alt="Member Photo" 
+                                         onload="log('✅ Verification photo loaded: ' + this.src, 'success')"
+                                         onerror="log('❌ Verification photo failed: ' + this.src, 'error')">
+                                </div>
+                            ` : '<div class="photo-container"><div class="photo-placeholder">No Photo</div></div>'}
+                        </div>
+                    `;
+                    
+                    resultsDiv.innerHTML = resultsHTML;
+                } else {
+                    log(`Member not found: ${memberCode}`, 'warning');
+                    resultsDiv.innerHTML = `<div class="status warning">Member not found: ${memberCode}</div>`;
+                }
+                
+            } catch (error) {
+                log(`Verification test failed: ${error.message}`, 'error');
+                resultsDiv.innerHTML = `<div class="status error">Test failed: ${error.message}</div>`;
+            }
+        }
+        
+        // Certificate photo test
+        async function testCertificatePhotos() {
+            log('Testing certificate photo display...', 'info');
+            const resultsDiv = document.getElementById('certificateResults');
+            const certificateNumber = document.getElementById('testCertificateNumber').value;
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/certificates/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ certificateNumber: certificateNumber })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.success && data.certificate) {
+                    const certificate = data.certificate;
+                    
+                    log(`Certificate found: ${certificate.certificateNumber || certificate.number}`, 'success');
+                    
+                    const resultsHTML = `
+                        <div class="test-card">
+                            <h3>Certificate Result</h3>
+                            <div class="member-info">
+                                <p><strong>Number:</strong> ${certificate.certificateNumber || certificate.number}</p>
+                                <p><strong>Recipient:</strong> ${certificate.recipientName || certificate.recipient || certificate.name}</p>
+                                <p><strong>Title:</strong> ${certificate.title || certificate.certificateTitle}</p>
+                                <p><strong>Status:</strong> ${certificate.status}</p>
+                                <p><strong>Photos:</strong> Certificates typically don't have photos</p>
+                            </div>
+                            <div class="photo-container">
+                                <div class="photo-placeholder">No Photo Expected</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    resultsDiv.innerHTML = resultsHTML;
+                } else {
+                    log(`Certificate not found: ${certificateNumber}`, 'warning');
+                    resultsDiv.innerHTML = `<div class="status warning">Certificate not found: ${certificateNumber}</div>`;
+                }
+                
+            } catch (error) {
+                log(`Certificate test failed: ${error.message}`, 'error');
+                resultsDiv.innerHTML = `<div class="status error">Test failed: ${error.message}</div>`;
+            }
+        }
+        
+        // URL construction test
+        function testUrlConstruction() {
+            log('Testing URL construction...', 'info');
+            const resultsDiv = document.getElementById('urlResults');
+            
+            let resultsHTML = '<div class="test-grid">';
+            
+            testFilenames.forEach(filename => {
+                const imageUrl = getImageUrl(filename);
+                const alternativeUrls = [
+                    `${backendUrl}/api/uploads/passports/${filename}`,
+                    `${backendUrl}/api/uploads/signatures/${filename}`,
+                    `https://res.cloudinary.com/${cloudinaryCloudName}/image/upload/v1/NARAP/passportPhoto/${filename}`,
+                    `https://res.cloudinary.com/${cloudinaryCloudName}/image/upload/NARAP/passportPhoto/${filename}`
+                ];
+                
+                resultsHTML += `
+                    <div class="test-card">
+                        <h3>Filename: ${filename}</h3>
+                        <div class="url-test">Primary: ${imageUrl}</div>
+                        <div class="url-test">Alternative 1: ${alternativeUrls[0]}</div>
+                        <div class="url-test">Alternative 2: ${alternativeUrls[1]}</div>
+                        <div class="url-test">Cloudinary v1: ${alternativeUrls[2]}</div>
+                        <div class="url-test">Cloudinary: ${alternativeUrls[3]}</div>
+                    </div>
+                `;
+            });
+            
+            resultsHTML += '</div>';
+            resultsDiv.innerHTML = resultsHTML;
+            
+            log('URL construction test completed', 'success');
+        }
+        
+        // Cloudinary direct test
+        async function testCloudinaryDirect() {
+            log('Testing Cloudinary direct access...', 'info');
+            const resultsDiv = document.getElementById('cloudinaryResults');
+            
+            let resultsHTML = '<div class="test-grid">';
+            
+            for (const filename of testFilenames) {
+                const cloudinaryUrls = [
+                    `https://res.cloudinary.com/${cloudinaryCloudName}/image/upload/v1/NARAP/passportPhoto/${filename}`,
+                    `https://res.cloudinary.com/${cloudinaryCloudName}/image/upload/NARAP/passportPhoto/${filename}`,
+                    `https://res.cloudinary.com/${cloudinaryCloudName}/image/upload/v1/NARAP/signature/${filename}`,
+                    `https://res.cloudinary.com/${cloudinaryCloudName}/image/upload/NARAP/signature/${filename}`
+                ];
+                
+                resultsHTML += `
+                    <div class="test-card">
+                        <h3>Testing: ${filename}</h3>
+                `;
+                
+                for (let i = 0; i < cloudinaryUrls.length; i++) {
+                    const url = cloudinaryUrls[i];
+                    resultsHTML += `
+                        <div class="url-test">${url}</div>
+                        <div class="photo-container">
+                            <img src="${url}" 
+                                 alt="Cloudinary Test" 
+                                 onload="log('✅ Cloudinary loaded: ' + this.src, 'success')"
+                                 onerror="log('❌ Cloudinary failed: ' + this.src, 'error')">
+                        </div>
+                    `;
+                }
+                
+                resultsHTML += '</div>';
+            }
+            
+            resultsHTML += '</div>';
+            resultsDiv.innerHTML = resultsHTML;
+            
+            log('Cloudinary direct test completed', 'success');
+        }
+        
+        // getImageUrl function (same as admin.js)
+        function getImageUrl(imagePath) {
+            if (!imagePath) {
+                return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZjhmOWZhIi8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjNjY3ZWVhIi8+CjxwYXRoIGQ9Ik0yMCA3NUg4MFY4NUgyMFY3NVoiIGZpbGw9IiM2NjdlZWEiLz4KPC9zdmc+';
+            }
+
+            let validImageUrl = null;
+            
+            try {
+                if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+                    validImageUrl = imagePath;
+                } else if (imagePath.startsWith('/')) {
+                    validImageUrl = `${backendUrl}${imagePath}`;
+                } else if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
+                    const fieldType = imagePath.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
+                    validImageUrl = `${backendUrl}/api/uploads/${fieldType === 'passportPhoto' ? 'passports' : 'signatures'}/${imagePath}`;
+                } else if (imagePath.includes('uploads/passports/')) {
+                    const filename = imagePath.split('uploads/passports/').pop();
+                    validImageUrl = `${backendUrl}/api/uploads/passports/${filename}`;
+                } else if (imagePath.includes('uploads/signatures/')) {
+                    const filename = imagePath.split('uploads/signatures/').pop();
+                    validImageUrl = `${backendUrl}/api/uploads/signatures/${filename}`;
+                } else if (imagePath.includes('\\') || imagePath.includes('/')) {
+                    const filename = imagePath.split(/[\\/]/).pop();
+                    validImageUrl = `${backendUrl}/api/uploads/passports/${filename}`;
+                } else {
+                    validImageUrl = `${backendUrl}/api/uploads/passports/${imagePath}`;
+                }
+                
+                return validImageUrl;
+            } catch (error) {
+                return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZjhmOWZhIi8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjNjY3ZWVhIi8+CjxwYXRoIGQ9Ik0yMCA3NUg4MFY4NUgyMFY3NVoiIGZpbGw9IiM2NjdlZWEiLz4KPC9zdmc+';
+            }
+        }
+        
+        // Clear functions
+        function clearMemberTableResults() { clearResults('memberTableResults'); }
+        function clearVerificationResults() { clearResults('verificationResults'); }
+        function clearCertificateResults() { clearResults('certificateResults'); }
+        function clearUrlResults() { clearResults('urlResults'); }
+        function clearCloudinaryResults() { clearResults('cloudinaryResults'); }
+        function clearLog() { document.getElementById('testLog').innerHTML = ''; }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Comprehensive photo display test initialized', 'info');
+            log('Ready to test photo display across all components', 'success');
+        });
+    </script>
+</body>
+</html> 

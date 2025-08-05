@@ -800,8 +800,25 @@ body {
   top: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(5px);
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-50px) scale(0.9); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
 }
 
 /* Updated Result Modal Styles */
@@ -817,6 +834,8 @@ body {
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.25);
   position: relative;
   border: 1px solid rgba(102, 126, 234, 0.1);
+  animation: slideIn 0.4s ease-out;
+  transform-origin: center;
 }
 
 .result-modal-header {
@@ -1898,58 +1917,37 @@ function displayMemberResult(member) {
   console.log('Member data received:', member);
   console.log('Passport photo URL found:', passportPhoto);
   console.log('Backend URL:', backendUrl);
-  console.log('🔍 Full member object:', JSON.stringify(member, null, 2));
   
-  // Validate photo URL
+  // Validate photo URL with improved logic
   let validPhotoUrl = null;
   if (passportPhoto) {
     try {
       console.log('🔍 Processing photo URL:', passportPhoto);
-      console.log('🔍 Backend URL:', backendUrl);
       
-      // Backend should now return full URLs, but handle fallbacks
+      // Handle different URL formats
       if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://') || passportPhoto.startsWith('data:')) {
         validPhotoUrl = passportPhoto;
         console.log('✅ Using full URL:', validPhotoUrl);
       } else if (passportPhoto.startsWith('/')) {
         validPhotoUrl = `${backendUrl}${passportPhoto}`;
         console.log('✅ Using relative URL:', validPhotoUrl);
+      } else if (passportPhoto.includes('passportPhoto-') || passportPhoto.includes('signature-')) {
+        // Handle filename patterns
+        const fieldType = passportPhoto.includes('passportPhoto-') ? 'passports' : 'signatures';
+        validPhotoUrl = `${backendUrl}/api/uploads/${fieldType}/${passportPhoto}`;
+        console.log('✅ Using filename pattern URL:', validPhotoUrl);
       } else {
-        // Fallback for filename-only cases
+        // Fallback for other cases
         validPhotoUrl = `${backendUrl}/api/uploads/passports/${passportPhoto}`;
-        console.log('✅ Using filename fallback:', validPhotoUrl);
+        console.log('✅ Using fallback URL:', validPhotoUrl);
       }
       console.log('🎯 Final photo URL:', validPhotoUrl);
-      
-      // Test if the photo URL is accessible
-      if (validPhotoUrl) {
-        try {
-          testPhotoUrl(validPhotoUrl).then(isAccessible => {
-            console.log('🔍 Photo URL accessibility test result:', isAccessible);
-            if (!isAccessible) {
-              console.log('⚠️ Photo URL is not accessible, will show placeholder');
-            }
-          }).catch(error => {
-            console.log('❌ Photo URL test error:', error);
-          });
-        } catch (error) {
-          console.log('❌ Error testing photo URL:', error);
-        }
-      }
     } catch (error) {
       console.log('❌ Error processing photo URL:', error);
       validPhotoUrl = null;
     }
   } else {
     console.log('❌ No passport photo data found');
-    console.log('🔍 All photo fields:', {
-      passportPhoto: member.passportPhoto,
-      passport: member.passport,
-      photo: member.photo,
-      profilePhoto: member.profilePhoto,
-      image: member.image,
-      avatar: member.avatar
-    });
   }
   
   // Validate signature URL
@@ -1960,6 +1958,8 @@ function displayMemberResult(member) {
         validSignatureUrl = signature;
       } else if (signature.startsWith('/')) {
         validSignatureUrl = `${backendUrl}${signature}`;
+      } else if (signature.includes('signature-')) {
+        validSignatureUrl = `${backendUrl}/api/uploads/signatures/${signature}`;
       } else {
         validSignatureUrl = `${backendUrl}/api/uploads/signatures/${signature}`;
       }
@@ -1980,14 +1980,15 @@ function displayMemberResult(member) {
           <div class="member-photo-container">
             ${validPhotoUrl ? 
               `<img src="${validPhotoUrl}" alt="Member Photo" class="member-photo" 
-                   onload="handleMemberPhotoLoad(this)"
-                   onerror="handleMemberPhotoError(this, '${validPhotoUrl}')"
+                   onload="console.log('✅ Photo loaded successfully:', this.src)"
+                   onerror="console.log('❌ Photo failed to load:', this.src); this.style.display='none'; this.nextElementSibling.style.display='flex';"
                    style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block;">` :
-              `<div class="member-photo-placeholder" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px; color: #666;">
-                 <i class="fas fa-user" style="font-size: 2em;"></i>
-                 <div style="margin-top: 8px; font-size: 12px;">No Photo Available</div>
-               </div>`
+              ''
             }
+            <div class="member-photo-placeholder" style="width: 100%; height: 100%; display: ${validPhotoUrl ? 'none' : 'flex'}; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px; color: #666; flex-direction: column;">
+              <i class="fas fa-user" style="font-size: 2em; margin-bottom: 8px;"></i>
+              <div style="font-size: 12px;">No Photo Available</div>
+            </div>
           </div>
           <div class="member-info">
             <div class="member-name">${member.name || member.fullName || 'N/A'}</div>

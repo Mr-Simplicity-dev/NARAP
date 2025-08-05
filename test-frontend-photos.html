@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NARAP Frontend Photo Display Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 2px solid #f0f0f0;
+            border-radius: 10px;
+        }
+        
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .member-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .member-table th,
+        .member-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .member-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .member-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .member-photo {
+            width: 60px;
+            height: 80px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            object-fit: cover;
+            background: #f8f9fa;
+        }
+        
+        .verification-card {
+            display: flex;
+            gap: 30px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .member-card {
+            flex: 0 0 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .member-card-photo {
+            width: 200px;
+            height: 250px;
+            border: 3px solid #667eea;
+            border-radius: 8px;
+            object-fit: cover;
+            margin: 10px 0;
+            background: #f8f9fa;
+        }
+        
+        .personal-details {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .detail-value {
+            color: #333;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn.secondary {
+            background: #6c757d;
+        }
+        
+        .btn.secondary:hover {
+            background: #5a6268;
+        }
+        
+        .status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 5px 0;
+            display: inline-block;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .log-container {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .log-entry.success { color: #28a745; }
+        .log-entry.error { color: #dc3545; }
+        .log-entry.warning { color: #ffc107; }
+        .log-entry.info { color: #17a2b8; }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .search-filter-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            transition: border-color 0.3s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        select {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 NARAP Frontend Photo Display Test</h1>
+        
+        <!-- Test Controls -->
+        <div class="test-section">
+            <h2>⚙️ Test Controls</h2>
+            <div class="test-controls">
+                <button class="btn" onclick="testAdminPanel()">Test Admin Panel Photos</button>
+                <button class="btn" onclick="testVerificationPage()">Test Verification Page</button>
+                <button class="btn" onclick="testSpecificMember()">Test Specific Member</button>
+                <button class="btn secondary" onclick="clearResults()">Clear Results</button>
+            </div>
+            
+            <div class="search-filter-bar">
+                <input type="text" id="memberSearch" class="search-input" placeholder="Search members...">
+                <select id="positionFilter">
+                    <option value="">All Positions</option>
+                    <option value="PROVOST MARSHAL">PROVOST MARSHAL</option>
+                    <option value="DEPUTY PROVOST MARSHAL">DEPUTY PROVOST MARSHAL</option>
+                    <option value="ASSISTANT PROVOST MARSHAL">ASSISTANT PROVOST MARSHAL</option>
+                </select>
+                <select id="stateFilter">
+                    <option value="">All States</option>
+                    <option value="LAGOS">LAGOS</option>
+                    <option value="ANAMBRA">ANAMBRA</option>
+                    <option value="ABUJA">ABUJA</option>
+                </select>
+                <button class="btn" onclick="applyFilters()">Apply Filters</button>
+            </div>
+        </div>
+        
+        <!-- Admin Panel Test Results -->
+        <div class="test-section">
+            <h2>👥 Admin Panel Photo Test</h2>
+            <div id="adminPanelResults">
+                <p>Click "Test Admin Panel Photos" to start testing...</p>
+            </div>
+        </div>
+        
+        <!-- Verification Page Test Results -->
+        <div class="test-section">
+            <h2>🔍 Verification Page Photo Test</h2>
+            <div id="verificationResults">
+                <p>Click "Test Verification Page" to start testing...</p>
+            </div>
+        </div>
+        
+        <!-- Test Log -->
+        <div class="test-section">
+            <h2>📋 Test Log</h2>
+            <button class="btn secondary" onclick="clearLog()">Clear Log</button>
+            <div id="testLog" class="log-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const backendUrl = 'https://narap-backend.onrender.com';
+        const cloudinaryCloudName = 'dh5wjtvlf';
+        
+        // Utility functions
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearResults() {
+            document.getElementById('adminPanelResults').innerHTML = '<p>Click "Test Admin Panel Photos" to start testing...</p>';
+            document.getElementById('verificationResults').innerHTML = '<p>Click "Test Verification Page" to start testing...</p>';
+        }
+        
+        function clearLog() {
+            document.getElementById('testLog').innerHTML = '';
+        }
+        
+        // getImageUrl function (same as admin.js)
+        function getImageUrl(imagePath) {
+            if (!imagePath) {
+                return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZjhmOWZhIi8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjNjY3ZWVhIi8+CjxwYXRoIGQ9Ik0yMCA3NUg4MFY4NUgyMFY3NVoiIGZpbGw9IiM2NjdlZWEiLz4KPC9zdmc+';
+            }
+
+            let validImageUrl = null;
+            
+            try {
+                if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+                    validImageUrl = imagePath;
+                } else if (imagePath.startsWith('/')) {
+                    validImageUrl = `${backendUrl}${imagePath}`;
+                } else if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
+                    const fieldType = imagePath.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
+                    validImageUrl = `${backendUrl}/api/uploads/${fieldType === 'passportPhoto' ? 'passports' : 'signatures'}/${imagePath}`;
+                } else if (imagePath.includes('uploads/passports/')) {
+                    const filename = imagePath.split('uploads/passports/').pop();
+                    validImageUrl = `${backendUrl}/api/uploads/passports/${filename}`;
+                } else if (imagePath.includes('uploads/signatures/')) {
+                    const filename = imagePath.split('uploads/signatures/').pop();
+                    validImageUrl = `${backendUrl}/api/uploads/signatures/${filename}`;
+                } else if (imagePath.includes('\\') || imagePath.includes('/')) {
+                    const filename = imagePath.split(/[\\/]/).pop();
+                    validImageUrl = `${backendUrl}/api/uploads/passports/${imagePath}`;
+                } else {
+                    validImageUrl = `${backendUrl}/api/uploads/passports/${imagePath}`;
+                }
+                
+                return validImageUrl;
+            } catch (error) {
+                return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZjhmOWZhIi8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjNjY3ZWVhIi8+CjxwYXRoIGQ9Ik0yMCA3NUg4MFY4NUgyMFY3NVoiIGZpbGw9IiM2NjdlZWEiLz4KPC9zdmc+';
+            }
+        }
+        
+        // Handle image errors (same as admin.js)
+        function handleMemberTableImageError(img, originalUrl, alternativeUrls = []) {
+            log(`❌ Image failed to load: ${originalUrl}`, 'error');
+            
+            if (alternativeUrls.length > 0) {
+                const nextUrl = alternativeUrls.shift();
+                log(`🔄 Trying alternative URL: ${nextUrl}`, 'warning');
+                img.src = nextUrl;
+            } else {
+                log(`💀 All URLs failed, using default avatar`, 'error');
+                img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZjhmOWZhIi8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjNjY3ZWVhIi8+CjxwYXRoIGQ9Ik0yMCA3NUg4MFY4NUgyMFY3NVoiIGZpbGw9IiM2NjdlZWEiLz4KPC9zdmc+';
+            }
+        }
+        
+        // Test Admin Panel Photos
+        async function testAdminPanel() {
+            log('Testing Admin Panel Photo Display...', 'info');
+            const resultsDiv = document.getElementById('adminPanelResults');
+            resultsDiv.innerHTML = '<div class="loading"></div> Loading members...';
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/users/members`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                const members = data.members || data.data || [];
+                
+                log(`Found ${members.length} members`, 'success');
+                
+                // Get first 10 members with photos
+                const membersWithPhotos = members.filter(m => m.passportPhoto || m.passport).slice(0, 10);
+                
+                if (membersWithPhotos.length === 0) {
+                    resultsDiv.innerHTML = '<p>No members with photos found</p>';
+                    return;
+                }
+                
+                let tableHTML = `
+                    <table class="member-table">
+                        <thead>
+                            <tr>
+                                <th>Photo</th>
+                                <th>Name</th>
+                                <th>Code</th>
+                                <th>Position</th>
+                                <th>State</th>
+                                <th>Photo Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                membersWithPhotos.forEach((member, index) => {
+                    const photoUrl = member.passportPhoto || member.passport;
+                    const imageUrl = getImageUrl(photoUrl);
+                    
+                    // Create alternative URLs for fallback
+                    const alternativeUrls = [
+                        `${backendUrl}/api/uploads/passports/${photoUrl}`,
+                        `${backendUrl}/api/uploads/signatures/${photoUrl}`,
+                        `https://res.cloudinary.com/${cloudinaryCloudName}/image/upload/v1/NARAP/passportPhoto/${photoUrl}`,
+                        `https://res.cloudinary.com/${cloudinaryCloudName}/image/upload/NARAP/passportPhoto/${photoUrl}`
+                    ];
+                    
+                    tableHTML += `
+                        <tr>
+                            <td>
+                                <img src="${imageUrl}" 
+                                     alt="Member Photo" 
+                                     class="member-photo"
+                                     onload="log('✅ Admin panel photo loaded: ' + this.src, 'success')"
+                                     onerror="handleMemberTableImageError(this, '${imageUrl}', ${JSON.stringify(alternativeUrls)})">
+                            </td>
+                            <td>${member.name}</td>
+                            <td>${member.code}</td>
+                            <td>${member.position || 'N/A'}</td>
+                            <td>${member.state || 'N/A'}</td>
+                            <td><span class="status success">Testing...</span></td>
+                        </tr>
+                    `;
+                });
+                
+                tableHTML += '</tbody></table>';
+                resultsDiv.innerHTML = tableHTML;
+                
+                log(`Testing ${membersWithPhotos.length} member photos in admin panel`, 'success');
+                
+            } catch (error) {
+                log(`Admin panel test failed: ${error.message}`, 'error');
+                resultsDiv.innerHTML = `<p class="status error">Test failed: ${error.message}</p>`;
+            }
+        }
+        
+        // Test Verification Page
+        async function testVerificationPage() {
+            log('Testing Verification Page Photo Display...', 'info');
+            const resultsDiv = document.getElementById('verificationResults');
+            resultsDiv.innerHTML = '<div class="loading"></div> Loading verification data...';
+            
+            try {
+                // Test with a known member code
+                const testMemberCode = 'N/045/ANA/05';
+                
+                const response = await fetch(`${backendUrl}/api/users/members/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: testMemberCode })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.success && data.member) {
+                    const member = data.member;
+                    const photoUrl = member.passportPhoto || member.passport;
+                    
+                    log(`Member found: ${member.name} (${member.code})`, 'success');
+                    log(`Photo URL: ${photoUrl}`, 'info');
+                    
+                    const verificationHTML = `
+                        <div class="verification-card">
+                            <div class="member-card">
+                                <h3>Member Verification Card</h3>
+                                <img src="${photoUrl}" 
+                                     alt="Member Photo" 
+                                     class="member-card-photo"
+                                     onload="log('✅ Verification photo loaded: ' + this.src, 'success')"
+                                     onerror="log('❌ Verification photo failed: ' + this.src, 'error')">
+                                <p><strong>Status:</strong> <span class="status success">ACTIVE MEMBER</span></p>
+                            </div>
+                            
+                            <div class="personal-details">
+                                <h3>Personal Details</h3>
+                                <div class="detail-row">
+                                    <span class="detail-label">Full Name:</span>
+                                    <span class="detail-value">${member.name}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Member Code:</span>
+                                    <span class="detail-value">${member.code}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Position:</span>
+                                    <span class="detail-value">${member.position || 'N/A'}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">State:</span>
+                                    <span class="detail-value">${member.state || 'N/A'}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Zone:</span>
+                                    <span class="detail-value">${member.zone || 'N/A'}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Date Added:</span>
+                                    <span class="detail-value">${new Date(member.dateAdded).toLocaleDateString()}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Status:</span>
+                                    <span class="detail-value">${member.isActive ? 'Active' : 'Inactive'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
+                            <h4 style="color: #856404; margin: 0 0 10px 0;">⚠️ Impersonation Warning</h4>
+                            <p style="color: #856404; margin: 0 0 15px 0;">
+                                If you suspect this member information is being used fraudulently, 
+                                please contact the NARAP Task Force immediately.
+                            </p>
+                            <button class="btn" style="background: #dc3545;" onclick="callTaskForce()">
+                                🚨 Call Task Force (07067012884)
+                            </button>
+                        </div>
+                    `;
+                    
+                    resultsDiv.innerHTML = verificationHTML;
+                    
+                } else {
+                    log(`Member not found: ${testMemberCode}`, 'warning');
+                    resultsDiv.innerHTML = `<p class="status warning">Member not found: ${testMemberCode}</p>`;
+                }
+                
+            } catch (error) {
+                log(`Verification test failed: ${error.message}`, 'error');
+                resultsDiv.innerHTML = `<p class="status error">Test failed: ${error.message}</p>`;
+            }
+        }
+        
+        // Test Specific Member
+        async function testSpecificMember() {
+            const memberCode = prompt('Enter member code to test:');
+            if (!memberCode) return;
+            
+            log(`Testing specific member: ${memberCode}`, 'info');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/users/members/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: memberCode })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.success && data.member) {
+                    log(`✅ Member found: ${data.member.name}`, 'success');
+                    log(`Photo URL: ${data.member.passportPhoto || data.member.passport}`, 'info');
+                    
+                    // Test the photo URL
+                    const photoUrl = data.member.passportPhoto || data.member.passport;
+                    if (photoUrl) {
+                        const img = new Image();
+                        img.onload = () => log(`✅ Photo loads successfully: ${photoUrl}`, 'success');
+                        img.onerror = () => log(`❌ Photo failed to load: ${photoUrl}`, 'error');
+                        img.src = photoUrl;
+                    }
+                } else {
+                    log(`❌ Member not found: ${memberCode}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Specific member test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            const searchTerm = document.getElementById('memberSearch').value;
+            const positionFilter = document.getElementById('positionFilter').value;
+            const stateFilter = document.getElementById('stateFilter').value;
+            
+            log(`Applying filters - Search: "${searchTerm}", Position: "${positionFilter}", State: "${stateFilter}"`, 'info');
+            
+            // Re-run admin panel test with filters
+            testAdminPanel();
+        }
+        
+        // Task Force function
+        function callTaskForce() {
+            const phoneNumber = '07067012884';
+            log(`Calling Task Force: ${phoneNumber}`, 'info');
+            
+            if (navigator.userAgent.match(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i)) {
+                window.location.href = `tel:${phoneNumber}`;
+            } else {
+                // For desktop, copy to clipboard
+                navigator.clipboard.writeText(phoneNumber).then(() => {
+                    alert(`Task Force number copied to clipboard: ${phoneNumber}`);
+                });
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Frontend photo display test initialized', 'info');
+            log('Ready to test admin panel and verification page photos', 'success');
+        });
+    </script>
+</body>
+</html> 
