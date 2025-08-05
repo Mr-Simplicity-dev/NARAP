@@ -2088,6 +2088,7 @@ function displayMemberResult(member) {
     }
   }, 100);
   
+  console.log('🔍 displayMemberResult() - Showing result modal');
   document.getElementById('resultModal').style.display = 'block';
 }
 
@@ -3248,6 +3249,7 @@ async function searchUser(event) {
       const user = localUsers.find(u => u.code && u.code.toUpperCase() === code.toUpperCase());
       
       if (user) {
+        console.log('Found user in localStorage:', user);
         const normalizedUser = {
           ...user,
           passportPhoto: user.passport || user.passportPhoto || user.photo,
@@ -3356,6 +3358,7 @@ function displayCertificateResult(certificate, message = '') {
     ` : ''}
   `;
   
+  console.log('🔍 displayCertificateResult() - Showing result modal');
   document.getElementById('resultModal').style.display = 'block';
 }
 
@@ -3382,6 +3385,7 @@ function closeModal() {
 }
 
 function showHelp() {
+  console.log('🔍 showHelp() called');
   document.getElementById('helpModal').style.display = 'block';
 }
 
@@ -3390,6 +3394,7 @@ function closeHelp() {
 }
 
 function showContact() {
+  console.log('🔍 showContact() called');
   document.getElementById('contactModal').style.display = 'block';
 }
 
@@ -3690,6 +3695,34 @@ try {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', async function() {
+  // Ensure all modals are hidden on page load
+  console.log('🔍 Ensuring all modals are hidden on page load...');
+  const resultModal = document.getElementById('resultModal');
+  const helpModal = document.getElementById('helpModal');
+  const contactModal = document.getElementById('contactModal');
+  
+  if (resultModal) resultModal.style.display = 'none';
+  if (helpModal) helpModal.style.display = 'none';
+  if (contactModal) contactModal.style.display = 'none';
+  
+  console.log('✅ All modals hidden on page load');
+  
+  // Check if any modals are still visible (debugging)
+  setTimeout(() => {
+    const resultModalVisible = resultModal && resultModal.style.display === 'block';
+    const helpModalVisible = helpModal && helpModal.style.display === 'block';
+    const contactModalVisible = contactModal && contactModal.style.display === 'block';
+    
+    if (resultModalVisible || helpModalVisible || contactModalVisible) {
+      console.log('⚠️ WARNING: Modals are visible on page load!');
+      console.log('Result modal visible:', resultModalVisible);
+      console.log('Help modal visible:', helpModalVisible);
+      console.log('Contact modal visible:', contactModalVisible);
+    } else {
+      console.log('✅ All modals are properly hidden');
+    }
+  }, 1000);
+  
   // Focus on the first input field after welcome screen
   setTimeout(() => {
     document.getElementById('memberCode').focus();
