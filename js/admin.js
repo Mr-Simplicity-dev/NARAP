@@ -4045,18 +4045,21 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
                 imageUrl: imageUrl
             });
             
-            // Add error handling for broken images with fallback
-            const fieldType = (member.passportPhoto || member.passport)?.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
+            // Enhanced error handling with multiple fallback URLs (like verification page)
             const filename = member.passportPhoto || member.passport;
-            const cloudinaryFallback = filename ? `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/${fieldType}/${filename}` : '';
+            const alternativeUrls = filename ? [
+                `${backendUrl}/api/uploads/passports/${filename}`,
+                `${backendUrl}/api/uploads/signatures/${filename}`,
+                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/${filename}`,
+                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/signature/${filename}`
+            ] : [];
             
             const imgElement = `
                 <img alt="Passport" class="img-thumbnail" height="50" width="50" 
                      src="${imageUrl}" 
-                     onerror="this.src='${cloudinaryFallback}'; console.log('❌ Backend URL failed, trying Cloudinary:', '${imageUrl}');" 
                      onload="this.style.display='block'; console.log('✅ Image loaded successfully:', '${imageUrl}');" 
-                     style="display:none"
-                     onerror="this.src='${DEFAULT_AVATAR}'; console.log('❌ All URLs failed, using default avatar');">
+                     onerror="handleMemberTableImageError(this, '${imageUrl}', ${JSON.stringify(alternativeUrls)});" 
+                     style="display:none">
             `;
             
             const rowHTML = `
@@ -7623,6 +7626,47 @@ function debugFileUpload(input, labelId) {
 
 // ==================== UTILITY FUNCTIONS ====================
 
+// Enhanced image error handling for member table (similar to verification page)
+function handleMemberTableImageError(img, originalUrl, alternativeUrls) {
+    console.log('❌ Member table image failed to load:', originalUrl);
+    
+    if (!alternativeUrls || alternativeUrls.length === 0) {
+        console.log('❌ No alternative URLs available, using default avatar');
+        img.src = DEFAULT_AVATAR;
+        img.style.display = 'block';
+        return;
+    }
+    
+    let currentIndex = 0;
+    
+    function tryNextAlternative() {
+        if (currentIndex >= alternativeUrls.length) {
+            console.log('❌ All alternative URLs failed, using default avatar');
+            img.src = DEFAULT_AVATAR;
+            img.style.display = 'block';
+            return;
+        }
+        
+        const testUrl = alternativeUrls[currentIndex];
+        console.log(`🔄 Trying alternative URL ${currentIndex + 1}:`, testUrl);
+        
+        const testImg = new Image();
+        testImg.onload = function() {
+            console.log('✅ Alternative URL worked:', testUrl);
+            img.src = testUrl;
+            img.style.display = 'block';
+        };
+        testImg.onerror = function() {
+            console.log('❌ Alternative URL failed:', testUrl);
+            currentIndex++;
+            setTimeout(tryNextAlternative, 500);
+        };
+        testImg.src = testUrl;
+    }
+    
+    setTimeout(tryNextAlternative, 1000);
+}
+
 function getImageUrl(imagePath) {
     console.log('🔍 getImageUrl called with:', imagePath);
     
@@ -7630,116 +7674,57 @@ function getImageUrl(imagePath) {
         console.log('❌ No image path provided, using default avatar');
         return DEFAULT_AVATAR;
     }
+
+    // Apply the same robust URL processing logic as verification page
+    let validImageUrl = null;
     
-    // If it's already a full URL (including Cloudinary), return as is
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-        console.log('✅ Full URL detected:', imagePath);
-        return imagePath;
-    }
-    
-    // If it's a base64 data URL (legacy support), validate it
-    if (imagePath.startsWith('data:image/')) {
-        console.log('🔍 Base64 data URL detected');
-        // Check if base64 data is complete and valid
-        if (imagePath.length > 100 && imagePath.includes('base64,')) {
-            try {
-                // Try to validate the base64 data
-                const base64Part = imagePath.split('base64,')[1];
-                if (base64Part && base64Part.length > 100) { // Increased minimum length
-                    // Additional validation: check if base64 ends properly
-                    if (base64Part.length % 4 === 0) { // Base64 should be divisible by 4
-                        console.log('✅ Valid base64 data URL');
-                        return imagePath;
-                    } else {
-                        console.log('❌ Invalid base64 data, using default avatar');
-                        return DEFAULT_AVATAR;
-                    }
-                } else {
-                    console.log('❌ Base64 data too short, using default avatar');
-                    return DEFAULT_AVATAR;
-                }
-            } catch (error) {
-                console.log('❌ Base64 validation error, using default avatar');
-                return DEFAULT_AVATAR;
-            }
-        } else {
-            console.log('❌ Invalid base64 format, using default avatar');
-            return DEFAULT_AVATAR;
+    try {
+        // Check for full URLs first (including Cloudinary)
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+            validImageUrl = imagePath;
+            console.log('✅ Using full URL:', validImageUrl);
+        } 
+        // Check for relative URLs
+        else if (imagePath.startsWith('/')) {
+            validImageUrl = `${backendUrl}${imagePath}`;
+            console.log('✅ Using relative URL:', validImageUrl);
+        } 
+        // Check for Cloudinary-style filenames
+        else if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
+            const fieldType = imagePath.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
+            validImageUrl = `${backendUrl}/api/uploads/${fieldType === 'passportPhoto' ? 'passports' : 'signatures'}/${imagePath}`;
+            console.log('✅ Using backend upload endpoint:', validImageUrl);
+        } 
+        // Check for full paths from Multer upload
+        else if (imagePath.includes('uploads/passports/')) {
+            const filename = imagePath.split('uploads/passports/').pop();
+            validImageUrl = `${backendUrl}/api/uploads/passports/${filename}`;
+            console.log('✅ Using extracted passport filename:', validImageUrl);
         }
-    }
-    
-    // Try to construct Cloudinary URL if it's a filename
-    if (imagePath.includes('.') && !imagePath.includes('/')) {
-                    // Check if it looks like a Cloudinary filename
-            if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
-                // Determine the field type based on filename
-                const fieldType = imagePath.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
-                
-                // Use backend upload endpoint (which handles both local and Cloudinary files)
-                const uploadUrl = `${backendUrl}/api/uploads/${fieldType === 'passportPhoto' ? 'passports' : 'signatures'}/${imagePath}`;
-                console.log('🔍 Using backend upload endpoint:', uploadUrl);
-                
-                // Also log the Cloudinary URL as fallback
-                const cloudinaryUrl = `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/${fieldType}/${imagePath}`;
-                console.log('🔍 Cloudinary fallback URL:', cloudinaryUrl);
-                
-                return uploadUrl;
-            }
-            
-            // If it's already a full URL (Cloudinary or other), return as is
-            if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-                console.log('✅ Full URL detected:', imagePath);
-                return imagePath;
-            }
+        else if (imagePath.includes('uploads/signatures/')) {
+            const filename = imagePath.split('uploads/signatures/').pop();
+            validImageUrl = `${backendUrl}/api/uploads/signatures/${filename}`;
+            console.log('✅ Using extracted signature filename:', validImageUrl);
+        }
+        // Check for absolute paths (Windows or Unix)
+        else if (imagePath.includes('\\') || imagePath.includes('/')) {
+            const filename = imagePath.split(/[\\/]/).pop();
+            validImageUrl = `${backendUrl}/api/uploads/passports/${filename}`;
+            console.log('✅ Using extracted filename from absolute path:', validImageUrl);
+        }
+        // Generic fallback for other filenames
+        else {
+            validImageUrl = `${backendUrl}/api/uploads/passports/${imagePath}`;
+            console.log('✅ Using generic fallback URL:', validImageUrl);
+        }
         
-            // Check if it's already a Cloudinary URL (production backend might return full URLs)
-    if (imagePath.includes('res.cloudinary.com')) {
-        console.log('✅ Already a Cloudinary URL:', imagePath);
-        return imagePath;
-    }
-    
-    // Check if it's already a full URL (http/https)
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-        console.log('✅ Full URL detected:', imagePath);
-        return imagePath;
-    }
+        console.log('🎯 Final image URL:', validImageUrl);
+        return validImageUrl;
         
-        // Fallback to old local file system
-        const localUrl = `${backendUrl}/api/uploads/passports/${imagePath}`;
-        console.log('🔍 Constructed local URL:', localUrl);
-        return localUrl;
+    } catch (error) {
+        console.log('❌ Error processing image URL:', error);
+        return DEFAULT_AVATAR;
     }
-    
-    // If it's a full path from Multer upload, extract filename and construct URL
-    if (imagePath.includes('uploads/passports/')) {
-        const filename = imagePath.split('uploads/passports/').pop();
-        const url = `${backendUrl}/api/uploads/passports/${filename}`;
-        console.log('🔍 Extracted filename from path:', filename);
-        console.log('🔍 Constructed URL:', url);
-        return url;
-    }
-    
-    // If it's a full path from Multer upload, extract filename and construct URL
-    if (imagePath.includes('uploads/signatures/')) {
-        const filename = imagePath.split('uploads/signatures/').pop();
-        const url = `${backendUrl}/api/uploads/signatures/${filename}`;
-        console.log('🔍 Extracted signature filename from path:', filename);
-        console.log('🔍 Constructed signature URL:', url);
-        return url;
-    }
-    
-    // If it's a full absolute path (Windows or Unix), extract just the filename
-    if (imagePath.includes('\\') || imagePath.includes('/')) {
-        const filename = imagePath.split(/[\\/]/).pop();
-        const url = `${backendUrl}/api/uploads/passports/${filename}`;
-        console.log('🔍 Extracted filename from absolute path:', filename);
-        console.log('🔍 Constructed URL:', url);
-        return url;
-    }
-    
-    // Default fallback
-    console.log('❌ No matching pattern found, using default avatar');
-    return DEFAULT_AVATAR;
 }
 
 // Utility function to clean up certificates with null certificate numbers
