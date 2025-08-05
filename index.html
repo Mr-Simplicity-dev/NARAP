@@ -767,6 +767,16 @@ body {
     font-size: 15px;
   }
 }
+
+/* Styles for impersonation warning when positioned after modal buttons */
+.result-modal-content .impersonation-warning {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+.result-modal-content .impersonation-warning:first-of-type {
+  margin-top: 20px;
+}
   
   .details-grid {
     gap: 12px;
@@ -2044,29 +2054,39 @@ function displayMemberResult(member) {
         All information displayed is authentic and up-to-date as of ${new Date().toLocaleDateString()}.
       </p>
     </div>
-
-    <!-- Impersonation Warning and Task Force Button -->
-    <div class="impersonation-warning">
-      <div class="impersonation-content">
-        <div class="impersonation-text">
-          <h5 class="impersonation-title">
-            <i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
-            Impersonation Warning
-          </h5>
-          <p class="impersonation-description">
-            If you suspect this member is being impersonated or if you notice any suspicious activity, 
-            please contact the NARAP Task Force immediately. They are available 24/7 to handle security concerns.
-          </p>
-        </div>
-        <div>
-          <button onclick="callTaskForce()" class="task-force-button">
-            <i class="fas fa-phone" style="font-size: 14px;"></i>
-            Task Force
-          </button>
-        </div>
-      </div>
-    </div>
   `;
+  
+  // Add impersonation warning after modal buttons
+  setTimeout(() => {
+    const modalButtons = document.querySelector('.modal-buttons');
+    if (modalButtons) {
+      const impersonationWarning = document.createElement('div');
+      impersonationWarning.className = 'impersonation-warning';
+      impersonationWarning.innerHTML = `
+        <div class="impersonation-content">
+          <div class="impersonation-text">
+            <h5 class="impersonation-title">
+              <i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
+              Impersonation Warning
+            </h5>
+            <p class="impersonation-description">
+              If you suspect this member is being impersonated or if you notice any suspicious activity, 
+              please contact the NARAP Task Force immediately. They are available 24/7 to handle security concerns.
+            </p>
+          </div>
+          <div>
+            <button onclick="callTaskForce()" class="task-force-button">
+              <i class="fas fa-phone" style="font-size: 14px;"></i>
+              Task Force
+            </button>
+          </div>
+        </div>
+      `;
+      
+      // Insert after modal buttons
+      modalButtons.parentNode.insertBefore(impersonationWarning, modalButtons.nextSibling);
+    }
+  }, 100);
   
   document.getElementById('resultModal').style.display = 'block';
 }
