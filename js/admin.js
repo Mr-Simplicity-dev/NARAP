@@ -4040,28 +4040,52 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
             const state = member.state || 'N/A';
             const zone = member.zone || 'N/A';
             
-            const imageUrl = getImageUrl(member.passportPhoto || member.passport);
+            // Get photo URL with improved logic (same as verification page)
+            const passportPhoto = member.passportPhoto || member.passport;
+            let validPhotoUrl = null;
+            
+            if (passportPhoto) {
+                try {
+                    // Handle different URL formats
+                    if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://') || passportPhoto.startsWith('data:')) {
+                        validPhotoUrl = passportPhoto;
+                    } else if (passportPhoto.startsWith('/')) {
+                        validPhotoUrl = `${backendUrl}${passportPhoto}`;
+                    } else if (passportPhoto.includes('passportPhoto-') || passportPhoto.includes('signature-')) {
+                        // Handle filename patterns
+                        const fieldType = passportPhoto.includes('passportPhoto-') ? 'passports' : 'signatures';
+                        validPhotoUrl = `${backendUrl}/api/uploads/${fieldType}/${passportPhoto}`;
+                    } else {
+                        // Fallback for other cases
+                        validPhotoUrl = `${backendUrl}/api/uploads/passports/${passportPhoto}`;
+                    }
+                } catch (error) {
+                    console.log('❌ Error processing photo URL:', error);
+                    validPhotoUrl = null;
+                }
+            }
+            
             console.log('🔍 Image debug for member:', member.name, {
                 passportPhoto: member.passportPhoto,
                 passport: member.passport,
-                imageUrl: imageUrl
+                validPhotoUrl: validPhotoUrl
             });
             
-            // Enhanced error handling with multiple fallback URLs (like verification page)
-            const filename = member.passportPhoto || member.passport;
-            const alternativeUrls = filename ? [
-                `${backendUrl}/api/uploads/passports/${filename}`,
-                `${backendUrl}/api/uploads/signatures/${filename}`,
-                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/${filename}`,
-                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/signature/${filename}`
+            // Enhanced error handling with multiple fallback URLs
+            const alternativeUrls = validPhotoUrl ? [
+                validPhotoUrl,
+                `${backendUrl}/api/uploads/passports/${passportPhoto}`,
+                `${backendUrl}/api/uploads/signatures/${passportPhoto}`,
+                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/${passportPhoto}`,
+                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/signature/${passportPhoto}`
             ] : [];
             
             const imgElement = `
                 <img alt="Passport" class="img-thumbnail" height="50" width="50" 
-                     src="${imageUrl}" 
-                     onload="this.style.display='block'; console.log('✅ Image loaded successfully:', '${imageUrl}');" 
-                     onerror="handleMemberTableImageError(this, '${imageUrl}', ${JSON.stringify(alternativeUrls)});" 
-                     style="display:none">
+                     src="${validPhotoUrl || DEFAULT_AVATAR}" 
+                     onload="this.style.display='block'; console.log('✅ Image loaded successfully:', this.src);" 
+                     onerror="handleMemberTableImageError(this, '${validPhotoUrl || DEFAULT_AVATAR}', ${JSON.stringify(alternativeUrls)});" 
+                     style="display:${validPhotoUrl ? 'none' : 'block'}">
             `;
             
             const rowHTML = `
@@ -7679,12 +7703,13 @@ function handleMemberTableImageError(img, originalUrl, alternativeUrls) {
         testImg.onerror = function() {
             console.log('❌ Alternative URL failed:', testUrl);
             currentIndex++;
-            setTimeout(tryNextAlternative, 500);
+            setTimeout(tryNextAlternative, 300); // Faster retry
         };
         testImg.src = testUrl;
     }
     
-    setTimeout(tryNextAlternative, 1000);
+    // Start trying alternatives immediately
+    setTimeout(tryNextAlternative, 100);
 }
 
 function getImageUrl(imagePath) {
