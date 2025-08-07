@@ -8327,12 +8327,3 @@ window.testMemberUpdate = async function(memberId) {
     showMessage('Test update error: ' + error.message, 'error');
   }
 };
-
-
-
-
-
-
-
-
-
