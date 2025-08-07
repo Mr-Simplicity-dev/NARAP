@@ -705,23 +705,26 @@ body {
   }
   
   .result-modal.mobile-fullscreen .result-modal-content {
-    margin: 0;
-    width: 100%;
-    height: 100vh;
+    margin: 20px;
+    width: calc(100% - 40px);
+    height: calc(100vh - 40px);
     max-width: none;
     max-height: none;
-    border-radius: 0;
+    border-radius: 15px;
     display: flex;
     flex-direction: column;
     animation: slideInFullscreen 0.4s ease-out;
     padding: 15px;
+    background: white;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    overflow: hidden;
   }
   
   .result-modal.mobile-fullscreen .result-modal-header {
     flex-shrink: 0;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(102, 126, 234, 0.2);
   }
   
   .result-modal.mobile-fullscreen .result-modal-header h3 {
@@ -737,10 +740,10 @@ body {
   
   .result-modal.mobile-fullscreen .modal-buttons {
     flex-shrink: 0;
-    margin-top: 15px;
-    padding: 15px 0;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
+    margin-top: 10px;
+    padding: 10px 0;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 10px;
   }
   
   /* Compact mobile layout for member details */
@@ -749,8 +752,8 @@ body {
   }
   
   .result-modal.mobile-fullscreen .member-verification-card {
-    padding: 15px;
-    margin-bottom: 15px;
+    padding: 10px;
+    margin-bottom: 10px;
   }
   
   .result-modal.mobile-fullscreen .member-card-header {
@@ -828,9 +831,9 @@ body {
   }
   
   .result-modal.mobile-fullscreen .verification-success {
-    padding: 15px;
-    margin-top: 15px;
-    margin-bottom: 15px;
+    padding: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
   }
   
   .result-modal.mobile-fullscreen .verification-success strong {
