@@ -1071,18 +1071,17 @@ body {
 .result-modal-content .impersonation-warning:first-of-type {
   margin-top: 20px;
 }
-  
-  .details-grid {
-    gap: 12px;
-  }
-  
-  .detail-item {
-    padding: 15px;
-  }
-  
-  .id-card {
-    padding: 20px;
-  }
+
+.details-grid {
+  gap: 12px;
+}
+
+.detail-item {
+  padding: 15px;
+}
+
+.id-card {
+  padding: 20px;
 }
 
 /* Modal Styles */
@@ -1156,9 +1155,6 @@ body {
 
 .details-container {
   order: 1;
-}
-
-.details-container {
   display: flex;
   width: 100%;
   gap: 35px;
@@ -2411,6 +2407,9 @@ function displayMemberResult(member) {
     // On desktop: Show modal normally
     document.getElementById('resultModal').style.display = 'block';
   }
+  
+  // Scroll to top of the page to show the result at the top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Task Force call function
@@ -3681,6 +3680,9 @@ function displayCertificateResult(certificate, message = '') {
   
   console.log('🔍 displayCertificateResult() - Showing result modal');
   document.getElementById('resultModal').style.display = 'block';
+  
+  // Scroll to top of the page to show the result at the top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Show error message
@@ -3718,6 +3720,9 @@ function closeModal() {
     // Remove mobile-specific styling
     resultModal.classList.remove('mobile-fullscreen');
   }
+  
+  // Scroll to top to show the authentication portal
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function showHelp() {
