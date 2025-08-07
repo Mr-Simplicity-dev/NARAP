@@ -437,13 +437,15 @@ body {
 }
 
 .member-photo {
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
+  width: 120px;
+  height: 120px;
+  border-radius: 12px;
   object-fit: cover;
   border: 4px solid rgba(255, 255, 255, 0.4);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: block;
+  margin: 0 auto;
 }
 
 .member-photo:hover {
@@ -452,9 +454,9 @@ body {
 }
 
 .member-photo-placeholder {
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
+  width: 120px;
+  height: 120px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.15);
   display: flex;
   align-items: center;
@@ -463,6 +465,7 @@ body {
   font-size: 28px;
   color: rgba(255, 255, 255, 0.9);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  margin: 0 auto;
 }
 
 .member-info {
@@ -545,9 +548,18 @@ body {
     gap: 20px;
   }
   
+  .member-photo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+  
   .member-photo, .member-photo-placeholder {
-    width: 80px;
-    height: 80px;
+    width: 100px;
+    height: 100px;
+    border-radius: 12px;
+    margin: 0 auto;
   }
   
   .member-name {
@@ -575,8 +587,9 @@ body {
   }
   
   .member-photo, .member-photo-placeholder {
-    width: 70px;
-    height: 70px;
+    width: 80px;
+    height: 80px;
+    border-radius: 10px;
   }
   
   .member-name {
@@ -595,15 +608,19 @@ body {
 /* Responsive design for modal */
 @media (max-width: 768px) {
   .result-modal-content {
-    margin: 2% auto;
-    padding: 25px;
-    width: 98%;
-    max-width: none;
+    margin: 5% auto;
+    padding: 20px;
+    width: 95%;
+    max-width: 500px;
+    border-radius: 20px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideInMobile 0.3s ease-out;
   }
   
   .details-container {
     flex-direction: column;
-    gap: 25px;
+    gap: 20px;
   }
   
   .details-container .member-verification-card {
@@ -615,7 +632,7 @@ body {
     border-right: none;
     border-bottom: 2px solid #f0f0f0;
     padding-right: 0;
-    padding-bottom: 25px;
+    padding-bottom: 20px;
   }
   
   .id-card-section {
@@ -624,13 +641,25 @@ body {
   
   .details-grid {
     grid-template-columns: 1fr;
-    gap: 15px;
+    gap: 12px;
   }
   
   .card-body {
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
     text-align: center;
+  }
+  
+  /* Mobile popup animation */
+  @keyframes slideInMobile {
+    from {
+      opacity: 0;
+      transform: translateY(50px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
   
   .passport-photo {
@@ -1344,10 +1373,13 @@ body {
   }
   
   .result-modal-content {
-    margin: 2% auto;
+    margin: 5% auto;
     padding: 20px;
     width: 95%;
-    max-height: 95vh;
+    max-width: 500px;
+    max-height: 90vh;
+    border-radius: 20px;
+    overflow-y: auto;
   }
   
   .details-container {
@@ -1984,10 +2016,10 @@ function displayMemberResult(member) {
               `<img src="${validPhotoUrl}" alt="Member Photo" class="member-photo" 
                    onload="console.log('✅ Photo loaded successfully:', this.src)"
                    onerror="console.log('❌ Photo failed to load:', this.src); this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                   style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block;">` :
+                   style="width: 120px; height: 120px; object-fit: cover; border-radius: 12px; display: block; margin: 0 auto;">` :
               ''
             }
-            <div class="member-photo-placeholder" style="width: 100%; height: 100%; display: ${validPhotoUrl ? 'none' : 'flex'}; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px; color: #666; flex-direction: column;">
+            <div class="member-photo-placeholder" style="width: 120px; height: 120px; display: ${validPhotoUrl ? 'none' : 'flex'}; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 12px; color: #666; flex-direction: column; margin: 0 auto;">
               <i class="fas fa-user" style="font-size: 2em; margin-bottom: 8px;"></i>
               <div style="font-size: 12px;">No Photo Available</div>
             </div>
@@ -2084,7 +2116,7 @@ function displayMemberResult(member) {
               please contact the NARAP Task Force immediately. They are available 24/7 to handle security concerns.
             </p>
           </div>
-          <div style="display: flex; justify-content: center;">
+          <div style="display: flex; justify-content: center; width: 100%; margin-top: 15px;">
             <button onclick="callTaskForce()" class="task-force-button">
               <i class="fas fa-phone" style="font-size: 14px;"></i>
               Task Force
