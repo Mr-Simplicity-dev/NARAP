@@ -7931,10 +7931,10 @@ function selectAllMembers() {
         const row = checkbox.closest('tr');
         
         if (selectAllCheckbox.checked) {
-            bulkSelections.members.add(memberId);
+            window.bulkSelections.members.add(memberId);
             row.classList.add('selected');
         } else {
-            bulkSelections.members.delete(memberId);
+            window.bulkSelections.members.delete(memberId);
             row.classList.remove('selected');
         }
     });
@@ -7953,10 +7953,10 @@ function selectAllCertificates() {
         const row = checkbox.closest('tr');
         
         if (selectAllCheckbox.checked) {
-            bulkSelections.certificates.add(certificateId);
+            window.bulkSelections.certificates.add(certificateId);
             row.classList.add('selected');
         } else {
-            bulkSelections.certificates.delete(certificateId);
+            window.bulkSelections.certificates.delete(certificateId);
             row.classList.remove('selected');
         }
     });
@@ -7972,10 +7972,10 @@ function toggleMemberSelection(checkbox) {
     const selectAllCheckbox = document.getElementById('selectAllMembers');
     
     if (checkbox.checked) {
-        bulkSelections.members.add(memberId);
+        window.bulkSelections.members.add(memberId);
         row.classList.add('selected');
     } else {
-        bulkSelections.members.delete(memberId);
+        window.bulkSelections.members.delete(memberId);
         row.classList.remove('selected');
     }
     
@@ -7995,10 +7995,10 @@ function toggleCertificateSelection(checkbox) {
     const selectAllCheckbox = document.getElementById('selectAllCertificates');
     
     if (checkbox.checked) {
-        bulkSelections.certificates.add(certificateId);
+        window.bulkSelections.certificates.add(certificateId);
         row.classList.add('selected');
     } else {
-        bulkSelections.certificates.delete(certificateId);
+        window.bulkSelections.certificates.delete(certificateId);
         row.classList.remove('selected');
     }
     
@@ -8015,7 +8015,7 @@ function toggleCertificateSelection(checkbox) {
 // Update bulk actions visibility
 function updateBulkActionsVisibility(type) {
     const bulkActions = document.getElementById(`${type}BulkActions`);
-    const selections = bulkSelections[type];
+    const selections = window.bulkSelections[type];
     
     if (selections.size > 0) {
         bulkActions.style.display = 'flex';
@@ -8026,14 +8026,14 @@ function updateBulkActionsVisibility(type) {
 
 // Update selection count
 function updateSelectionCount(type) {
-    const selections = bulkSelections[type];
+    const selections = window.bulkSelections[type];
     const count = selections.size;
     console.log(`${type} selected: ${count}`);
 }
 
 // Bulk delete members
 async function bulkDeleteMembers() {
-    const selectedMembers = Array.from(bulkSelections.members);
+    const selectedMembers = Array.from(window.bulkSelections.members);
     
     if (selectedMembers.length === 0) {
         showMessage('No members selected for deletion.', 'warning');
@@ -8062,7 +8062,7 @@ async function bulkDeleteMembers() {
             showMessage(`Successfully deleted ${result.deletedCount} member(s).`, 'success');
             
             // Clear selections and refresh table
-            bulkSelections.members.clear();
+            window.bulkSelections.members.clear();
             updateBulkActionsVisibility('members');
             refreshMembers();
         } else {
@@ -8077,7 +8077,7 @@ async function bulkDeleteMembers() {
 
 // Bulk delete certificates
 async function bulkDeleteCertificates() {
-    const selectedCertificates = Array.from(bulkSelections.certificates);
+    const selectedCertificates = Array.from(window.bulkSelections.certificates);
     
     if (selectedCertificates.length === 0) {
         showMessage('No certificates selected for deletion.', 'warning');
@@ -8121,7 +8121,7 @@ async function bulkDeleteCertificates() {
 
 // Bulk export members
 async function bulkExportMembers() {
-    const selectedMembers = Array.from(bulkSelections.members);
+    const selectedMembers = Array.from(window.bulkSelections.members);
     
     if (selectedMembers.length === 0) {
         showMessage('No members selected for export.', 'warning');
@@ -8155,7 +8155,7 @@ async function bulkExportMembers() {
 
 // Bulk export certificates
 async function bulkExportCertificates() {
-    const selectedCertificates = Array.from(bulkSelections.certificates);
+    const selectedCertificates = Array.from(window.bulkSelections.certificates);
     
     if (selectedCertificates.length === 0) {
         showMessage('No certificates selected for export.', 'warning');
@@ -8189,7 +8189,7 @@ async function bulkExportCertificates() {
 
 // Bulk update members
 async function bulkUpdateMembers() {
-    const selectedMembers = Array.from(bulkSelections.members);
+    const selectedMembers = Array.from(window.bulkSelections.members);
     
     if (selectedMembers.length === 0) {
         showMessage('No members selected for update.', 'warning');
@@ -8201,7 +8201,7 @@ async function bulkUpdateMembers() {
 
 // Bulk revoke certificates
 async function bulkRevokeCertificates() {
-    const selectedCertificates = Array.from(bulkSelections.certificates);
+    const selectedCertificates = Array.from(window.bulkSelections.certificates);
     
     if (selectedCertificates.length === 0) {
         showMessage('No certificates selected for revocation.', 'warning');
@@ -8235,7 +8235,7 @@ async function bulkRevokeCertificates() {
             showMessage(`Successfully revoked ${successCount} certificate(s).`, 'success');
             
             // Clear selections and refresh table
-            bulkSelections.certificates.clear();
+            window.bulkSelections.certificates.clear();
             updateBulkActionsVisibility('certificates');
             refreshCertificates();
         } else {
@@ -8249,7 +8249,7 @@ async function bulkRevokeCertificates() {
 
 // Clear all selections
 function clearAllSelections(type) {
-    bulkSelections[type].clear();
+    window.bulkSelections[type].clear();
     
     // Uncheck all checkboxes
     const checkboxes = document.querySelectorAll(`.${type.slice(0, -1)}-checkbox`);
