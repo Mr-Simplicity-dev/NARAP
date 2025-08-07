@@ -1691,8 +1691,22 @@
         <strong>Optional columns:</strong> Password (auto-generated if missing)
       </div>
     </div>
-  </div>
-</div>
+
+    <!-- Action Buttons -->
+    <div class="form-buttons" style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+      <button class="btn btn-success" onclick="importData()" style="display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-upload"></i>
+        Import Data
+      </button>
+      <button class="btn btn-info" onclick="downloadSampleCSV()" style="display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-download"></i>
+        Download Sample
+      </button>
+      <button class="btn btn-secondary" onclick="closeImportModal()" style="display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-times"></i>
+        Cancel
+      </button>
+    </div>
 
     <div id="importStatus"></div>
   </div>

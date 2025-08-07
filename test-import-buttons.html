@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Buttons Test - NARAP</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .container h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .container p {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-upload {
+            position: relative;
+        }
+
+        .file-upload input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-upload-label {
+            display: block;
+            padding: 15px;
+            border: 2px dashed #e1e5e9;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+
+        .file-upload-label:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .file-upload-label i {
+            margin-right: 8px;
+            color: #667eea;
+        }
+
+        /* Action Buttons */
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+            color: white;
+        }
+
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(23, 162, 184, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+        }
+
+        /* Demo Button */
+        .demo-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+
+        .demo-button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Status Messages */
+        .status-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        /* CSV Format Help */
+        .csv-format-help {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            margin-top: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .csv-format-help strong {
+            color: #333;
+        }
+    </style>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet"/>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Import Buttons Test</h1>
+        <p>This demonstrates the three action buttons for the import functionality:</p>
+        <ul style="text-align: left; margin: 20px 0;">
+            <li><strong>Import Data</strong> - Processes the selected CSV file</li>
+            <li><strong>Download Sample</strong> - Downloads a sample CSV template</li>
+            <li><strong>Cancel</strong> - Closes the import modal</li>
+        </ul>
+        
+        <button class="demo-button" onclick="showImportModal()">
+            <i class="fas fa-upload"></i>
+            Show Import Modal
+        </button>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal" id="importModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Import Data</h2>
+                <button class="close-btn" onclick="closeImportModal()">×</button>
+            </div>
+            
+            <div class="form-group">
+                <label for="importType">Import Type:</label>
+                <select id="importType" class="form-control" onchange="updateCsvFormat()">
+                    <option value="members">Members</option>
+                    <option value="certificates">Certificates</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="importFile">Select CSV File</label>
+                <div class="file-upload">
+                    <input accept=".csv" id="importFile" onchange="handleFileUpload(this, 'importFileLabel')" type="file"/>
+                    <label class="file-upload-label" for="importFile" id="importFileLabel">
+                        <i class="fas fa-file-csv"></i> Choose CSV file
+                    </label>
+                </div>
+            </div>
+
+            <!-- Dynamic CSV Format Help -->
+            <div class="csv-format-help" id="csvFormatHelp">
+                <strong>Required columns:</strong> Name, Code, State, Zone<br/>
+                <strong>Optional columns:</strong> Email, Position, Password (auto-generated if missing)<br/>
+                <strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="form-buttons">
+                <button class="btn btn-success" onclick="importData()">
+                    <i class="fas fa-upload"></i>
+                    Import Data
+                </button>
+                <button class="btn btn-info" onclick="downloadSampleCSV()">
+                    <i class="fas fa-download"></i>
+                    Download Sample
+                </button>
+                <button class="btn btn-secondary" onclick="closeImportModal()">
+                    <i class="fas fa-times"></i>
+                    Cancel
+                </button>
+            </div>
+
+            <div id="importStatus"></div>
+        </div>
+    </div>
+
+    <script>
+        // Show import modal
+        function showImportModal() {
+            document.getElementById('importModal').style.display = 'block';
+        }
+
+        // Close import modal
+        function closeImportModal() {
+            document.getElementById('importModal').style.display = 'none';
+            document.getElementById('importStatus').innerHTML = '';
+        }
+
+        // Handle file upload
+        function handleFileUpload(input, labelId) {
+            const file = input.files[0];
+            const label = document.getElementById(labelId);
+            
+            if (file) {
+                label.innerHTML = `<i class="fas fa-file-csv"></i> ${file.name}`;
+                label.style.borderColor = '#28a745';
+                label.style.background = '#d4edda';
+            } else {
+                label.innerHTML = '<i class="fas fa-file-csv"></i> Choose CSV file';
+                label.style.borderColor = '#e1e5e9';
+                label.style.background = '#f8f9fa';
+            }
+        }
+
+        // Update CSV format help based on import type
+        function updateCsvFormat() {
+            const importType = document.getElementById('importType').value;
+            const helpDiv = document.getElementById('csvFormatHelp');
+            
+            if (importType === 'members') {
+                helpDiv.innerHTML = `
+                    <strong>Required columns:</strong> Name, Code, State, Zone<br/>
+                    <strong>Optional columns:</strong> Email, Position, Password (auto-generated if missing)<br/>
+                    <strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password
+                `;
+            } else if (importType === 'certificates') {
+                helpDiv.innerHTML = `
+                    <strong>Required columns:</strong> CertificateID, MemberID, Type<br/>
+                    <strong>Optional columns:</strong> IssueDate, ExpiryDate, Status<br/>
+                    <strong>Example:</strong> CertificateID,MemberID,Type,IssueDate,ExpiryDate,Status
+                `;
+            }
+        }
+
+        // Import data function (simulated)
+        function importData() {
+            const fileInput = document.getElementById('importFile');
+            const importType = document.getElementById('importType').value;
+            const statusDiv = document.getElementById('importStatus');
+            
+            if (!fileInput || !fileInput.files[0]) {
+                statusDiv.innerHTML = '<div class="status-message status-warning">Please select a file to import</div>';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                statusDiv.innerHTML = '<div class="status-message status-error">Please select a valid CSV file</div>';
+                return;
+            }
+
+            // Simulate import process
+            statusDiv.innerHTML = '<div class="status-message status-success">Importing data...</div>';
+            
+            setTimeout(() => {
+                statusDiv.innerHTML = '<div class="status-message status-success">✅ Data imported successfully!</div>';
+                setTimeout(() => {
+                    closeImportModal();
+                }, 2000);
+            }, 1500);
+        }
+
+        // Download sample CSV function
+        function downloadSampleCSV() {
+            const importType = document.getElementById('importType').value;
+            const statusDiv = document.getElementById('importStatus');
+            
+            let csvContent = '';
+            let filename = '';
+            
+            if (importType === 'members') {
+                csvContent = `Name,Email,Code,Position,State,Zone,Password
+John Doe,john@example.com,NARAP001,MEMBER,Lagos,South West,password123
+Jane Smith,jane@example.com,NARAP002,SECRETARY,Abuja,North Central,password123
+Mike Johnson,mike@example.com,NARAP003,TREASURER,Kano,North West,password123`;
+                filename = 'sample_members.csv';
+            } else if (importType === 'certificates') {
+                csvContent = `CertificateID,MemberID,Type,IssueDate,ExpiryDate,Status
+CERT001,NARAP001,Standard,2024-01-15,2025-01-15,Active
+CERT002,NARAP002,Premium,2024-02-20,2025-02-20,Active`;
+                filename = 'sample_certificates.csv';
+            }
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            statusDiv.innerHTML = `<div class="status-message status-success">✅ Sample ${importType} CSV downloaded!</div>`;
+            
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('importModal');
+            if (event.target === modal) {
+                closeImportModal();
+            }
+        }
+    </script>
+</body>
+</html> 
