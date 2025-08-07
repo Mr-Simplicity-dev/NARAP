@@ -4368,3 +4368,308 @@ body {
         height: 120px;
     }
 }
+
+/* ===== BULK ACTIONS STYLING ===== */
+.bulk-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: 15px;
+    padding: 8px 12px;
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 6px;
+    animation: slideIn 0.3s ease-out;
+}
+
+.bulk-actions .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+
+/* Checkbox styling */
+.data-table input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+    border: 2px solid var(--border-color);
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.data-table input[type="checkbox"]:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.data-table input[type="checkbox"]:hover {
+    border-color: var(--primary-color);
+    transform: scale(1.1);
+}
+
+/* Select all checkbox styling */
+.data-table th input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+/* Row selection styling */
+.data-table tr.selected {
+    background-color: rgba(102, 126, 234, 0.1) !important;
+    border-left: 4px solid var(--primary-color);
+}
+
+.data-table tr.selected:hover {
+    background-color: rgba(102, 126, 234, 0.15) !important;
+}
+
+/* Selection count indicator */
+.selection-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.selection-count .count-badge {
+    background: var(--primary-color);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* ===== ENHANCED TABLE STYLING ===== */
+.data-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+}
+
+.data-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 600;
+    padding: 15px 12px;
+    text-align: left;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.data-table th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.data-table th:last-child {
+    border-top-right-radius: 8px;
+}
+
+.data-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+}
+
+.data-table tr:hover td {
+    background-color: rgba(102, 126, 234, 0.05);
+    transform: translateX(2px);
+}
+
+.data-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Enhanced action buttons */
+.data-table .btn-group {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.data-table .btn-sm {
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 32px;
+    justify-content: center;
+}
+
+.data-table .btn-sm:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Status badges enhancement */
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    min-width: 60px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.status-badge.active {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.status-badge.revoked {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+    color: white;
+}
+
+.status-badge.expired {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+    color: #212529;
+}
+
+.status-badge.inactive {
+    background: linear-gradient(135deg, #6c757d, #495057);
+    color: white;
+}
+
+/* Enhanced photo thumbnails */
+.img-thumbnail {
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 2px solid #f0f0f0;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.img-thumbnail:hover {
+    transform: scale(1.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Table container enhancement */
+.data-table-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    margin-top: 20px;
+}
+
+/* Empty state styling */
+.data-table .no-data {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.data-table .no-data i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+/* Loading state enhancement */
+.data-table .loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.data-table .loading::after {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 10px;
+}
+
+/* Responsive table improvements */
+@media (max-width: 768px) {
+    .data-table {
+        font-size: 12px;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 8px 6px;
+    }
+    
+    .data-table .btn-sm {
+        padding: 4px 6px;
+        font-size: 10px;
+        min-width: 28px;
+    }
+    
+    .bulk-actions {
+        flex-direction: column;
+        gap: 4px;
+        margin-left: 0;
+        margin-top: 10px;
+    }
+    
+    .bulk-actions .btn-sm {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Dark theme support */
+[data-theme="dark"] .data-table {
+    background: #2d3748;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .data-table th {
+    background: linear-gradient(135deg, #4a5568, #2d3748);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .data-table td {
+    border-bottom-color: #4a5568;
+}
+
+[data-theme="dark"] .data-table tr:hover td {
+    background-color: rgba(102, 126, 234, 0.1);
+}
+
+[data-theme="dark"] .data-table-container {
+    background: #2d3748;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .bulk-actions {
+    background: rgba(255, 193, 7, 0.15);
+    border-color: rgba(255, 193, 7, 0.4);
+}

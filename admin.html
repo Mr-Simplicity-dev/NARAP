@@ -244,21 +244,41 @@
         </i>
         Add Member
        </button>
-       <button class="btn btn-success" onclick="exportMembers('csv')">
-        <i class="fas fa-download">
-        </i>
-        Export CSV
-       </button>
-       <button class="btn btn-info" onclick="showImportModal()">
+       <button class="btn btn-success" onclick="showImportModal()">
         <i class="fas fa-upload">
         </i>
-        Import CSV
+        Import Members
+       </button>
+       <button class="btn btn-info" onclick="exportMembers()">
+        <i class="fas fa-download">
+        </i>
+        Export Data
        </button>
        <button class="btn btn-warning" onclick="refreshMembers()">
         <i class="fas fa-sync">
         </i>
         Refresh
        </button>
+       <button class="btn btn-secondary" onclick="clearMemberSearch()">
+        <i class="fas fa-times">
+        </i>
+        Clear Filters
+       </button>
+       <!-- Bulk Action Buttons -->
+       <div class="bulk-actions" id="membersBulkActions" style="display: none;">
+        <button class="btn btn-danger btn-sm" onclick="bulkDeleteMembers()" title="Delete Selected">
+         <i class="fas fa-trash"></i>
+         Delete Selected
+        </button>
+        <button class="btn btn-info btn-sm" onclick="bulkExportMembers()" title="Export Selected">
+         <i class="fas fa-download"></i>
+         Export Selected
+        </button>
+        <button class="btn btn-warning btn-sm" onclick="bulkUpdateMembers()" title="Update Selected">
+         <i class="fas fa-edit"></i>
+         Update Selected
+        </button>
+       </div>
       </div>
       <!-- Search and Filter -->
       <div class="search-filter-bar">
@@ -484,6 +504,9 @@
         <thead>
          <tr>
           <th>
+           <input type="checkbox" id="selectAllMembers">
+          </th>
+          <th>
            Photo
           </th>
           <th>
@@ -511,6 +534,9 @@
         </thead>
         <tbody id="membersTableBody">
          <tr>
+          <td>
+           <input type="checkbox" class="member-checkbox" value="member-id">
+          </td>
           <td>
            <img alt="Passport" class="img-thumbnail" height="50" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K" width="50"/>
           </td>
@@ -545,7 +571,7 @@
           </td>
          </tr>
          <tr>
-          <td class="loading" colspan="8">
+          <td class="loading" colspan="9">
            Loading members...
           </td>
          </tr>
@@ -617,6 +643,21 @@
         </i>
         Clear Filters
        </button>
+       <!-- Bulk Action Buttons -->
+       <div class="bulk-actions" id="certificatesBulkActions" style="display: none;">
+        <button class="btn btn-danger btn-sm" onclick="bulkDeleteCertificates()" title="Delete Selected">
+         <i class="fas fa-trash"></i>
+         Delete Selected
+        </button>
+        <button class="btn btn-info btn-sm" onclick="bulkExportCertificates()" title="Export Selected">
+         <i class="fas fa-download"></i>
+         Export Selected
+        </button>
+        <button class="btn btn-warning btn-sm" onclick="bulkRevokeCertificates()" title="Revoke Selected">
+         <i class="fas fa-ban"></i>
+         Revoke Selected
+        </button>
+       </div>
       </div>
       <!-- Search and Filter -->
       <div class="search-filter-bar">
@@ -778,6 +819,9 @@
         <thead>
          <tr>
           <th>
+           <input type="checkbox" id="selectAllCertificates">
+          </th>
+          <th>
            Cert #
           </th>
           <th>
@@ -799,7 +843,7 @@
         </thead>
         <tbody id="certificatesTableBody">
          <tr>
-          <td class="loading" colspan="6">
+          <td class="loading" colspan="7">
            Loading certificates...
           </td>
          </tr>

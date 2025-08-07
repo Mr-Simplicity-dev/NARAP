@@ -4018,7 +4018,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
     if (members.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="no-data">No members found</td>
+                <td colspan="9" class="no-data">No members found</td>
             </tr>
         `;
         return;
@@ -4090,6 +4090,10 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
             
             const rowHTML = `
                 <tr>
+                    <td>
+                        <input type="checkbox" class="member-checkbox" value="${memberId}" 
+                               onchange="toggleMemberSelection(this)">
+                    </td>
                     <td>${imgElement}</td>
                     <td>${name}</td>
                     <td>${email}</td>
@@ -4121,7 +4125,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
         
         tableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="error">Error displaying members</td>
+                <td colspan="9" class="error">Error displaying members</td>
             </tr>
         `;
     }
@@ -4701,7 +4705,7 @@ function displayCertificates(certificates, totalItems = 0, currentPage = 1, tota
     if (!certificates || certificates.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="6" class="no-data" style="text-align: center; padding: 40px; color: #6c757d; font-style: italic;">
+                <td colspan="7" class="no-data" style="text-align: center; padding: 40px; color: #6c757d; font-style: italic;">
                     No certificates found
                 </td>
             </tr>
@@ -4724,6 +4728,10 @@ function displayCertificates(certificates, totalItems = 0, currentPage = 1, tota
         
         return `
             <tr>
+                <td>
+                    <input type="checkbox" class="certificate-checkbox" value="${certificateId}" 
+                           onchange="toggleCertificateSelection(this)">
+                </td>
                 <td>${certificateNumber}</td>
                 <td>${recipientName}</td>
                 <td class="title-cell">${formattedTitle}</td>
@@ -7907,6 +7915,376 @@ window.importData = importData;
 window.downloadSampleCSV = downloadSampleCSV;
 window.updateCsvFormat = updateCsvFormat;
 window.generateDefaultPassword = generateDefaultPassword;
+
+// ==================== BULK ACTIONS FUNCTIONALITY ====================
+
+// Global state for bulk selections
+window.bulkSelections = {
+    members: new Set(),
+    certificates: new Set()
+};
+
+// Select all functionality
+function selectAllMembers() {
+    const selectAllCheckbox = document.getElementById('selectAllMembers');
+    const memberCheckboxes = document.querySelectorAll('.member-checkbox');
+    
+    memberCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+        const memberId = checkbox.value;
+        const row = checkbox.closest('tr');
+        
+        if (selectAllCheckbox.checked) {
+            bulkSelections.members.add(memberId);
+            row.classList.add('selected');
+        } else {
+            bulkSelections.members.delete(memberId);
+            row.classList.remove('selected');
+        }
+    });
+    
+    updateBulkActionsVisibility('members');
+    updateSelectionCount('members');
+}
+
+function selectAllCertificates() {
+    const selectAllCheckbox = document.getElementById('selectAllCertificates');
+    const certificateCheckboxes = document.querySelectorAll('.certificate-checkbox');
+    
+    certificateCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+        const certificateId = checkbox.value;
+        const row = checkbox.closest('tr');
+        
+        if (selectAllCheckbox.checked) {
+            bulkSelections.certificates.add(certificateId);
+            row.classList.add('selected');
+        } else {
+            bulkSelections.certificates.delete(certificateId);
+            row.classList.remove('selected');
+        }
+    });
+    
+    updateBulkActionsVisibility('certificates');
+    updateSelectionCount('certificates');
+}
+
+// Individual checkbox selection
+function toggleMemberSelection(checkbox) {
+    const memberId = checkbox.value;
+    const row = checkbox.closest('tr');
+    const selectAllCheckbox = document.getElementById('selectAllMembers');
+    
+    if (checkbox.checked) {
+        bulkSelections.members.add(memberId);
+        row.classList.add('selected');
+    } else {
+        bulkSelections.members.delete(memberId);
+        row.classList.remove('selected');
+    }
+    
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.member-checkbox');
+    const checkedCheckboxes = document.querySelectorAll('.member-checkbox:checked');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && allCheckboxes.length === checkedCheckboxes.length;
+    selectAllCheckbox.indeterminate = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length;
+    
+    updateBulkActionsVisibility('members');
+    updateSelectionCount('members');
+}
+
+function toggleCertificateSelection(checkbox) {
+    const certificateId = checkbox.value;
+    const row = checkbox.closest('tr');
+    const selectAllCheckbox = document.getElementById('selectAllCertificates');
+    
+    if (checkbox.checked) {
+        bulkSelections.certificates.add(certificateId);
+        row.classList.add('selected');
+    } else {
+        bulkSelections.certificates.delete(certificateId);
+        row.classList.remove('selected');
+    }
+    
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.certificate-checkbox');
+    const checkedCheckboxes = document.querySelectorAll('.certificate-checkbox:checked');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && allCheckboxes.length === checkedCheckboxes.length;
+    selectAllCheckbox.indeterminate = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length;
+    
+    updateBulkActionsVisibility('certificates');
+    updateSelectionCount('certificates');
+}
+
+// Update bulk actions visibility
+function updateBulkActionsVisibility(type) {
+    const bulkActions = document.getElementById(`${type}BulkActions`);
+    const selections = bulkSelections[type];
+    
+    if (selections.size > 0) {
+        bulkActions.style.display = 'flex';
+    } else {
+        bulkActions.style.display = 'none';
+    }
+}
+
+// Update selection count
+function updateSelectionCount(type) {
+    const selections = bulkSelections[type];
+    const count = selections.size;
+    console.log(`${type} selected: ${count}`);
+}
+
+// Bulk delete members
+async function bulkDeleteMembers() {
+    const selectedMembers = Array.from(bulkSelections.members);
+    
+    if (selectedMembers.length === 0) {
+        showMessage('No members selected for deletion.', 'warning');
+        return;
+    }
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedMembers.length} selected member(s)? This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    try {
+        showMessage('Deleting selected members...', 'info');
+        
+        const response = await fetch(`${getBackendUrl()}/api/users/users/bulk-delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ memberIds: selectedMembers })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showMessage(`Successfully deleted ${result.deletedCount} member(s).`, 'success');
+            
+            // Clear selections and refresh table
+            bulkSelections.members.clear();
+            updateBulkActionsVisibility('members');
+            refreshMembers();
+        } else {
+            const error = await response.json();
+            showMessage(`Failed to delete members: ${error.message}`, 'error');
+        }
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        showMessage('An error occurred while deleting members.', 'error');
+    }
+}
+
+// Bulk delete certificates
+async function bulkDeleteCertificates() {
+    const selectedCertificates = Array.from(bulkSelections.certificates);
+    
+    if (selectedCertificates.length === 0) {
+        showMessage('No certificates selected for deletion.', 'warning');
+        return;
+    }
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedCertificates.length} selected certificate(s)? This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    try {
+        showMessage('Deleting selected certificates...', 'info');
+        
+        const response = await fetch(`${getBackendUrl()}/api/certificates/bulk-delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ certificateIds: selectedCertificates })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showMessage(`Successfully deleted ${result.deletedCount} certificate(s).`, 'success');
+            
+            // Clear selections and refresh table
+            bulkSelections.certificates.clear();
+            updateBulkActionsVisibility('certificates');
+            refreshCertificates();
+        } else {
+            const error = await response.json();
+            showMessage(`Failed to delete certificates: ${error.message}`, 'error');
+        }
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        showMessage('An error occurred while deleting certificates.', 'error');
+    }
+}
+
+// Bulk export members
+async function bulkExportMembers() {
+    const selectedMembers = Array.from(bulkSelections.members);
+    
+    if (selectedMembers.length === 0) {
+        showMessage('No members selected for export.', 'warning');
+        return;
+    }
+    
+    try {
+        showMessage('Exporting selected members...', 'info');
+        
+        // Get selected members data
+        const membersData = window.appState.members.filter(member => 
+            selectedMembers.includes(member._id || member.id)
+        );
+        
+        if (membersData.length === 0) {
+            showMessage('No member data found for selected items.', 'error');
+            return;
+        }
+        
+        // Export as CSV
+        const csv = convertToCSV(membersData);
+        const filename = `selected_members_${new Date().toISOString().split('T')[0]}.csv`;
+        downloadFile(csv, filename, 'text/csv');
+        
+        showMessage(`Successfully exported ${membersData.length} member(s).`, 'success');
+    } catch (error) {
+        console.error('Bulk export error:', error);
+        showMessage('An error occurred while exporting members.', 'error');
+    }
+}
+
+// Bulk export certificates
+async function bulkExportCertificates() {
+    const selectedCertificates = Array.from(bulkSelections.certificates);
+    
+    if (selectedCertificates.length === 0) {
+        showMessage('No certificates selected for export.', 'warning');
+        return;
+    }
+    
+    try {
+        showMessage('Exporting selected certificates...', 'info');
+        
+        // Get selected certificates data
+        const certificatesData = window.appState.certificates.filter(certificate => 
+            selectedCertificates.includes(certificate._id || certificate.id)
+        );
+        
+        if (certificatesData.length === 0) {
+            showMessage('No certificate data found for selected items.', 'error');
+            return;
+        }
+        
+        // Export as CSV
+        const csv = convertToCSV(certificatesData);
+        const filename = `selected_certificates_${new Date().toISOString().split('T')[0]}.csv`;
+        downloadFile(csv, filename, 'text/csv');
+        
+        showMessage(`Successfully exported ${certificatesData.length} certificate(s).`, 'success');
+    } catch (error) {
+        console.error('Bulk export error:', error);
+        showMessage('An error occurred while exporting certificates.', 'error');
+    }
+}
+
+// Bulk update members
+async function bulkUpdateMembers() {
+    const selectedMembers = Array.from(bulkSelections.members);
+    
+    if (selectedMembers.length === 0) {
+        showMessage('No members selected for update.', 'warning');
+        return;
+    }
+    
+    showMessage(`Bulk update functionality for ${selectedMembers.length} members is under development.`, 'info');
+}
+
+// Bulk revoke certificates
+async function bulkRevokeCertificates() {
+    const selectedCertificates = Array.from(bulkSelections.certificates);
+    
+    if (selectedCertificates.length === 0) {
+        showMessage('No certificates selected for revocation.', 'warning');
+        return;
+    }
+    
+    const confirmMessage = `Are you sure you want to revoke ${selectedCertificates.length} selected certificate(s)? This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    try {
+        showMessage('Revoking selected certificates...', 'info');
+        
+        // Revoke each certificate
+        const revokePromises = selectedCertificates.map(async (certificateId) => {
+            const response = await fetch(`${getBackendUrl()}/api/certificates/${certificateId}/revoke`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            return response.ok;
+        });
+        
+        const results = await Promise.all(revokePromises);
+        const successCount = results.filter(result => result).length;
+        
+        if (successCount > 0) {
+            showMessage(`Successfully revoked ${successCount} certificate(s).`, 'success');
+            
+            // Clear selections and refresh table
+            bulkSelections.certificates.clear();
+            updateBulkActionsVisibility('certificates');
+            refreshCertificates();
+        } else {
+            showMessage('Failed to revoke any certificates.', 'error');
+        }
+    } catch (error) {
+        console.error('Bulk revoke error:', error);
+        showMessage('An error occurred while revoking certificates.', 'error');
+    }
+}
+
+// Clear all selections
+function clearAllSelections(type) {
+    bulkSelections[type].clear();
+    
+    // Uncheck all checkboxes
+    const checkboxes = document.querySelectorAll(`.${type.slice(0, -1)}-checkbox`);
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        checkbox.closest('tr').classList.remove('selected');
+    });
+    
+    // Reset select all checkbox
+    const selectAllCheckbox = document.getElementById(`selectAll${type.charAt(0).toUpperCase() + type.slice(1)}`);
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+    
+    updateBulkActionsVisibility(type);
+    updateSelectionCount(type);
+}
+
+// Expose bulk action functions to window
+window.selectAllMembers = selectAllMembers;
+window.selectAllCertificates = selectAllCertificates;
+window.toggleMemberSelection = toggleMemberSelection;
+window.toggleCertificateSelection = toggleCertificateSelection;
+window.bulkDeleteMembers = bulkDeleteMembers;
+window.bulkDeleteCertificates = bulkDeleteCertificates;
+window.bulkExportMembers = bulkExportMembers;
+window.bulkExportCertificates = bulkExportCertificates;
+window.bulkUpdateMembers = bulkUpdateMembers;
+window.bulkRevokeCertificates = bulkRevokeCertificates;
+window.clearAllSelections = clearAllSelections;
 
 // Test function for member update
 window.testMemberUpdate = async function(memberId) {
