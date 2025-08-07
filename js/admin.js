@@ -8054,7 +8054,7 @@ async function bulkDeleteMembers() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ memberIds: selectedMembers })
+            body: JSON.stringify({ userIds: selectedMembers })
         });
         
         if (response.ok) {
@@ -8106,7 +8106,7 @@ async function bulkDeleteCertificates() {
             showMessage(`Successfully deleted ${result.deletedCount} certificate(s).`, 'success');
             
             // Clear selections and refresh table
-            bulkSelections.certificates.clear();
+            window.bulkSelections.certificates.clear();
             updateBulkActionsVisibility('certificates');
             refreshCertificates();
         } else {
