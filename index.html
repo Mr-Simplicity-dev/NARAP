@@ -603,6 +603,87 @@ body {
   .member-email {
     font-size: 15px;
   }
+  
+  /* Extra compact layout for very small screens */
+  .result-modal.mobile-fullscreen .result-modal-content {
+    padding: 10px;
+  }
+  
+  .result-modal.mobile-fullscreen .result-modal-header {
+    margin-bottom: 10px;
+  }
+  
+  .result-modal.mobile-fullscreen .result-modal-header h3 {
+    font-size: 18px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-verification-card {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-photo,
+  .result-modal.mobile-fullscreen .member-photo-placeholder {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-name {
+    font-size: 18px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-code {
+    font-size: 12px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-email {
+    font-size: 12px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-status {
+    font-size: 11px;
+  }
+  
+  .result-modal.mobile-fullscreen .personal-details-section h4 {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  
+  .result-modal.mobile-fullscreen .details-grid {
+    gap: 4px;
+  }
+  
+  .result-modal.mobile-fullscreen .detail-item {
+    padding: 6px;
+    font-size: 12px;
+  }
+  
+  .result-modal.mobile-fullscreen .detail-item strong {
+    font-size: 10px;
+  }
+  
+  .result-modal.mobile-fullscreen .detail-item span {
+    font-size: 12px;
+  }
+  
+  .result-modal.mobile-fullscreen .verification-success {
+    padding: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .result-modal.mobile-fullscreen .verification-success strong {
+    font-size: 12px;
+  }
+  
+  .result-modal.mobile-fullscreen .verification-success p {
+    font-size: 11px;
+  }
+  
+  .result-modal.mobile-fullscreen .modal-buttons {
+    margin-top: 10px;
+    padding: 10px 0;
+  }
 }
 
 /* Responsive design for modal */
@@ -633,25 +714,133 @@ body {
     display: flex;
     flex-direction: column;
     animation: slideInFullscreen 0.4s ease-out;
+    padding: 15px;
   }
   
   .result-modal.mobile-fullscreen .result-modal-header {
     flex-shrink: 0;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .result-modal.mobile-fullscreen .result-modal-header h3 {
+    font-size: 20px;
+    margin: 0;
   }
   
   .result-modal.mobile-fullscreen .result-content {
     flex: 1;
     overflow-y: auto;
-    padding: 0 10px;
+    padding: 0 5px;
   }
   
   .result-modal.mobile-fullscreen .modal-buttons {
     flex-shrink: 0;
-    margin-top: 20px;
-    padding: 20px 0;
+    margin-top: 15px;
+    padding: 15px 0;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 15px;
+  }
+  
+  /* Compact mobile layout for member details */
+  .result-modal.mobile-fullscreen .details-container {
+    gap: 15px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-verification-card {
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-card-header {
+    gap: 15px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-photo-container {
+    margin-bottom: 10px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-photo,
+  .result-modal.mobile-fullscreen .member-photo-placeholder {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-name {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-code {
+    font-size: 14px;
+    padding: 6px 12px;
+    margin-bottom: 8px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-email {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .result-modal.mobile-fullscreen .member-status {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  
+  .result-modal.mobile-fullscreen .personal-details-section {
+    padding-bottom: 15px;
+  }
+  
+  .result-modal.mobile-fullscreen .personal-details-section h4 {
+    font-size: 16px;
+    margin-bottom: 15px;
+  }
+  
+  .result-modal.mobile-fullscreen .details-grid {
+    gap: 6px;
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .result-modal.mobile-fullscreen .detail-item {
+    padding: 8px;
+    font-size: 13px;
+    min-height: auto;
+  }
+  
+  .result-modal.mobile-fullscreen .detail-item strong {
+    font-size: 11px;
+    margin-bottom: 2px;
+    color: #667eea;
+  }
+  
+  .result-modal.mobile-fullscreen .detail-item span {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+  
+  /* Make some items span full width for better readability */
+  .result-modal.mobile-fullscreen .detail-item:nth-child(1),
+  .result-modal.mobile-fullscreen .detail-item:nth-child(2),
+  .result-modal.mobile-fullscreen .detail-item:nth-child(7),
+  .result-modal.mobile-fullscreen .detail-item:nth-child(8) {
+    grid-column: 1 / -1;
+  }
+  
+  .result-modal.mobile-fullscreen .verification-success {
+    padding: 15px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+  }
+  
+  .result-modal.mobile-fullscreen .verification-success strong {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .result-modal.mobile-fullscreen .verification-success p {
+    font-size: 13px;
+    line-height: 1.4;
   }
   
   .result-modal.mobile-fullscreen #closeModalBtn {

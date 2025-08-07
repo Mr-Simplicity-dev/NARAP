@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Compact Layout Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .search-container {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .search-container h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .search-button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            right: 20px;
+            top: 15px;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        /* Mobile Fullscreen Modal */
+        .result-modal.mobile-fullscreen {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .result-modal.mobile-fullscreen .modal-content {
+            margin: 0;
+            width: 100%;
+            height: 100vh;
+            max-width: none;
+            max-height: none;
+            border-radius: 0;
+            padding: 15px;
+            overflow-y: auto;
+            animation: slideInFullscreen 0.3s ease-out;
+        }
+
+        @keyframes slideInFullscreen {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .result-modal.mobile-fullscreen .close {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            z-index: 1001;
+        }
+
+        /* Compact Mobile Styles */
+        .result-modal.mobile-fullscreen .result-modal-content {
+            padding: 10px;
+        }
+
+        .result-modal.mobile-fullscreen .result-modal-header {
+            padding: 10px 0;
+            margin-bottom: 15px;
+        }
+
+        .result-modal.mobile-fullscreen .result-modal-header h2 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .result-modal.mobile-fullscreen .result-content {
+            padding: 10px 0;
+        }
+
+        .result-modal.mobile-fullscreen .modal-buttons {
+            padding: 10px 0;
+            margin-top: 15px;
+        }
+
+        .result-modal.mobile-fullscreen .member-verification-card {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .result-modal.mobile-fullscreen .personal-details-section {
+            margin-bottom: 15px;
+        }
+
+        .result-modal.mobile-fullscreen .details-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .result-modal.mobile-fullscreen .detail-item {
+            padding: 8px;
+            margin-bottom: 5px;
+        }
+
+        .result-modal.mobile-fullscreen .detail-item:nth-child(1),
+        .result-modal.mobile-fullscreen .detail-item:nth-child(2) {
+            grid-column: 1 / -1;
+        }
+
+        .result-modal.mobile-fullscreen .detail-item:nth-last-child(2),
+        .result-modal.mobile-fullscreen .detail-item:nth-last-child(1) {
+            grid-column: 1 / -1;
+        }
+
+        .result-modal.mobile-fullscreen .detail-label {
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        .result-modal.mobile-fullscreen .detail-value {
+            font-size: 14px;
+        }
+
+        .result-modal.mobile-fullscreen .verification-success {
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .result-modal.mobile-fullscreen .verification-success h3 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .result-modal.mobile-fullscreen .verification-success p {
+            font-size: 14px;
+        }
+
+        /* Very Small Screens */
+        @media (max-width: 480px) {
+            .result-modal.mobile-fullscreen .modal-content {
+                padding: 10px;
+            }
+
+            .result-modal.mobile-fullscreen .result-modal-header h2 {
+                font-size: 18px;
+            }
+
+            .result-modal.mobile-fullscreen .details-grid {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+
+            .result-modal.mobile-fullscreen .detail-item {
+                padding: 6px;
+                margin-bottom: 3px;
+            }
+
+            .result-modal.mobile-fullscreen .detail-label {
+                font-size: 11px;
+            }
+
+            .result-modal.mobile-fullscreen .detail-value {
+                font-size: 13px;
+            }
+
+            .result-modal.mobile-fullscreen .verification-success h3 {
+                font-size: 15px;
+            }
+
+            .result-modal.mobile-fullscreen .verification-success p {
+                font-size: 13px;
+            }
+        }
+
+        /* Member Photo Styles */
+        .member-photo-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .member-photo {
+            width: 120px;
+            height: 120px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 3px solid #667eea;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin: 0 auto;
+            display: block;
+        }
+
+        .member-photo-placeholder {
+            width: 120px;
+            height: 120px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            border: 3px solid #667eea;
+            color: #667eea;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* Mobile Photo Responsive */
+        @media (max-width: 768px) {
+            .member-photo,
+            .member-photo-placeholder {
+                width: 100px;
+                height: 100px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .member-photo,
+            .member-photo-placeholder {
+                width: 80px;
+                height: 80px;
+                font-size: 12px;
+            }
+        }
+
+        /* Task Force Button */
+        .task-force-section {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .task-force-button {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 0 auto;
+        }
+
+        .task-force-button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Impersonation Warning */
+        .impersonation-warning {
+            background: linear-gradient(135deg, #ff9ff3 0%, #f368e0 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Demo Content */
+        .demo-content {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .demo-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s;
+        }
+
+        .demo-button:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <h1>NARAP Member Verification</h1>
+        <input type="text" class="search-input" placeholder="Enter member ID or name..." value="DEMO123">
+        <button class="search-button" onclick="showDemoResult()">Verify Member</button>
+        
+        <div class="demo-content">
+            <h3>Mobile Layout Test</h3>
+            <p>This demonstrates the optimized mobile layout with:</p>
+            <ul style="text-align: left; margin: 10px 0;">
+                <li>Compact spacing and reduced padding</li>
+                <li>Two-column grid layout for details</li>
+                <li>Full-width display for key information</li>
+                <li>Responsive photo sizing</li>
+                <li>Centered Task Force button</li>
+                <li>Single impersonation warning</li>
+            </ul>
+            <button class="demo-button" onclick="showMobileDemo()">Show Mobile Demo</button>
+            <button class="demo-button" onclick="showDesktopDemo()">Show Desktop Demo</button>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="resultModal" class="modal result-modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div class="result-modal-content">
+                <div class="result-modal-header">
+                    <h2>Member Verification Result</h2>
+                </div>
+                <div class="result-content">
+                    <div class="verification-success">
+                        <h3>✅ Verification Successful</h3>
+                        <p>Member details verified successfully</p>
+                    </div>
+                    
+                    <div class="member-verification-card">
+                        <div class="member-photo-container">
+                            <img src="https://via.placeholder.com/120x120/667eea/ffffff?text=Photo" 
+                                 alt="Member Photo" 
+                                 class="member-photo">
+                        </div>
+                        
+                        <div class="personal-details-section">
+                            <h3>Personal Details</h3>
+                            <div class="details-grid">
+                                <div class="detail-item">
+                                    <div class="detail-label">Full Name</div>
+                                    <div class="detail-value">John Doe</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Member ID</div>
+                                    <div class="detail-value">DEMO123</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Date of Birth</div>
+                                    <div class="detail-value">15/03/1990</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Gender</div>
+                                    <div class="detail-value">Male</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Phone Number</div>
+                                    <div class="detail-value">+234 801 234 5678</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Email</div>
+                                    <div class="detail-value">john.doe@example.com</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Address</div>
+                                    <div class="detail-value">123 Main Street, Lagos, Nigeria</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Registration Date</div>
+                                    <div class="detail-value">01/01/2023</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="impersonation-warning">
+                            ⚠️ This member has been flagged for potential impersonation. Please verify identity documents.
+                        </div>
+                        
+                        <div class="task-force-section">
+                            <button class="task-force-button">Report to Task Force</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button class="search-button" onclick="closeModal()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showDemoResult() {
+            const modal = document.getElementById('resultModal');
+            modal.style.display = 'block';
+            
+            // Check if mobile
+            if (window.innerWidth <= 768) {
+                document.querySelector('.search-container').style.display = 'none';
+                modal.classList.add('mobile-fullscreen');
+            }
+        }
+
+        function showMobileDemo() {
+            // Simulate mobile view
+            const modal = document.getElementById('resultModal');
+            modal.style.display = 'block';
+            document.querySelector('.search-container').style.display = 'none';
+            modal.classList.add('mobile-fullscreen');
+        }
+
+        function showDesktopDemo() {
+            // Simulate desktop view
+            const modal = document.getElementById('resultModal');
+            modal.style.display = 'block';
+            document.querySelector('.search-container').style.display = 'block';
+            modal.classList.remove('mobile-fullscreen');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('resultModal');
+            modal.style.display = 'none';
+            document.querySelector('.search-container').style.display = 'block';
+            modal.classList.remove('mobile-fullscreen');
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('resultModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const modal = document.getElementById('resultModal');
+            if (modal.style.display === 'block') {
+                if (window.innerWidth <= 768) {
+                    document.querySelector('.search-container').style.display = 'none';
+                    modal.classList.add('mobile-fullscreen');
+                } else {
+                    document.querySelector('.search-container').style.display = 'block';
+                    modal.classList.remove('mobile-fullscreen');
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
