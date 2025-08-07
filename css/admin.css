@@ -3022,29 +3022,22 @@ body {
     min-width: 100px;
 }
 
-/* Photo thumbnail styling */
+/* Photo thumbnail styling - Consolidated */
 .img-thumbnail {
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    border: 2px solid #f0f0f0;
     object-fit: cover;
-    max-width: 50px;
-    max-height: 50px;
-}
-
-/* Enhanced passport photo styling for better ID card appearance */
-.img-thumbnail {
-    width: 45px;
-    height: 55px; /* Standard passport photo ratio (3:4) */
-    border-radius: 6px;
-    border: 2px solid #e8e9ea;
-    object-fit: cover;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: block; /* Ensure images are always visible */
 }
 
 .img-thumbnail:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: scale(1.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 /* Professional ID card photo styling */
@@ -4555,15 +4548,11 @@ body {
     color: white;
 }
 
-/* Enhanced photo thumbnails */
-.img-thumbnail {
-    width: 50px;
-    height: 50px;
-    border-radius: 8px;
-    object-fit: cover;
-    border: 2px solid #f0f0f0;
-    transition: all 0.2s ease;
-    cursor: pointer;
+/* Enhanced photo thumbnails - Hover effects */
+.img-thumbnail:hover {
+    transform: scale(1.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .img-thumbnail:hover {

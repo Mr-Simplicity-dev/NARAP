@@ -4083,9 +4083,8 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
             const imgElement = `
                 <img alt="Passport" class="img-thumbnail" height="50" width="50" 
                      src="${validPhotoUrl || DEFAULT_AVATAR}" 
-                     onload="this.style.display='block'; console.log('✅ Image loaded successfully:', this.src);" 
-                     onerror="handleMemberTableImageError(this, '${validPhotoUrl || DEFAULT_AVATAR}', ${JSON.stringify(alternativeUrls)});" 
-                     style="display:${validPhotoUrl ? 'none' : 'block'}">
+                     onload="console.log('✅ Image loaded successfully:', this.src);" 
+                     onerror="handleMemberTableImageError(this, '${validPhotoUrl || DEFAULT_AVATAR}', ${JSON.stringify(alternativeUrls)});">
             `;
             
             const rowHTML = `
@@ -7686,7 +7685,6 @@ function handleMemberTableImageError(img, originalUrl, alternativeUrls) {
     if (!alternativeUrls || alternativeUrls.length === 0) {
         console.log('❌ No alternative URLs available, using default avatar');
         img.src = DEFAULT_AVATAR;
-        img.style.display = 'block';
         return;
     }
     
@@ -7696,7 +7694,6 @@ function handleMemberTableImageError(img, originalUrl, alternativeUrls) {
         if (currentIndex >= alternativeUrls.length) {
             console.log('❌ All alternative URLs failed, using default avatar');
             img.src = DEFAULT_AVATAR;
-            img.style.display = 'block';
             return;
         }
         
@@ -7707,7 +7704,6 @@ function handleMemberTableImageError(img, originalUrl, alternativeUrls) {
         testImg.onload = function() {
             console.log('✅ Alternative URL worked:', testUrl);
             img.src = testUrl;
-            img.style.display = 'block';
         };
         testImg.onerror = function() {
             console.log('❌ Alternative URL failed:', testUrl);
