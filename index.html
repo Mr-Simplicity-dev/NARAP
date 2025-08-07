@@ -714,6 +714,7 @@ body {
   box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
   text-decoration: none;
   font-size: 14px;
+  margin: 0 auto; /* Center the button */
 }
 
 .task-force-button:hover {
@@ -745,6 +746,7 @@ body {
     justify-content: center;
     padding: 14px 24px;
     font-size: 16px;
+    margin: 0 auto; /* Center the button on mobile */
   }
 }
 
@@ -2057,10 +2059,17 @@ function displayMemberResult(member) {
     </div>
   `;
   
-  // Add impersonation warning after modal buttons
+  // Add impersonation warning after modal buttons (prevent duplication)
   setTimeout(() => {
     const modalButtons = document.querySelector('.modal-buttons');
     if (modalButtons) {
+      // Check if impersonation warning already exists
+      const existingWarning = document.querySelector('.impersonation-warning');
+      if (existingWarning) {
+        // Remove existing warning to prevent duplication
+        existingWarning.remove();
+      }
+      
       const impersonationWarning = document.createElement('div');
       impersonationWarning.className = 'impersonation-warning';
       impersonationWarning.innerHTML = `
@@ -2075,7 +2084,7 @@ function displayMemberResult(member) {
               please contact the NARAP Task Force immediately. They are available 24/7 to handle security concerns.
             </p>
           </div>
-          <div>
+          <div style="display: flex; justify-content: center;">
             <button onclick="callTaskForce()" class="task-force-button">
               <i class="fas fa-phone" style="font-size: 14px;"></i>
               Task Force
