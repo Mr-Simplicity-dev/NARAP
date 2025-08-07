@@ -701,9 +701,10 @@ body {
 
 .impersonation-content {
   display: flex;
-  align-items: flex-start;
-  gap: 15px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
 }
 
 .impersonation-text {
@@ -764,14 +765,17 @@ body {
   .impersonation-content {
     flex-direction: column;
     gap: 15px;
+    align-items: center;
   }
   
   .impersonation-text {
     min-width: auto;
+    text-align: center;
   }
   
   .task-force-button {
     width: 100%;
+    max-width: 200px;
     justify-content: center;
     padding: 14px 24px;
     font-size: 16px;
@@ -2116,12 +2120,10 @@ function displayMemberResult(member) {
               please contact the NARAP Task Force immediately. They are available 24/7 to handle security concerns.
             </p>
           </div>
-          <div style="display: flex; justify-content: center; width: 100%; margin-top: 15px;">
-            <button onclick="callTaskForce()" class="task-force-button">
-              <i class="fas fa-phone" style="font-size: 14px;"></i>
-              Task Force
-            </button>
-          </div>
+          <button onclick="callTaskForce()" class="task-force-button">
+            <i class="fas fa-phone" style="font-size: 14px;"></i>
+            Task Force
+          </button>
         </div>
       `;
       
