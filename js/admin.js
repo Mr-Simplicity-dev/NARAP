@@ -5357,15 +5357,15 @@ function toggleTheme() {
     const body = document.body;
     const themeToggle = document.getElementById('themeToggle');
     
-    if (body.classList.contains('dark-theme')) {
-        body.classList.remove('dark-theme');
+    if (body.getAttribute('data-theme') === 'dark') {
+        body.removeAttribute('data-theme');
         localStorage.setItem('narap_theme', 'light');
         if (themeToggle) {
             themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
             themeToggle.title = 'Switch to Dark Theme';
         }
     } else {
-        body.classList.add('dark-theme');
+        body.setAttribute('data-theme', 'dark');
         localStorage.setItem('narap_theme', 'dark');
         if (themeToggle) {
             themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
@@ -7548,7 +7548,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const savedTheme = localStorage.getItem('narap_theme');
         const themeToggle = document.getElementById('themeToggle');
         if (savedTheme === 'dark') {
-            document.body.classList.add('dark-theme');
+            document.body.setAttribute('data-theme', 'dark');
             if (themeToggle) {
                 themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
                 themeToggle.title = 'Switch to Light Theme';
