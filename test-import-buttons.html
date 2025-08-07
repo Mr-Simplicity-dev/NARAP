@@ -372,12 +372,13 @@
             const importType = document.getElementById('importType').value;
             const helpDiv = document.getElementById('csvFormatHelp');
             
-            if (importType === 'members') {
-                helpDiv.innerHTML = `
-                    <strong>Required columns:</strong> Name, Code, State, Zone<br/>
-                    <strong>Optional columns:</strong> Email, Position, Password (auto-generated if missing)<br/>
-                    <strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password
-                `;
+                         if (importType === 'members') {
+                 helpDiv.innerHTML = `
+                     <strong>Required columns:</strong> Name, Code, State, Zone<br/>
+                     <strong>Optional columns:</strong> Email, Position, Password (auto-generated if missing)<br/>
+                     <strong>Valid positions:</strong> MEMBER, PRESIDENT, SECRETARY, TREASURER, etc. (must be uppercase)<br/>
+                     <strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password
+                 `;
             } else if (importType === 'certificates') {
                 helpDiv.innerHTML = `
                     <strong>Required columns:</strong> CertificateID, MemberID, Type<br/>

@@ -6790,7 +6790,7 @@ async function importMembersData(parsedData) {
                 name: row.Name.trim(),
                 email: row.Email ? row.Email.trim() : '',
                 code: row.Code.toUpperCase().trim(),
-                position: row.Position || 'MEMBER',
+                position: (row.Position || 'MEMBER').toUpperCase(),
                 state: row.State.trim(),
                 zone: row.Zone.trim(),
                 password: row.Password || generateDefaultPassword(),
@@ -6949,6 +6949,7 @@ function updateCsvFormat() {
         helpDiv.innerHTML = `
             <strong>Required columns:</strong> Name, Code, State, Zone<br/>
             <strong>Optional columns:</strong> Email, Position, Password (auto-generated if missing)<br/>
+            <strong>Valid positions:</strong> MEMBER, PRESIDENT, SECRETARY, TREASURER, etc. (must be uppercase)<br/>
             <strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password
         `;
     } else if (importType === 'certificates') {
