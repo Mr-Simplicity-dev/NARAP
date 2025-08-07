@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Fullscreen Modal Test</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .test-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        /* Authentication Portal Styles */
+        .auth-portal {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .auth-portal h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .auth-portal p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .search-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 25px;
+            border-radius: 20px;
+            width: 95%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.25);
+            animation: slideInMobile 0.3s ease-out;
+        }
+
+        @keyframes slideInMobile {
+            from {
+                opacity: 0;
+                transform: translateY(50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Mobile fullscreen modal experience */
+        .modal.mobile-fullscreen {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .modal.mobile-fullscreen .modal-content {
+            margin: 0;
+            width: 100%;
+            height: 100vh;
+            max-width: none;
+            max-height: none;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            animation: slideInFullscreen 0.4s ease-out;
+        }
+
+        .modal.mobile-fullscreen .modal-header {
+            flex-shrink: 0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .modal.mobile-fullscreen .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 10px;
+        }
+
+        .modal.mobile-fullscreen .modal-buttons {
+            flex-shrink: 0;
+            margin-top: 20px;
+            padding: 20px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        @keyframes slideInFullscreen {
+            from {
+                opacity: 0;
+                transform: translateY(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Member Photo Styles */
+        .member-photo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .member-photo {
+            width: 120px;
+            height: 120px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 4px solid rgba(102, 126, 234, 0.2);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .member-photo:hover {
+            transform: scale(1.05);
+        }
+
+        .member-info {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .member-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .member-code {
+            font-size: 18px;
+            font-weight: 600;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .member-status {
+            font-size: 16px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .member-status.active {
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .detail-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .detail-item strong {
+            display: block;
+            color: #667eea;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .detail-item span {
+            color: #333;
+            font-size: 16px;
+        }
+
+        .verification-success {
+            background: #e8f5e8;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #28a745;
+            margin-bottom: 20px;
+        }
+
+        .verification-success strong {
+            color: #155724;
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .verification-success p {
+            margin: 0;
+            color: #155724;
+            line-height: 1.5;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .test-buttons {
+                flex-direction: column;
+            }
+
+            .auth-portal {
+                padding: 20px;
+            }
+
+            .modal-content {
+                margin: 10% auto;
+                padding: 20px;
+                width: 95%;
+            }
+
+            .member-photo, .member-photo-placeholder {
+                width: 100px;
+                height: 100px;
+            }
+
+            .member-name {
+                font-size: 22px;
+            }
+
+            .member-code {
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+                margin: 5px;
+            }
+
+            .auth-portal {
+                padding: 15px;
+            }
+
+            .modal-content {
+                margin: 5% auto;
+                padding: 15px;
+            }
+
+            .member-photo, .member-photo-placeholder {
+                width: 80px;
+                height: 80px;
+                border-radius: 10px;
+            }
+
+            .member-name {
+                font-size: 20px;
+            }
+
+            .modal-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Mobile Fullscreen Modal Test</h1>
+        
+        <div class="test-buttons">
+            <button onclick="showAuthPortal()" class="btn btn-primary">
+                <i class="fas fa-user-lock"></i> Show Auth Portal
+            </button>
+            <button onclick="showVerificationResult()" class="btn btn-secondary">
+                <i class="fas fa-user-check"></i> Show Verification
+            </button>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+            <h3 style="color: #667eea; margin-bottom: 15px;">📋 Test Instructions:</h3>
+            <ul style="color: #666; line-height: 1.6;">
+                <li>Click "Show Auth Portal" to see the authentication interface</li>
+                <li>Click "Show Verification" to see the fullscreen modal experience</li>
+                <li>Test on mobile device or resize browser window to ≤768px</li>
+                <li>Notice how the verification result replaces the auth portal completely</li>
+                <li>When you close the result, the auth portal reappears</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Authentication Portal -->
+    <div id="authPortal" class="auth-portal" style="display: none;">
+        <h2>🔐 Authentication Portal</h2>
+        <p>Enter a NARAP code to verify member details</p>
+        
+        <form class="search-form" onsubmit="showVerificationResult(); return false;">
+            <div class="form-group">
+                <label for="memberCode">NARAP Member Code</label>
+                <input 
+                    type="text" 
+                    id="memberCode" 
+                    placeholder="Enter NARAP Code (e.g., 2E/NEO/01)" 
+                    required
+                >
+            </div>
+            <button type="submit" class="search-btn">
+                🔍 Verify
+            </button>
+        </form>
+        
+        <button onclick="hideAuthPortal()" class="btn btn-secondary" style="margin-top: 20px;">
+            <i class="fas fa-arrow-left"></i> Back to Test
+        </button>
+    </div>
+
+    <!-- Verification Modal -->
+    <div id="verificationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✅ Verification Result</h2>
+            </div>
+            
+            <div class="modal-body">
+                <div class="member-photo-container">
+                    <img src="https://via.placeholder.com/120x120/667eea/ffffff?text=Photo" 
+                         alt="Member Photo" class="member-photo">
+                </div>
+
+                <div class="member-info">
+                    <div class="member-name">John Doe</div>
+                    <div class="member-code">NARAP001</div>
+                    <div class="member-status active">✅ Active Member</div>
+                </div>
+
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <strong>Full Name</strong>
+                        <span>John Doe</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Email Address</strong>
+                        <span>john.doe@example.com</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>NARAP Code</strong>
+                        <span>NARAP001</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Position</strong>
+                        <span>MEMBER</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>State</strong>
+                        <span>Lagos</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Zone</strong>
+                        <span>South West</span>
+                    </div>
+                </div>
+
+                <div class="verification-success">
+                    <strong>✅ Verification Successful</strong>
+                    <p>This member has been successfully verified in the NARAP database. All information displayed is authentic and up-to-date.</p>
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button onclick="closeModal()" class="btn btn-primary">Close</button>
+                <button onclick="printResult()" class="btn btn-secondary">Print</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showAuthPortal() {
+            document.getElementById('authPortal').style.display = 'block';
+            document.querySelector('.container').style.display = 'none';
+        }
+
+        function hideAuthPortal() {
+            document.getElementById('authPortal').style.display = 'none';
+            document.querySelector('.container').style.display = 'block';
+        }
+
+        function showVerificationResult() {
+            const modal = document.getElementById('verificationModal');
+            const isMobile = window.innerWidth <= 768;
+            
+            if (isMobile) {
+                // On mobile: Hide auth portal and show fullscreen modal
+                const authPortal = document.getElementById('authPortal');
+                if (authPortal) {
+                    authPortal.style.display = 'none';
+                }
+                
+                modal.style.display = 'block';
+                modal.classList.add('mobile-fullscreen');
+            } else {
+                // On desktop: Show modal normally
+                modal.style.display = 'block';
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('verificationModal');
+            const isMobile = window.innerWidth <= 768;
+            
+            modal.style.display = 'none';
+            
+            if (isMobile) {
+                // On mobile: Show auth portal again
+                const authPortal = document.getElementById('authPortal');
+                if (authPortal) {
+                    authPortal.style.display = 'block';
+                }
+                
+                modal.classList.remove('mobile-fullscreen');
+            }
+        }
+
+        function printResult() {
+            alert('Print functionality would be implemented here');
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('verificationModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html> 
