@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Photo Display Test</title>
+    <link href="css/admin.css" rel="stylesheet">
+    <style>
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .test-header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: #667eea;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .test-section {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .img-thumbnail {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            border: 2px solid #f0f0f0;
+            object-fit: cover;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: block;
+        }
+        
+        .img-thumbnail:hover {
+            transform: scale(1.1);
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>Simple Photo Display Test</h1>
+            <p>Testing if photos display correctly in the member table</p>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 1: Basic Image Display</h3>
+            <p>Testing if images with .img-thumbnail class display correctly:</p>
+            
+            <div style="display: flex; gap: 20px; margin: 20px 0;">
+                <div>
+                    <p>Default Avatar:</p>
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K" 
+                         alt="Default Avatar" 
+                         class="img-thumbnail">
+                </div>
+                
+                <div>
+                    <p>Test Image:</p>
+                    <img src="https://via.placeholder.com/100x100/667eea/ffffff?text=Test" 
+                         alt="Test Image" 
+                         class="img-thumbnail">
+                </div>
+                
+                <div>
+                    <p>Invalid Image (should show broken icon):</p>
+                    <img src="https://invalid-url-that-does-not-exist.com/image.jpg" 
+                         alt="Invalid Image" 
+                         class="img-thumbnail">
+                </div>
+            </div>
+            
+            <div id="basicTestResult" class="status warning">Testing...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 2: Table Display</h3>
+            <p>Testing if images display correctly in a table format:</p>
+            
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Photo</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Code</th>
+                        <th>Position</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K" 
+                                 alt="Member 1" 
+                                 class="img-thumbnail">
+                        </td>
+                        <td>John Doe</td>
+                        <td>john@example.com</td>
+                        <td>NARAP001</td>
+                        <td>MEMBER</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <img src="https://via.placeholder.com/100x100/28a745/ffffff?text=Jane" 
+                                 alt="Member 2" 
+                                 class="img-thumbnail">
+                        </td>
+                        <td>Jane Smith</td>
+                        <td>jane@example.com</td>
+                        <td>NARAP002</td>
+                        <td>MEMBER</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <img src="https://invalid-url-that-does-not-exist.com/image.jpg" 
+                                 alt="Member 3" 
+                                 class="img-thumbnail">
+                        </td>
+                        <td>Bob Wilson</td>
+                        <td>bob@example.com</td>
+                        <td>NARAP003</td>
+                        <td>MEMBER</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div id="tableTestResult" class="status warning">Testing...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 3: JavaScript Functions</h3>
+            <p>Testing if required JavaScript functions are available:</p>
+            
+            <div id="jsTestResult" class="status warning">Testing...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 4: CSS Analysis</h3>
+            <p>Analyzing CSS styles for .img-thumbnail:</p>
+            
+            <div id="cssTestResult" class="status warning">Testing...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>Actions</h3>
+            <p>Actions to help resolve photo display issues:</p>
+            
+            <button onclick="refreshTest()" style="padding: 10px 20px; margin: 5px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                Refresh Test
+            </button>
+            
+            <button onclick="checkConsole()" style="padding: 10px 20px; margin: 5px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                Check Console
+            </button>
+            
+            <button onclick="clearCache()" style="padding: 10px 20px; margin: 5px; background: #ffc107; color: #212529; border: none; border-radius: 5px; cursor: pointer;">
+                Clear Cache
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function runTests() {
+            console.log('🔍 Starting photo display tests...');
+            
+            // Test 1: Basic Image Display
+            testBasicImageDisplay();
+            
+            // Test 2: Table Display
+            testTableDisplay();
+            
+            // Test 3: JavaScript Functions
+            testJavaScriptFunctions();
+            
+            // Test 4: CSS Analysis
+            testCssAnalysis();
+        }
+        
+        function testBasicImageDisplay() {
+            const result = document.getElementById('basicTestResult');
+            const images = document.querySelectorAll('.img-thumbnail');
+            
+            let visibleCount = 0;
+            let totalCount = images.length;
+            
+            images.forEach((img, index) => {
+                const computedStyle = window.getComputedStyle(img);
+                const isVisible = computedStyle.display !== 'none' && 
+                                computedStyle.visibility !== 'hidden' && 
+                                parseFloat(computedStyle.opacity) > 0;
+                
+                if (isVisible) {
+                    visibleCount++;
+                    console.log(`✅ Image ${index + 1} is visible`);
+                } else {
+                    console.log(`❌ Image ${index + 1} is not visible`);
+                }
+            });
+            
+            if (visibleCount === totalCount) {
+                result.textContent = `✅ All ${totalCount} images are visible`;
+                result.className = 'status success';
+            } else {
+                result.textContent = `❌ Only ${visibleCount}/${totalCount} images are visible`;
+                result.className = 'status error';
+            }
+        }
+        
+        function testTableDisplay() {
+            const result = document.getElementById('tableTestResult');
+            const tableImages = document.querySelectorAll('.data-table .img-thumbnail');
+            
+            let visibleCount = 0;
+            let totalCount = tableImages.length;
+            
+            tableImages.forEach((img, index) => {
+                const computedStyle = window.getComputedStyle(img);
+                const isVisible = computedStyle.display !== 'none' && 
+                                computedStyle.visibility !== 'hidden' && 
+                                parseFloat(computedStyle.opacity) > 0;
+                
+                if (isVisible) {
+                    visibleCount++;
+                    console.log(`✅ Table image ${index + 1} is visible`);
+                } else {
+                    console.log(`❌ Table image ${index + 1} is not visible`);
+                }
+            });
+            
+            if (visibleCount === totalCount) {
+                result.textContent = `✅ All ${totalCount} table images are visible`;
+                result.className = 'status success';
+            } else {
+                result.textContent = `❌ Only ${visibleCount}/${totalCount} table images are visible`;
+                result.className = 'status error';
+            }
+        }
+        
+        function testJavaScriptFunctions() {
+            const result = document.getElementById('jsTestResult');
+            const requiredFunctions = [
+                'displayMembers',
+                'getImageUrl',
+                'handleMemberTableImageError'
+            ];
+            
+            let availableCount = 0;
+            let totalCount = requiredFunctions.length;
+            
+            requiredFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    availableCount++;
+                    console.log(`✅ Function ${funcName} is available`);
+                } else {
+                    console.log(`❌ Function ${funcName} is not available`);
+                }
+            });
+            
+            if (availableCount === totalCount) {
+                result.textContent = `✅ All ${totalCount} required functions are available`;
+                result.className = 'status success';
+            } else {
+                result.textContent = `❌ Only ${availableCount}/${totalCount} required functions are available`;
+                result.className = 'status error';
+            }
+        }
+        
+        function testCssAnalysis() {
+            const result = document.getElementById('cssTestResult');
+            const testImg = document.querySelector('.img-thumbnail');
+            
+            if (testImg) {
+                const computedStyle = window.getComputedStyle(testImg);
+                
+                const analysis = {
+                    display: computedStyle.display,
+                    visibility: computedStyle.visibility,
+                    opacity: computedStyle.opacity,
+                    width: computedStyle.width,
+                    height: computedStyle.height,
+                    objectFit: computedStyle.objectFit,
+                    borderRadius: computedStyle.borderRadius
+                };
+                
+                console.log('📊 CSS Analysis:', analysis);
+                
+                let issues = [];
+                
+                if (analysis.display === 'none') issues.push('display: none');
+                if (analysis.visibility === 'hidden') issues.push('visibility: hidden');
+                if (parseFloat(analysis.opacity) === 0) issues.push('opacity: 0');
+                if (analysis.width === '0px') issues.push('width: 0px');
+                if (analysis.height === '0px') issues.push('height: 0px');
+                
+                if (issues.length === 0) {
+                    result.textContent = '✅ CSS styles are correct - images should be visible';
+                    result.className = 'status success';
+                } else {
+                    result.textContent = `❌ CSS issues detected: ${issues.join(', ')}`;
+                    result.className = 'status error';
+                }
+            } else {
+                result.textContent = '❌ No test image found for CSS analysis';
+                result.className = 'status error';
+            }
+        }
+        
+        function refreshTest() {
+            console.log('🔄 Refreshing tests...');
+            runTests();
+        }
+        
+        function checkConsole() {
+            console.log('🔍 Console check initiated');
+            console.log('✅ Photo display test - Console is working');
+            console.log('📊 Current time:', new Date().toISOString());
+            alert('Console check completed. Check browser developer tools for logs.');
+        }
+        
+        function clearCache() {
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                });
+            }
+            localStorage.clear();
+            sessionStorage.clear();
+            alert('Cache cleared. Please refresh the page.');
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔍 Simple Photo Display Test - Page Loaded');
+            setTimeout(runTests, 500); // Small delay to ensure everything loads
+        });
+    </script>
+</body>
+</html> 
