@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NARAP - Button Styling Fix Test</title>
+    <link href="css/admin.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .test-header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .test-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        
+        .test-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+        
+        .button-test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .button-test-item {
+            text-align: center;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        
+        .button-test-item h4 {
+            margin-bottom: 15px;
+            color: #555;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .modal-demo {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 0;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            margin: 0;
+            color: #333;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+        
+        .btn-info {
+            background: var(--info-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1><i class="fas fa-palette"></i> Button Styling Fix Test</h1>
+            <p>Testing button text visibility fixes in member preview modal</p>
+        </div>
+
+        <!-- Button Styling Test -->
+        <div class="test-section">
+            <h3><i class="fas fa-check-square"></i> Button Styling Test</h3>
+            <p>Testing the fixed button styling for proper text visibility</p>
+            
+            <div class="button-test-grid">
+                <div class="button-test-item">
+                    <h4>Fixed Close Button</h4>
+                    <button class="btn btn-secondary" style="padding: 10px 20px; border: 1px solid #ddd; background: #f8f9fa; color: #333; border-radius: 4px; cursor: pointer;">
+                        Close
+                    </button>
+                    <div class="status-indicator status-success">✅ Text Visible</div>
+                </div>
+                
+                <div class="button-test-item">
+                    <h4>Original Close Button (Before Fix)</h4>
+                    <button class="btn btn-secondary" style="padding: 10px 20px; border: 1px solid #ddd; background: #f8f9fa; border-radius: 4px; cursor: pointer;">
+                        Close (White Text)
+                    </button>
+                    <div class="status-indicator status-error">❌ Text Not Visible</div>
+                </div>
+                
+                <div class="button-test-item">
+                    <h4>Edit Member Button</h4>
+                    <button class="btn btn-warning" style="padding: 10px 20px; border: 1px solid #ffc107; background: #ffc107; color: #000; border-radius: 4px; cursor: pointer;">
+                        Edit Member
+                    </button>
+                    <div class="status-indicator status-success">✅ Text Visible</div>
+                </div>
+                
+                <div class="button-test-item">
+                    <h4>Standard Secondary Button</h4>
+                    <button class="btn btn-secondary">Secondary Button</button>
+                    <div class="status-indicator status-success">✅ Text Visible</div>
+                </div>
+            </div>
+            
+            <div class="debug-info">
+                <strong>Button Styling Analysis:</strong><br>
+                • <strong>Issue:</strong> Close button had light background (#f8f9fa) but no text color<br>
+                • <strong>CSS Default:</strong> .btn-secondary has color: white<br>
+                • <strong>Problem:</strong> White text on light background = invisible<br>
+                • <strong>Fix:</strong> Added color: #333 to inline styles<br>
+                • <strong>Result:</strong> Dark text on light background = visible
+            </div>
+        </div>
+
+        <!-- Modal Demo Test -->
+        <div class="test-section">
+            <h3><i class="fas fa-window-maximize"></i> Modal Demo Test</h3>
+            <p>Testing the actual modal with fixed button styling</p>
+            
+            <button class="btn btn-primary" onclick="showModalDemo()">
+                <i class="fas fa-eye"></i> Show Member Preview Modal
+            </button>
+            
+            <div class="debug-info">
+                <strong>Modal Features:</strong><br>
+                • Modal with member preview layout<br>
+                • Fixed Close button with visible text<br>
+                • Edit Member button with proper styling<br>
+                • Responsive design maintained<br>
+                • Proper button spacing and alignment
+            </div>
+        </div>
+
+        <!-- CSS Override Test -->
+        <div class="test-section">
+            <h3><i class="fas fa-css3"></i> CSS Override Test</h3>
+            <p>Testing CSS specificity and inline style overrides</p>
+            
+            <div class="button-test-grid">
+                <div class="button-test-item">
+                    <h4>CSS Only (No Inline)</h4>
+                    <button class="btn btn-secondary">CSS Button</button>
+                    <div class="status-indicator status-success">✅ White text on dark background</div>
+                </div>
+                
+                <div class="button-test-item">
+                    <h4>Inline Style Override</h4>
+                    <button class="btn btn-secondary" style="background: #f8f9fa; color: #333;">
+                        Inline Override
+                    </button>
+                    <div class="status-indicator status-success">✅ Dark text on light background</div>
+                </div>
+                
+                <div class="button-test-item">
+                    <h4>Mixed Styling</h4>
+                    <button class="btn btn-secondary" style="background: #f8f9fa;">
+                        Mixed (Missing Color)
+                    </button>
+                    <div class="status-indicator status-error">❌ White text on light background</div>
+                </div>
+            </div>
+            
+            <div class="debug-info">
+                <strong>CSS Specificity Analysis:</strong><br>
+                • <strong>CSS Rule:</strong> .btn-secondary { color: white; }<br>
+                • <strong>Inline Style:</strong> style="color: #333;" (higher specificity)<br>
+                • <strong>Result:</strong> Inline style overrides CSS rule<br>
+                • <strong>Importance:</strong> Always specify text color when changing background
+            </div>
+        </div>
+
+        <!-- Fix Summary -->
+        <div class="test-section">
+            <h3><i class="fas fa-check-circle"></i> Fix Summary</h3>
+            <div class="debug-info">
+                <strong>✅ Issue Fixed:</strong><br>
+                1. <strong>Problem:</strong> Close button text was white on light background<br>
+                2. <strong>Root Cause:</strong> Missing color property in inline styles<br>
+                3. <strong>Solution:</strong> Added color: #333 to button inline styles<br>
+                4. <strong>Location:</strong> NARAP/js/admin.js line 4425<br>
+                5. <strong>Impact:</strong> Button text now visible in member preview modal<br><br>
+                
+                <strong>🔧 Technical Details:</strong><br>
+                • File: NARAP/js/admin.js<br>
+                • Function: showViewMemberModal()<br>
+                • Line: 4425<br>
+                • Change: Added color: #333 to Close button inline styles<br>
+                • Compatibility: Works in both light and dark themes
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Demo -->
+    <div id="modalDemo" class="modal-demo" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Member Preview</h3>
+                <button class="close-btn" onclick="hideModalDemo()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; gap: 20px;">
+                    <div style="flex: 1;">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K" 
+                             alt="Member Photo" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;">
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="margin-bottom: 15px;">
+                            <strong>Name:</strong> John Doe
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>Email:</strong> john@example.com
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>Code:</strong> NARAP001
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>Position:</strong> MEMBER
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>State:</strong> Lagos
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>Zone:</strong> Zone A
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" style="padding: 10px 20px; border: 1px solid #ddd; background: #f8f9fa; color: #333; border-radius: 4px; cursor: pointer;">
+                    Close
+                </button>
+                <button class="btn btn-warning" style="padding: 10px 20px; border: 1px solid #ffc107; background: #ffc107; color: #000; border-radius: 4px; cursor: pointer;">
+                    Edit Member
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showModalDemo() {
+            document.getElementById('modalDemo').style.display = 'flex';
+        }
+        
+        function hideModalDemo() {
+            document.getElementById('modalDemo').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('modalDemo').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideModalDemo();
+            }
+        });
+        
+        // Test button visibility
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔍 Button Styling Fix Test - Starting');
+            
+            // Test button text visibility
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach((button, index) => {
+                const computedStyle = window.getComputedStyle(button);
+                const backgroundColor = computedStyle.backgroundColor;
+                const color = computedStyle.color;
+                
+                console.log(`Button ${index + 1}:`, {
+                    text: button.textContent.trim(),
+                    backgroundColor: backgroundColor,
+                    color: color,
+                    visible: isTextVisible(backgroundColor, color)
+                });
+            });
+            
+            function isTextVisible(bgColor, textColor) {
+                // Simple visibility check - in real implementation you'd use more sophisticated color contrast analysis
+                const isLightBg = bgColor.includes('rgb(248, 248, 248)') || bgColor.includes('rgb(248, 249, 250)');
+                const isDarkText = textColor.includes('rgb(51, 51, 51)') || textColor.includes('rgb(0, 0, 0)');
+                const isWhiteText = textColor.includes('rgb(255, 255, 255)');
+                
+                return (isLightBg && isDarkText) || (!isLightBg && isWhiteText);
+            }
+            
+            console.log('🔍 Button Styling Fix Test - Complete');
+        });
+    </script>
+</body>
+</html> 
