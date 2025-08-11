@@ -3085,8 +3085,6 @@ body {
     min-width: 800px; /* Minimum width to prevent squishing */
 }
 
-/* Checkbox styling - removed since checkboxes are no longer used */
-
 /* Action buttons styling */
 .data-table .btn-sm {
     margin: 0 2px;
