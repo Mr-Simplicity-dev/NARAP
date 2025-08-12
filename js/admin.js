@@ -3656,82 +3656,108 @@ async function getCertificates() {
     }
 }
 
-async function loadCertificates(page = 1, limit = 10, searchTerm = '') {
-    
-    
-    try {
-        const tableBody = document.getElementById('certificatesTableBody');
-        if (tableBody) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="7" class="loading">Loading certificates...</td>
-                </tr>
-            `;
-        }
-        
-        // Use the improved getCertificates function for consistent merging logic
-        const mergedCertificates = await getCertificates();
-        
-        if (typeof window !== 'undefined') {
-            window.currentCertificates = mergedCertificates;
-        }
-        
-        // Apply search filter if provided
-        let filteredCertificates = mergedCertificates;
-        if (searchTerm) {
-            filteredCertificates = mergedCertificates.filter(certificate => {
-                const searchLower = searchTerm.toLowerCase();
-                return (
-                    (certificate.certificateNumber && certificate.certificateNumber.toLowerCase().includes(searchLower)) ||
-                    (certificate.number && certificate.number.toLowerCase().includes(searchLower)) ||
-                    ((certificate.recipientName || certificate.recipient) && (certificate.recipientName || certificate.recipient).toLowerCase().includes(searchLower)) ||
-                    (certificate.name && certificate.name.toLowerCase().includes(searchLower)) ||
-                    (certificate.title && certificate.title.toLowerCase().includes(searchLower)) ||
-                    (certificate.certificateTitle && certificate.certificateTitle.toLowerCase().includes(searchLower))
-                );
-            });
-        }
-        
-        // Calculate pagination
-        const totalItems = filteredCertificates.length;
-        const totalPages = Math.ceil(totalItems / limit);
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        const paginatedCertificates = filteredCertificates.slice(startIndex, endIndex);
-        
-        // Store pagination state
-        window.certificatesPaginationState = {
-            currentPage: page,
-            totalPages: totalPages,
-            totalItems: totalItems,
-            itemsPerPage: limit
-        };
-        
-        if (typeof displayCertificates === 'function') {
-            displayCertificates(paginatedCertificates, totalItems, page, totalPages, limit);
-        }
-        
-        // Render pagination
-        if (typeof renderPagination === 'function') {
-            renderPagination(page, totalPages, totalItems, limit, 'certificates');
-        }
-        
-        
-        
-    } catch (error) {
-        
-        showMessage('Error loading certificates: ' + error.message, 'error');
-        
-        const localCertificates = getLocalCertificates();
-        if (typeof window !== 'undefined') {
-            window.currentCertificates = localCertificates;
-        }
-        
-        if (typeof displayCertificates === 'function') {
-            displayCertificates(localCertificates, localCertificates.length, 1, 1, limit);
-        }
+async function loadCertificates(
+  page = 1,
+  limit = 10,
+  searchTerm = '',
+  statusFilter = '',
+  typeFilterUI = '',
+  stateFilterUI = ''
+) {
+  try {
+    const tableBody = document.getElementById('certificatesTableBody');
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="7" class="loading">Loading certificates...</td>
+        </tr>
+      `;
     }
+
+    // Use your existing merger
+    const mergedCertificates = await getCertificates();
+
+    if (typeof window !== 'undefined') {
+      window.currentCertificates = mergedCertificates;
+    }
+
+    // Normalize filters (case-insensitive compare)
+    const q = (searchTerm || '').toLowerCase().trim();
+    const statusF = (statusFilter || '').toLowerCase().trim();
+    const typeFUI = (typeFilterUI || '').toLowerCase().trim();
+    const stateF = (stateFilterUI || '').toLowerCase().trim();
+
+    // Map UI type → stored type if needed (adjust if your DB uses 'award' for 'achievement', etc.)
+    const typeMap = {
+      membership: 'membership',
+      achievement: 'achievement',   // change to 'award' if that’s what you store
+      training: 'training',
+      recognition: 'recognition',
+      service: 'service'
+    };
+    const typeF = typeFUI ? (typeMap[typeFUI] || typeFUI) : '';
+
+    const getCertState = (c) => (c.state || c.userId?.state || '').toString().toLowerCase();
+
+    // Apply filters
+    let filtered = mergedCertificates.filter(c => {
+      const num = (c.certificateNumber || c.number || '').toLowerCase();
+      const recipient = (c.recipientName || c.recipient || '').toLowerCase();
+      const email = (c.email || '').toLowerCase();
+      const title = (c.certificateTitle || c.title || '').toLowerCase();
+      const type = (c.type || '').toLowerCase();
+      const status = (c.status || '').toLowerCase();
+      const issuedBy = (c.issuedBy || '').toLowerCase();
+      const userName = (c.userId?.name || '').toLowerCase();
+      const userEmail = (c.userId?.email || '').toLowerCase();
+      const userCode = (c.userId?.code || '').toLowerCase();
+      const certState = getCertState(c);
+
+      const haystack = [num, recipient, email, title, type, status, issuedBy, userName, userEmail, userCode].join(' ');
+      const matchSearch = !q || haystack.includes(q);
+      const matchStatus = !statusF || status === statusF;
+      const matchType = !typeF || type === typeF;
+      const matchState = !stateF || certState === stateF;
+
+      return matchSearch && matchStatus && matchType && matchState;
+    });
+
+    // Pagination
+    const totalItems = filtered.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginated = filtered.slice(startIndex, endIndex);
+
+    // Store pagination state
+    window.certificatesPaginationState = {
+      currentPage: page,
+      totalPages,
+      totalItems,
+      itemsPerPage: limit
+    };
+
+    if (typeof displayCertificates === 'function') {
+      displayCertificates(paginated, totalItems, page, totalPages, limit);
+    }
+
+    if (typeof renderPagination === 'function') {
+      renderPagination(page, totalPages, totalItems, limit, 'certificates');
+    }
+  } catch (error) {
+    showMessage('Error loading certificates: ' + error.message, 'error');
+
+    const localCertificates = getLocalCertificates();
+    if (typeof window !== 'undefined') {
+      window.currentCertificates = localCertificates;
+    }
+
+    if (typeof displayCertificates === 'function') {
+      displayCertificates(localCertificates, localCertificates.length, 1, 1, limit);
+    }
+  }
 }
+
 
 // ==================== TAB SWITCHING ====================
 
