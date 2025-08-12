@@ -6917,6 +6917,84 @@ function parseCSVLine(line) {
     return result;
 }
 
+async function importCertificateData(parsedData) {
+  console.log('🔄 Importing certificate data...');
+
+  const created = [];
+  const errors = [];
+
+  for (let i = 0; i < parsedData.length; i++) {
+    const row = parsedData[i];
+    const rowNumber = i + 2; // header is row 1
+
+    try {
+      // Expected headers (case-sensitive to what your parser builds):
+      // Certificate Number, Recipient, Email, Title, Type, Status, Issue Date, Valid Until, Issued By
+
+      const number = (row['Certificate Number'] || '').toUpperCase().trim();
+      const recipient = (row['Recipient'] || '').trim();
+      const email = (row['Email'] || '').trim();
+      const title = (row['Title'] || '').trim();
+      const type = (row['Type'] || 'membership').trim().toLowerCase();
+      const status = (row['Status'] || 'active').trim().toLowerCase();
+      const issueDate = row['Issue Date'] ? new Date(row['Issue Date']).toISOString() : '';
+      const validUntil = row['Valid Until'] ? new Date(row['Valid Until']).toISOString() : '';
+      const issuedBy = (row['Issued By'] || '').trim();
+
+      // Basic validation
+      if (!number || !recipient || !title) {
+        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Title)`);
+        continue;
+      }
+
+      // Build payload for your existing create endpoint
+      const payload = {
+        number,
+        recipient,
+        email,
+        title,
+        type: type || 'membership',
+        description: '',           // optional
+        issueDate: issueDate || undefined,
+        validUntil: validUntil || undefined,
+        status: status || 'active',
+        issuedBy: issuedBy || undefined
+      };
+
+      const resp = await fetch(`${backendUrl}/api/certificates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        errors.push(`Row ${rowNumber}: ${err.message || 'Failed to create certificate'}`);
+        continue;
+      }
+
+      const result = await resp.json();
+      created.push(result.certificate || result);
+      console.log(`✅ Certificate imported: ${number}`);
+    } catch (e) {
+      errors.push(`Row ${rowNumber}: ${e.message}`);
+    }
+  }
+
+  // Optional: refresh certificates list if you have a loader
+  if (typeof loadCertificates === 'function') {
+    await loadCertificates();
+  }
+
+  if (errors.length) {
+    console.warn('❌ Certificate import errors:', errors);
+    showMessage(`Certificates imported with ${errors.length} errors. Check console.`, 'warning');
+  } else {
+    showMessage(`Successfully imported ${created.length} certificates!`, 'success');
+  }
+}
+
+
 function downloadSampleCSV() {
     const importType = document.getElementById('importType')?.value || 'members';
     
