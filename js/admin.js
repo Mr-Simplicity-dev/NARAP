@@ -3759,6 +3759,37 @@ async function loadCertificates(
 }
 
 
+function filterCertificates() {
+  const searchTerm   = document.getElementById('certificateSearch')?.value || '';
+  const statusFilter = document.getElementById('certificateStatusFilter')?.value || '';
+  const typeFilter   = document.getElementById('certificateTypeFilter')?.value || '';
+  const stateFilter  = document.getElementById('certificateStateFilter')?.value || '';
+
+  console.log('🔍 Filtering certificates with:', {
+    searchTerm: `"${searchTerm}"`,
+    statusFilter: `"${statusFilter}"`,
+    typeFilter: `"${typeFilter}"`,
+    stateFilter: `"${stateFilter}"`
+  });
+
+  // Optional: log state filter element like you did for members
+  const stateEl = document.getElementById('certificateStateFilter');
+  console.log('🔍 Cert state filter element:', {
+    value: stateEl?.value,
+    selectedIndex: stateEl?.selectedIndex,
+    options: stateEl?.options ? Array.from(stateEl.options).map(o => ({ value: o.value, text: o.text })) : []
+  });
+
+  // Use a separate per-page preference for certificates (or reuse members one if you prefer)
+  const savedCertsPerPage = parseInt(localStorage.getItem('narap_certificates_per_page')) || 10;
+
+  // Reload list with ALL filters and reset to page 1
+  // Make sure your loadCertificates signature accepts these args:
+  // (page, limit, searchTerm, statusFilter, typeFilter, stateFilter)
+  loadCertificates(1, savedCertsPerPage, searchTerm, statusFilter, typeFilter, stateFilter);
+}
+
+
 // ==================== TAB SWITCHING ====================
 
 function switchTab(tabName) {
