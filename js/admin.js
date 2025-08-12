@@ -7019,7 +7019,7 @@ function downloadSampleCSV() {
 }
 
 function downloadSampleCSV() {
-  const importType = document.getElementById('importType')?.value || 'members';
+  const importType = document.getElementById('importType')?.value || 'certificatess';
   
   if (importType === 'members') {
     const sampleData = [
@@ -7028,8 +7028,8 @@ function downloadSampleCSV() {
       { Name: 'Mike Johnson', Email: 'mike@example.com', Code: 'NARAP003', Position: 'TREASURER', State: 'KANO', Zone: 'North West', Password: 'password123' }
     ];
     const csvContent = convertToCSV(sampleData);
-    downloadFile(csvContent, 'sample_members.csv', 'text/csv');
-    showMessage('Sample members CSV downloaded!', 'success');
+    downloadFile(csvContent, 'sample_certificates.csv', 'text/csv');
+    showMessage('Sample certificates CSV downloaded!', 'success');
 
   } else if (importType === 'certificates') {
     // Must match backend importer headers exactly:
@@ -7043,7 +7043,7 @@ function downloadSampleCSV() {
         "Type": "membership",
         "Status": "active",
         "Issue Date": "2024-01-15",
-        "Valid Until": "2025-01-15",
+        "Valid Until": "",
         "Issued By": "NARAP Authority"
       },
       {
@@ -7054,7 +7054,7 @@ function downloadSampleCSV() {
         "Type": "membership",
         "Status": "active",
         "Issue Date": "2024-02-20",
-        "Valid Until": "2025-02-20",
+        "Valid Until": "",
         "Issued By": "NARAP Authority"
       },
       {
