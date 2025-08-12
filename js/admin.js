@@ -7018,6 +7018,64 @@ function downloadSampleCSV() {
     }
 }
 
+function downloadSampleCSV() {
+  const importType = document.getElementById('importType')?.value || 'members';
+  
+  if (importType === 'members') {
+    const sampleData = [
+      { Name: 'John Doe', Email: 'john@example.com', Code: 'NARAP001', Position: 'MEMBER', State: 'LAGOS', Zone: 'South West', Password: 'password123' },
+      { Name: 'Jane Smith', Email: 'jane@example.com', Code: 'NARAP002', Position: 'SECRETARY', State: 'FCT', Zone: 'North Central', Password: 'password123' },
+      { Name: 'Mike Johnson', Email: 'mike@example.com', Code: 'NARAP003', Position: 'TREASURER', State: 'KANO', Zone: 'North West', Password: 'password123' }
+    ];
+    const csvContent = convertToCSV(sampleData);
+    downloadFile(csvContent, 'sample_members.csv', 'text/csv');
+    showMessage('Sample members CSV downloaded!', 'success');
+
+  } else if (importType === 'certificates') {
+    // Must match backend importer headers exactly:
+    // Certificate Number, Recipient, Email, Title, Type, Status, Issue Date, Valid Until, Issued By
+    const sampleData = [
+      {
+        "Certificate Number": "NARAP-CERT-0001",
+        "Recipient": "John Doe",
+        "Email": "john@example.com",
+        "Title": "Membership Certificate",
+        "Type": "membership",
+        "Status": "active",
+        "Issue Date": "2024-01-15",
+        "Valid Until": "2025-01-15",
+        "Issued By": "NARAP Authority"
+      },
+      {
+        "Certificate Number": "NARAP-CERT-0002",
+        "Recipient": "Jane Smith",
+        "Email": "jane@example.com",
+        "Title": "Membership Certificate",
+        "Type": "membership",
+        "Status": "active",
+        "Issue Date": "2024-02-20",
+        "Valid Until": "2025-02-20",
+        "Issued By": "NARAP Authority"
+      },
+      {
+        "Certificate Number": "NARAP-CERT-0003",
+        "Recipient": "Mike Johnson",
+        "Email": "mike@example.com",
+        "Title": "Leadership Award",
+        "Type": "award",
+        "Status": "active",
+        "Issue Date": "2024-03-10",
+        "Valid Until": "",
+        "Issued By": "NARAP Authority"
+      }
+    ];
+    const csvContent = convertToCSV(sampleData);
+    downloadFile(csvContent, 'sample_certificates.csv', 'text/csv');
+    showMessage('Sample certificates CSV downloaded!', 'success');
+  }
+}
+
+
 function generateDefaultPassword() {
     return 'NARAP' + Math.random().toString(36).substring(2, 8).toUpperCase();
 }
