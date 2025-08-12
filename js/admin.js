@@ -7103,84 +7103,121 @@ function updateCsvFormat() {
 }
 
 async function importCertificateData(parsedData) {
-    console.log('🔄 Importing certificates data...');
-    
-    const newCertificates = [];
-    const errors = [];
-    
-    for (let i = 0; i < parsedData.length; i++) {
-        const row = parsedData[i];
-        const rowNumber = i + 2; // +2 because CSV has header and arrays are 0-indexed
-        
+  console.log('🔄 Importing certificate data...');
+
+  const created = [];
+  const errors = [];
+
+  // Helper: get a field by trying multiple header names (case-sensitive to your parsed keys)
+  const pick = (row, ...keys) => {
+    for (const k of keys) {
+      if (row[k] != null && String(row[k]).trim() !== '') return String(row[k]).trim();
+    }
+    return '';
+  };
+
+  for (let i = 0; i < parsedData.length; i++) {
+    const row = parsedData[i];
+    const rowNumber = i + 2; // header is row 1
+
+    try {
+      // Support BOTH header styles
+      const number =
+        (pick(row, 'Certificate Number', 'CertificateID') || '').toUpperCase();
+      const recipient =
+        pick(row, 'Recipient', 'Member Name', 'Name'); // fallback if you include it
+      const email =
+        pick(row, 'Email', 'Member Email');
+      const title =
+        pick(row, 'Title', 'Certificate Title') || 'Membership Certificate';
+      const type =
+        (pick(row, 'Type') || 'membership').toLowerCase();            // membership/award/...
+      const status =
+        (pick(row, 'Status') || 'active').toLowerCase();              // active/revoked/expired
+      const issueDate =
+        pick(row, 'Issue Date', 'IssueDate');                         // YYYY-MM-DD preferred
+      const validUntil =
+        pick(row, 'Valid Until', 'ExpiryDate');                       // may be blank
+      const issuedBy =
+        pick(row, 'Issued By') || 'NARAP Authority';
+
+      // Basic validation (backend requires number, recipient, title)
+      if (!number || !recipient || !title) {
+        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Title)`);
+        continue;
+      }
+
+      const payload = {
+        number,                           // required
+        recipient,                        // required
+        email,                            // optional
+        title,                            // required
+        type: type || 'membership',
+        description: '',                  // optional
+        issueDate: issueDate || undefined,
+        validUntil: validUntil || undefined,
+        status: status || 'active',
+        issuedBy: issuedBy || undefined
+      };
+
+      const resp = await fetch(`${backendUrl}/api/certificates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp.ok) {
+        // capture server message for clarity
+        let msg = `HTTP ${resp.status}`;
         try {
-            // Validate required fields
-            if (!row.CertificateID || !row.MemberID || !row.Type) {
-                errors.push(`Row ${rowNumber}: Missing required fields (CertificateID, MemberID, Type)`);
-                continue;
-            }
-            
-            // Check if member exists
-            const memberExists = window.members?.find(m => m.code === row.MemberID.toUpperCase());
-            if (!memberExists) {
-                errors.push(`Row ${rowNumber}: Member with code '${row.MemberID}' not found`);
-                continue;
-            }
-            
-            // Create certificate object
-            const certificate = {
-                certificateNumber: row.CertificateID,
-                memberId: memberExists._id,
-                memberCode: row.MemberID.toUpperCase(),
-                type: row.Type,
-                issueDate: row.IssueDate || new Date().toISOString(),
-                expiryDate: row.ExpiryDate || null,
-                status: row.Status || 'Active'
-            };
-            
-            // Add to backend
-            try {
-                const response = await fetch(`${backendUrl}/api/certificates`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(certificate)
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    newCertificates.push(result.data);
-                    console.log(`✅ Certificate imported: ${certificate.certificateNumber} for ${certificate.memberCode}`);
-                } else {
-                    const errorData = await response.json();
-                    errors.push(`Row ${rowNumber}: ${errorData.message || 'Failed to add certificate'}`);
-                }
-            } catch (error) {
-                errors.push(`Row ${rowNumber}: Network error - ${error.message}`);
-            }
-            
-        } catch (error) {
-            errors.push(`Row ${rowNumber}: ${error.message}`);
-        }
+          const errData = await resp.json();
+          if (errData?.message) msg = errData.message;
+        } catch (_) {}
+        errors.push(`Row ${rowNumber}: ${msg}`);
+        continue;
+      }
+
+      const result = await resp.json();
+      created.push(result.certificate || result);
+      console.log(`✅ Certificate imported: ${number}`);
+    } catch (e) {
+      errors.push(`Row ${rowNumber}: ${e.message}`);
     }
-    
-    // Update local certificates array
-    if (newCertificates.length > 0) {
-        if (!window.certificates) window.certificates = [];
-        window.certificates = [...window.certificates, ...newCertificates];
-        
-        // Refresh the certificates table
-        await loadCertificates();
-    }
-    
-    // Show results
-    if (errors.length > 0) {
-        showMessage(`Import completed with ${errors.length} errors. Check console for details.`, 'warning');
-        console.error('❌ Import errors:', errors);
-    } else {
-        showMessage(`Successfully imported ${newCertificates.length} certificates!`, 'success');
-    }
+  }
+
+  if (typeof loadCertificates === 'function') {
+    await loadCertificates();
+  }
+
+  if (errors.length) {
+    console.warn('❌ Certificate import errors:', errors);
+    showMessage(`Certificates imported with ${errors.length} errors. See details below.`, 'warning');
+    showImportErrors(errors); // helper below
+  } else {
+    showMessage(`Successfully imported ${created.length} certificates!`, 'success');
+  }
 }
+
+// Optional: show detailed errors inside the import modal
+function showImportErrors(errors) {
+  let box = document.getElementById('importErrorsBox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'importErrorsBox';
+    box.style.maxHeight = '200px';
+    box.style.overflowY = 'auto';
+    box.style.marginTop = '12px';
+    box.style.padding = '10px';
+    box.style.border = '1px solid #f5c2c7';
+    box.style.background = '#f8d7da';
+    box.style.color = '#842029';
+    const modalBody = document.querySelector('#importModal .modal-body') || document.body;
+    modalBody.appendChild(box);
+  }
+  box.innerHTML = `<strong>Import Errors (${errors.length}):</strong><br>` +
+    errors.map(e => `<div>• ${e}</div>`).join('');
+}
+
 
 function restoreBackup() {
     const fileInput = document.getElementById('restoreFile');
