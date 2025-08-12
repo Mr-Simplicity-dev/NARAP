@@ -6955,7 +6955,6 @@ async function importCertificateData(parsedData) {
         type: type || 'membership',
         description: '',           // optional
         issueDate: issueDate || undefined,
-        validUntil: validUntil || undefined,
         status: status || 'active',
         issuedBy: issuedBy || undefined
       };
