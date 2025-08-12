@@ -6929,7 +6929,7 @@ async function importCertificateData(parsedData) {
 
     try {
       // Expected headers (case-sensitive to what your parser builds):
-      // Certificate Number, Recipient, Email, Title, Type, Status, Issue Date, Valid Until, Issued By
+      // Certificate Number, Recipient, Email, Title, Type, Status, Issue Date, Issued By
 
       const number = (row['Certificate Number'] || '').toUpperCase().trim();
       const recipient = (row['Recipient'] || '').trim();
@@ -6938,7 +6938,6 @@ async function importCertificateData(parsedData) {
       const type = (row['Type'] || 'membership').trim().toLowerCase();
       const status = (row['Status'] || 'active').trim().toLowerCase();
       const issueDate = row['Issue Date'] ? new Date(row['Issue Date']).toISOString() : '';
-      const validUntil = row['Valid Until'] ? new Date(row['Valid Until']).toISOString() : '';
       const issuedBy = (row['Issued By'] || '').trim();
 
       // Basic validation
