@@ -194,8 +194,8 @@ class DataCache {
 // ==================== GLOBAL CONSTANTS AND STATE ====================
     
 // ---- Pagination: persistent values & defaults (DROP-IN, safe) ----
-let membersPerPage = parseInt(localStorage.getItem('membersPerPage') || '10', 10);
-let certificatesPerPage = parseInt(localStorage.getItem('certificatesPerPage') || '10', 10);
+let membersPerPage = parseInt(localStorage.getItem('narap_members_per_page') || '10', 10);
+let certificatesPerPage = parseInt(localStorage.getItem('narap_certificates_per_page') || '10', 10);
 
 // Guard current page vars if not present
 if (typeof window.membersCurrentPage !== 'number') window.membersCurrentPage = 1;
@@ -203,11 +203,12 @@ if (typeof window.certificatesCurrentPage !== 'number') window.certificatesCurre
 
 // Keep per-page dropdowns in sync with current values
 function syncPerPageDropdowns() {
+  const savedM = parseInt(localStorage.getItem('narap_members_per_page') || '10', 10);
+  const savedC = parseInt(localStorage.getItem('narap_certificates_per_page') || '10', 10);
   const mSel = document.getElementById('membersPerPage');
-  if (mSel && String(mSel.value) != String(membersPerPage)) mSel.value = String(membersPerPage);
-
+  if (mSel && String(mSel.value) !== String(savedM)) mSel.value = String(savedM);
   const cSel = document.getElementById('certificatesPerPage');
-  if (cSel && String(cSel.value) != String(certificatesPerPage)) cSel.value = String(certificatesPerPage);
+  if (cSel && String(cSel.value) !== String(savedC)) cSel.value = String(savedC);
 }
 window.syncPerPageDropdowns = syncPerPageDropdowns;
 
@@ -1626,14 +1627,25 @@ if (!window.__perPageHandlersBound) {
 
     // Members per-page
     if (t && t.matches('#membersPerPage')) {
-      const val = parseInt(t.value, 10);
-      if (!Number.isNaN(val) && val > 0) {
-        membersPerPage = val;
-        localStorage.setItem('membersPerPage', String(val));
-        window.membersCurrentPage = 1;
-        if (typeof window.applyMemberFilters === 'function') {
-          window.applyMemberFilters();
-        } else if (typeof window.renderMembers === 'function') {
+      if (typeof changeMembersPerPage === 'function') {
+        changeMembersPerPage();
+      } else {
+        const val = parseInt(t.value, 10);
+        if (!Number.isNaN(val) && val > 0) {
+          membersPerPage = val;
+          localStorage.setItem('narap_members_per_page', String(val));
+          window.membersCurrentPage = 1;
+          if (typeof window.applyMemberFilters === 'function') {
+            window.applyMemberFilters();
+          } else if (typeof window.renderMembers === 'function') {
+            window.renderMembers();
+          } else if (typeof window.loadMembers === 'function') {
+            window.loadMembers(1, val);
+          }
+          syncPerPageDropdowns();
+        }
+      }
+    } else if (typeof window.renderMembers === 'function') {
           window.renderMembers();
         }
         syncPerPageDropdowns();
@@ -1642,14 +1654,25 @@ if (!window.__perPageHandlersBound) {
 
     // Certificates per-page
     if (t && t.matches('#certificatesPerPage')) {
-      const val = parseInt(t.value, 10);
-      if (!Number.isNaN(val) && val > 0) {
-        certificatesPerPage = val;
-        localStorage.setItem('certificatesPerPage', String(val));
-        window.certificatesCurrentPage = 1;
-        if (typeof window.applyCertificateFilters === 'function') {
-          window.applyCertificateFilters();
-        } else if (typeof window.renderCertificates === 'function') {
+      if (typeof changeCertificatesPerPage === 'function') {
+        changeCertificatesPerPage();
+      } else {
+        const val = parseInt(t.value, 10);
+        if (!Number.isNaN(val) && val > 0) {
+          certificatesPerPage = val;
+          localStorage.setItem('narap_certificates_per_page', String(val));
+          window.certificatesCurrentPage = 1;
+          if (typeof window.applyCertificateFilters === 'function') {
+            window.applyCertificateFilters();
+          } else if (typeof window.renderCertificates === 'function') {
+            window.renderCertificates();
+          } else if (typeof window.loadCertificates === 'function') {
+            window.loadCertificates(1, val);
+          }
+          syncPerPageDropdowns();
+        }
+      }
+    } else if (typeof window.renderCertificates === 'function') {
           window.renderCertificates();
         }
         syncPerPageDropdowns();
