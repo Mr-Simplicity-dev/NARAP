@@ -4703,3 +4703,70 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 #importStatus > * { white-space: inherit; }
+
+
+
+/* ===== FOOTER LAYOUT FIX (2025-08-13) =====
+   This block only overrides footer layout to make items align neatly,
+   wrap on small screens, and keep the status on the far right. */
+.admin-footer{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;           /* space between groups */
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+}
+
+.admin-footer .footer-left,
+.admin-footer .footer-right{
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;          /* allow phone/address to wrap when tight */
+    min-width: 0;
+}
+
+.admin-footer .footer-group{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.admin-footer .footer-group .icon{
+    display: inline-flex;
+    width: 18px;
+    height: 18px;
+    line-height: 1;
+}
+
+.admin-footer .footer-text{
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 100%;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Keep connection status pinned to the right on wider screens */
+@media (min-width: 768px){
+    .admin-footer .footer-right{
+        margin-left: auto;
+    }
+}
+
+/* Stack neatly on small screens */
+@media (max-width: 767px){
+    .admin-footer{
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .admin-footer .footer-right{
+        width: 100%;
+        justify-content: space-between;
+        margin-left: 0;
+    }
+}
+
