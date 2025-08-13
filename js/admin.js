@@ -4897,9 +4897,7 @@ function displayCertificates(certificates, totalItems = 0, currentPage = 1, tota
         
         return `
             <tr>
-                <td>${index + 1}</td>
-                    <td>${index + 1}</td>
-                    <td style=\"display:none;\"><input type="checkbox" class="certificate-checkbox" value="${certificateId}" 
+                <td>${index + 1}</td><td style=\"display:none;\"><input type="checkbox" class="certificate-checkbox" value="${certificateId}" 
                            onchange="toggleCertificateSelection(this)">
                 </td>
                 
