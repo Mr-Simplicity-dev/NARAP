@@ -8769,46 +8769,25 @@ window.testMemberUpdate = async function(memberId) {
 // Keep row highlight in sync with checkbox state
 (function setupRowSelectedHighlightSync() {
     if (window.__rowSelectedHighlightBound) return;
-
-    function sync(tbody, selector, updateFn) {
+    function sync(tbody, selector) {
         if (!tbody) return;
-        tbody.addEventListener('change', function (e) {
+        tbody.addEventListener('change', function(e) {
             if (!e.target.matches(selector)) return;
-
             const cb = e.target;
             const tr = cb.closest('tr');
             if (!tr) return;
-
-            if (cb.checked) {
-                tr.classList.add('row-selected');
-            } else {
-                tr.classList.remove('row-selected');
-            }
-
-            // Refresh header visibility + cells based on selection
-            if (typeof updateFn === 'function') updateFn();
+            if (cb.checked) tr.classList.add('row-selected');
+        updateCertificatesSelectionUI();
+            else tr.classList.remove('row-selected');
         });
     }
-
-    // Members
-    sync(
-        document.getElementById('membersTableBody'),
-        '.member-checkbox',
-        updateMembersSelectionUI
-    );
-
-    // Certificates
-    let certTbody = document.getElementById('certificatesTableBody');
+    sync(document.getElementById('membersTableBody'), '.member-checkbox');
+    var certTbody = document.getElementById('certificatesTableBody');
     if (!certTbody) {
-        const certTable = document.getElementById('certificatesTable');
+        var certTable = document.getElementById('certificatesTable');
         if (certTable) certTbody = certTable.querySelector('tbody');
     }
-    sync(
-        certTbody,
-        '.certificate-checkbox',
-        updateCertificatesSelectionUI
-    );
-
+    sync(certTbody, '.certificate-checkbox');
     window.__rowSelectedHighlightBound = true;
 })();
 
@@ -8906,3 +8885,81 @@ function updateCertificatesSelectionUI() {
     updateSelectionUI('certificatesTable', '#certificatesTableBody, #certificatesTable tbody', '.certificate-checkbox', 'selectAllCertificates');
 }
 
+
+
+// ---- Global selection sync on checkbox changes (robust) ----
+(function bindGlobalSelectionSync() {
+    if (window.__globalSelectionSyncBound) return;
+
+    function updateSelectionUI(tableId, tbodySelector, checkboxSelector, headerCheckboxId) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        let tbody = document.querySelector(tbodySelector);
+        if (!tbody && table) tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        const checkboxes = Array.from(tbody.querySelectorAll(checkboxSelector));
+        const anyChecked = checkboxes.some(cb => cb.checked);
+
+        // Toggle header <th> visibility
+        const headerCb = document.getElementById(headerCheckboxId);
+        if (headerCb && headerCb.closest('th')) {
+            headerCb.closest('th').style.display = anyChecked ? 'table-cell' : 'none';
+        }
+
+        // Toggle table state class
+        if (anyChecked) {
+            table.classList.add('selection-active');
+        } else {
+            table.classList.remove('selection-active');
+        }
+
+        // Show checkbox cells for checked rows only; hide all if none selected
+        checkboxes.forEach(cb => {
+            const td = cb.closest('td');
+            if (!td) return;
+            if (anyChecked) {
+                td.style.display = cb.checked ? '' : 'none';
+            } else {
+                td.style.display = 'none';
+            }
+        });
+    }
+
+    // Expose (in case other code calls it)
+    window.updateMembersSelectionUI = function() {
+        updateSelectionUI('membersTable', '#membersTableBody', '.member-checkbox', 'selectAllMembers');
+    };
+    window.updateCertificatesSelectionUI = function() {
+        updateSelectionUI('certificatesTable', '#certificatesTableBody, #certificatesTable tbody', '.certificate-checkbox', 'selectAllCertificates');
+    };
+
+    // On any checkbox change, sync immediately
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.matches('.member-checkbox')) {
+            // Keep row highlight in sync
+            const tr = e.target.closest('tr');
+            if (tr) {
+                if (e.target.checked) tr.classList.add('row-selected');
+                else tr.classList.remove('row-selected');
+            }
+            window.updateMembersSelectionUI();
+        }
+        if (e.target && e.target.matches('.certificate-checkbox')) {
+            const tr = e.target.closest('tr');
+            if (tr) {
+                if (e.target.checked) tr.classList.add('row-selected');
+                else tr.classList.remove('row-selected');
+            }
+            window.updateCertificatesSelectionUI();
+        }
+    }, false);
+
+    // Initial sync on DOMContentLoaded (in case rows are pre-rendered)
+    document.addEventListener('DOMContentLoaded', function() {
+        window.updateMembersSelectionUI();
+        window.updateCertificatesSelectionUI();
+    }, false);
+
+    window.__globalSelectionSyncBound = true;
+})();
