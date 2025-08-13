@@ -4259,8 +4259,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
             const rowHTML = `
                 <tr>
                     <td>${index + 1}</td>
-                    <td style=\"display:none;\">
-                        <input type="checkbox" class="member-checkbox" value="${memberId}" 
+                    <td class=\"checkbox-cell\"><input type=\"checkbox\" class=\"member-checkbox\" value="${memberId}" 
                                onchange="toggleMemberSelection(this)">
                     </td>
                     
@@ -8785,7 +8784,7 @@ window.testMemberUpdate = async function(memberId) {
                 tr.classList.remove('row-selected');
             }
 
-            // Refresh header visibility + checkbox cells
+            // Refresh header visibility + cells based on selection
             if (typeof updateFn === 'function') updateFn();
         });
     }
@@ -8794,7 +8793,7 @@ window.testMemberUpdate = async function(memberId) {
     sync(
         document.getElementById('membersTableBody'),
         '.member-checkbox',
-        window.updateMembersSelectionUI
+        updateMembersSelectionUI
     );
 
     // Certificates
@@ -8806,11 +8805,12 @@ window.testMemberUpdate = async function(memberId) {
     sync(
         certTbody,
         '.certificate-checkbox',
-        window.updateCertificatesSelectionUI
+        updateCertificatesSelectionUI
     );
 
     window.__rowSelectedHighlightBound = true;
 })();
+
 
 // ---- Robust row click-to-select (document-level delegation) ----
 (function enableRowClickSelect() {
@@ -8905,81 +8905,3 @@ function updateCertificatesSelectionUI() {
     updateSelectionUI('certificatesTable', '#certificatesTableBody, #certificatesTable tbody', '.certificate-checkbox', 'selectAllCertificates');
 }
 
-
-
-// ---- Global selection sync on checkbox changes (robust) ----
-(function bindGlobalSelectionSync() {
-    if (window.__globalSelectionSyncBound) return;
-
-    function updateSelectionUI(tableId, tbodySelector, checkboxSelector, headerCheckboxId) {
-        const table = document.getElementById(tableId);
-        if (!table) return;
-        let tbody = document.querySelector(tbodySelector);
-        if (!tbody && table) tbody = table.querySelector('tbody');
-        if (!tbody) return;
-
-        const checkboxes = Array.from(tbody.querySelectorAll(checkboxSelector));
-        const anyChecked = checkboxes.some(cb => cb.checked);
-
-        // Toggle header <th> visibility
-        const headerCb = document.getElementById(headerCheckboxId);
-        if (headerCb && headerCb.closest('th')) {
-            headerCb.closest('th').style.display = anyChecked ? 'table-cell' : 'none';
-        }
-
-        // Toggle table state class
-        if (anyChecked) {
-            table.classList.add('selection-active');
-        } else {
-            table.classList.remove('selection-active');
-        }
-
-        // Show checkbox cells for checked rows only; hide all if none selected
-        checkboxes.forEach(cb => {
-            const td = cb.closest('td');
-            if (!td) return;
-            if (anyChecked) {
-                td.style.display = cb.checked ? '' : 'none';
-            } else {
-                td.style.display = 'none';
-            }
-        });
-    }
-
-    // Expose (in case other code calls it)
-    window.updateMembersSelectionUI = function() {
-        updateSelectionUI('membersTable', '#membersTableBody', '.member-checkbox', 'selectAllMembers');
-    };
-    window.updateCertificatesSelectionUI = function() {
-        updateSelectionUI('certificatesTable', '#certificatesTableBody, #certificatesTable tbody', '.certificate-checkbox', 'selectAllCertificates');
-    };
-
-    // On any checkbox change, sync immediately
-    document.addEventListener('change', function(e) {
-        if (e.target && e.target.matches('.member-checkbox')) {
-            // Keep row highlight in sync
-            const tr = e.target.closest('tr');
-            if (tr) {
-                if (e.target.checked) tr.classList.add('row-selected');
-                else tr.classList.remove('row-selected');
-            }
-            window.updateMembersSelectionUI();
-        }
-        if (e.target && e.target.matches('.certificate-checkbox')) {
-            const tr = e.target.closest('tr');
-            if (tr) {
-                if (e.target.checked) tr.classList.add('row-selected');
-                else tr.classList.remove('row-selected');
-            }
-            window.updateCertificatesSelectionUI();
-        }
-    }, false);
-
-    // Initial sync on DOMContentLoaded (in case rows are pre-rendered)
-    document.addEventListener('DOMContentLoaded', function() {
-        window.updateMembersSelectionUI();
-        window.updateCertificatesSelectionUI();
-    }, false);
-
-    window.__globalSelectionSyncBound = true;
-})();
