@@ -4899,8 +4899,8 @@ function displayCertificates(certificates, totalItems = 0, currentPage = 1, tota
         return `
             <tr>
                 <td>${index + 1}</td>
-                    <td>
-                    <input type="checkbox" class="certificate-checkbox" value="${certificateId}" 
+                    <td>${index + 1}</td>
+                    <td style=\"display:none;\"><input type="checkbox" class="certificate-checkbox" value="${certificateId}" 
                            onchange="toggleCertificateSelection(this)">
                 </td>
                 
@@ -8690,4 +8690,29 @@ window.testMemberUpdate = async function(memberId) {
         }
     }, false);
     window.__memberRowRevealBound = true;
+})();
+
+
+// ---- Reveal certificate checkbox on row click (safe) ----
+(function setupCertificateRowCheckboxReveal() {
+    if (window.__certRowRevealBound) return;
+    // Try a specific tbody id if present, else attach to the table's tbody
+    let tbody = document.getElementById('certificatesTableBody');
+    if (!tbody) {
+        const table = document.getElementById('certificatesTable');
+        if (table) tbody = table.querySelector('tbody');
+    }
+    if (!tbody) return;
+    tbody.addEventListener('click', function(e) {
+        if (e.target.closest('button, a, input, select, label, textarea')) return;
+        const tr = e.target.closest('tr');
+        if (!tr) return;
+        const cb = tr.querySelector('.certificate-checkbox');
+        if (!cb) return;
+        const cbTd = cb.closest('td');
+        if (cbTd && cbTd.style.display === 'none') {
+            cbTd.style.display = '';
+        }
+    }, false);
+    window.__certRowRevealBound = true;
 })();
