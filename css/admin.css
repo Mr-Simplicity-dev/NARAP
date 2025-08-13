@@ -2999,7 +2999,7 @@ body {
 
 .data-table th:nth-child(5), /* Position */
 .data-table td:nth-child(5) {
-    width: 15%;
+    width: 18%;
     min-width: 80px;
 }
 
