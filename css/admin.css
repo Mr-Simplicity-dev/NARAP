@@ -5376,3 +5376,32 @@ td.checkbox-cell { width: 36px; }
   #certificatesTable td:nth-child(3) img { width: 36px; height: 36px; }
 }
 
+
+
+/* === Compact: tighten ZONE and ACTIONS spacing === */
+/* ZONE column (9th) narrower with tighter padding */
+#membersTable th:nth-child(9), #membersTable td:nth-child(9),
+#certificatesTable th:nth-child(9), #certificatesTable td:nth-child(9) {
+  width: 80px;
+  padding-left: 4px;
+  padding-right: 4px;
+  white-space: nowrap;
+}
+
+/* ACTIONS column: reduce min-width and right padding */
+#membersTable th:last-child, #membersTable td:last-child,
+#certificatesTable th:last-child, #certificatesTable td:last-child {
+  min-width: 140px !important;   /* was ~180px */
+  padding-right: 8px;            /* was 16px */
+}
+
+/* More compact button spacing inside ACTIONS */
+#membersTable td:last-child button,
+#membersTable td:last-child .btn,
+#membersTable td:last-child a.button,
+#certificatesTable td:last-child button,
+#certificatesTable td:last-child .btn,
+#certificatesTable td:last-child a.button {
+  margin-right: 4px;             /* was 6px */
+}
+
