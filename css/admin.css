@@ -3120,7 +3120,7 @@ body {
     
     .data-table th:nth-child(2), /* Name */
     .data-table td:nth-child(2) {
-        width: 15%;
+        width: 14%;
         min-width: 100px;
     }
     
