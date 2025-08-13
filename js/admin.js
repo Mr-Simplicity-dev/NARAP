@@ -8996,3 +8996,70 @@ function updateCertificatesSelectionUI() {
   window.__selectionV2Bound = true;
 })();
 
+// ===== Flexible Selection Patch (merged) =====
+(function setupFlexibleSelection() {
+  if (window.__flexSelectionBound) return;
+
+  function findHeaderSelectAllCell(table) {
+    if (!table) return null;
+    const th = table.querySelector('thead th:has(input[type="checkbox"][id*="selectAll" i])');
+    return th || null;
+  }
+
+  function updateSelectionForTbody(tbody) {
+    if (!tbody) return;
+    const table = tbody.closest('table');
+    const headerCell = findHeaderSelectAllCell(table);
+    const rowCbs = Array.from(tbody.querySelectorAll('input[type="checkbox"]'))
+      .filter(cb => !(cb.id || '').toLowerCase().includes('selectall'));
+
+    const anyChecked = rowCbs.some(cb => cb.checked);
+
+    if (headerCell) headerCell.style.display = anyChecked ? 'table-cell' : 'none';
+
+    rowCbs.forEach(cb => {
+      const tr = cb.closest('tr');
+      const td = cb.closest('td');
+      if (tr) tr.classList.toggle('row-selected', cb.checked);
+      if (td) td.style.display = anyChecked ? (cb.checked ? '' : 'none') : 'none';
+    });
+
+    if (table) table.classList.toggle('selection-active', anyChecked);
+  }
+
+  // Change handler (bubble) keeps UI in sync for any checkbox in any tbody
+  document.addEventListener('change', function(e) {
+    if (!e.target.matches('tbody input[type="checkbox"]')) return;
+    const tbody = e.target.closest('tbody');
+    updateSelectionForTbody(tbody);
+  }, false);
+
+  // Row click toggler — use CAPTURE to run before other handlers and avoid double toggling
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('button, a, input, select, label, textarea')) return;
+
+    const tr = e.target.closest('tbody tr');
+    if (!tr) return;
+
+    // Prefer specific classes if present
+    let cb = tr.querySelector('input[type="checkbox"].member-checkbox, input[type="checkbox"].certificate-checkbox');
+    if (!cb) cb = tr.querySelector('input[type="checkbox"]');
+    if (!cb) return;
+
+    const td = cb.closest('td');
+    if (td && td.style.display === 'none') td.style.display = '';
+
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Prevent other legacy click listeners from re-toggling
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }, true); // <-- capture phase
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('tbody').forEach(updateSelectionForTbody);
+  }, false);
+
+  window.__flexSelectionBound = true;
+})();
