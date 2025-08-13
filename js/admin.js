@@ -8787,3 +8787,47 @@ window.testMemberUpdate = async function(memberId) {
     sync(certTbody, '.certificate-checkbox');
     window.__rowSelectedHighlightBound = true;
 })();
+
+
+// ---- Robust row click-to-select (document-level delegation) ----
+(function enableRowClickSelect() {
+  if (window.__docRowClickSelectBound) return;
+  document.addEventListener('click', function(e) {
+    // Ignore clicks on interactive controls
+    if (e.target.closest('button, a, input, select, label, textarea')) return;
+
+    // Handle Members table
+    const membersTbody = e.target.closest('#membersTableBody tr');
+    if (membersTbody) {
+      const tr = membersTbody;
+      const cb = tr.querySelector('.member-checkbox');
+      if (cb) {
+        const cbTd = cb.closest('td');
+        if (cbTd && cbTd.style.display === 'none') cbTd.style.display = '';
+        if (!cb.checked) {
+          cb.checked = true;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        tr.classList.add('row-selected');
+        return; // stop here so we don't also handle certs accidentally
+      }
+    }
+
+    // Handle Certificates table
+    const certsTbody = e.target.closest('#certificatesTableBody tr, #certificatesTable tbody tr');
+    if (certsTbody) {
+      const tr = certsTbody;
+      const cb = tr.querySelector('.certificate-checkbox');
+      if (cb) {
+        const cbTd = cb.closest('td');
+        if (cbTd && cbTd.style.display === 'none') cbTd.style.display = '';
+        if (!cb.checked) {
+          cb.checked = true;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        tr.classList.add('row-selected');
+      }
+    }
+  }, false);
+  window.__docRowClickSelectBound = true;
+})();
