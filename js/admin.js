@@ -8687,6 +8687,9 @@ window.testMemberUpdate = async function(memberId) {
         const cbTd = cb.closest('td');
         if (cbTd && cbTd.style.display === 'none') {
             cbTd.style.display = '';
+            cb.checked = true;
+        } else {
+            cb.checked = !cb.checked;
         }
     }, false);
     window.__memberRowRevealBound = true;
@@ -8712,7 +8715,42 @@ window.testMemberUpdate = async function(memberId) {
         const cbTd = cb.closest('td');
         if (cbTd && cbTd.style.display === 'none') {
             cbTd.style.display = '';
+            cb.checked = true;
+        } else {
+            cb.checked = !cb.checked;
         }
     }, false);
     window.__certRowRevealBound = true;
+})();
+
+
+// ---- Enhanced: reveal & toggle checkboxes on row click (members & certificates) ----
+(function setupRowCheckboxRevealAndToggle() {
+    if (window.__rowRevealToggleBound) return;
+    function bind(tbody, selector) {
+        if (!tbody) return;
+        tbody.addEventListener('click', function(e) {
+            if (e.target.closest('button, a, input, select, label, textarea')) return;
+            const tr = e.target.closest('tr');
+            if (!tr) return;
+            const cb = tr.querySelector(selector);
+            if (!cb) return;
+            const cbTd = cb.closest('td');
+            if (cbTd && cbTd.style.display === 'none') {
+                cbTd.style.display = '';
+                cb.checked = true;
+            } else {
+                cb.checked = !cb.checked;
+            }
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }, false);
+    }
+    bind(document.getElementById('membersTableBody'), '.member-checkbox');
+    var certTbody = document.getElementById('certificatesTableBody');
+    if (!certTbody) {
+        var certTable = document.getElementById('certificatesTable');
+        if (certTable) certTbody = certTable.querySelector('tbody');
+    }
+    bind(certTbody, '.certificate-checkbox');
+    window.__rowRevealToggleBound = true;
 })();
