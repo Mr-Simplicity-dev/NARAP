@@ -215,6 +215,22 @@ window.syncPerPageDropdowns = syncPerPageDropdowns;
 
 const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K';
 
+// ---- Alphabetical sort helpers (safe, non-breaking) ----
+function compareByStateThenName(a, b) {
+    const sa = (a && a.state ? String(a.state) : '').trim().toLowerCase();
+    const sb = (b && b.state ? String(b.state) : '').trim().toLowerCase();
+    if (sa !== sb) return sa.localeCompare(sb);
+    const na = (a && a.name ? String(a.name) : (a.fullName ? String(a.fullName) : '')).trim().toLowerCase();
+    const nb = (b && b.name ? String(b.name) : (b.fullName ? String(b.fullName) : '')).trim().toLowerCase();
+    return na.localeCompare(nb);
+}
+
+function sortMembersAlpha(list) {
+    if (!Array.isArray(list)) return list;
+    // Create a shallow copy to avoid mutating external arrays unexpectedly
+    return list.slice().sort(compareByStateThenName);
+}
+
 // Global state
 window.appState = {
     members: [],
@@ -3237,6 +3253,7 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
         
         // Apply all filters
         let filteredMembers = mergedMembers;
+filteredMembers = sortMembersAlpha(filteredMembers);
         
         // Apply search filter if provided
         if (searchTerm && searchTerm.trim()) {
@@ -3361,6 +3378,7 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
         
         // Fallback to local storage
         const localMembers = getLocalMembers();
+localMembers = sortMembersAlpha(localMembers);
         if (typeof window !== 'undefined') {
             window.currentMembers = localMembers;
         }
