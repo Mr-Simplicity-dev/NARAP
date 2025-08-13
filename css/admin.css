@@ -5291,3 +5291,88 @@ html, body { height: 100%; overflow-y: auto; }
   height: auto !important;
 }
 
+
+
+/* ===== COMPACT MODE: smaller fonts + tighter spacing ===== */
+
+/* Base table typography */
+#membersTable, #certificatesTable {
+  font-size: 13px;
+}
+#membersTable th, #membersTable td,
+#certificatesTable th, #certificatesTable td {
+  padding: 6px 8px;     /* tighter than default */
+  line-height: 1.2;
+}
+
+/* Reduce gaps between the first three columns (S/N, checkbox, photo) */
+#membersTable th:nth-child(1), #membersTable td:nth-child(1),
+#certificatesTable th:nth-child(1), #certificatesTable td:nth-child(1) {
+  width: 44px;
+  padding-left: 6px;
+  padding-right: 6px;
+  text-align: center;
+}
+
+#membersTable th:nth-child(2), #membersTable td:nth-child(2),
+#certificatesTable th:nth-child(2), #certificatesTable td:nth-child(2) {
+  width: 36px;          /* checkbox column */
+  padding-left: 4px;
+  padding-right: 4px;
+  text-align: center;
+}
+td.checkbox-cell { width: 36px; }
+
+#membersTable th:nth-child(3), #membersTable td:nth-child(3),
+#certificatesTable th:nth-child(3), #certificatesTable td:nth-child(3) {
+  width: 64px;          /* photo column */
+  padding-left: 4px;
+  padding-right: 4px;
+  text-align: center;
+}
+
+/* Smaller photo size to reduce visual bulk */
+#membersTable td:nth-child(3) img,
+#certificatesTable td:nth-child(3) img,
+#membersTable td img.member-photo,
+#certificatesTable td img.member-photo,
+#membersTable td img.profile-photo,
+#certificatesTable td img.profile-photo,
+#membersTable td img.passport,
+#certificatesTable td img.passport {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Ensure no extra spacing between cells beyond padding */
+#membersTable, #certificatesTable {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Make action buttons compact too (kept from previous compact rules, reaffirmed) */
+#membersTable td:last-child button,
+#membersTable td:last-child .btn,
+#membersTable td:last-child a.button,
+#certificatesTable td:last-child button,
+#certificatesTable td:last-child .btn,
+#certificatesTable td:last-child a.button {
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 4px 8px;
+  margin-right: 6px;
+}
+
+/* Slightly tighter on smaller screens */
+@media (max-width: 1024px) {
+  #membersTable, #certificatesTable { font-size: 12px; }
+  #membersTable th, #membersTable td,
+  #certificatesTable th, #certificatesTable td { padding: 4px 6px; }
+  #membersTable td:nth-child(3) img,
+  #certificatesTable td:nth-child(3) img { width: 36px; height: 36px; }
+}
+
