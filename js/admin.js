@@ -4262,6 +4262,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
                         <input type="checkbox" class="member-checkbox" value="${memberId}" 
                                onchange="toggleMemberSelection(this)">
                     </td>
+                    <td>${index + 1}</td>
                     <td>${imgElement}</td>
                     <td>${name}</td>
                     <td>${email}</td>
@@ -4900,7 +4901,8 @@ function displayCertificates(certificates, totalItems = 0, currentPage = 1, tota
                     <input type="checkbox" class="certificate-checkbox" value="${certificateId}" 
                            onchange="toggleCertificateSelection(this)">
                 </td>
-                <td>${certificateNumber}</td>
+                <td>${index + 1}</td>
+                    <td>${certificateNumber}</td>
                 <td>${recipientName}</td>
                 <td class="title-cell">${formattedTitle}</td>
                 <td>${issueDate}</td>
