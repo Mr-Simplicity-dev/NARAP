@@ -625,28 +625,6 @@ body {
     z-index: 999;
 }
 
-/* Make the main content occupy the viewport height next to the fixed sidebar */
-.main-content {
-  height: 100vh;              /* full viewport height */
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;           /* prevent body-level scroll bleed */
-}
-
-/* Only the inner .content area scrolls beneath the sticky header */
-.content {
-  flex: 1;                    /* take remaining space below .header */
-  overflow-y: auto;           /* scroll just this pane */
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Optional: if your data tables can get very tall, limit just that area */
-.data-table-container {
-  max-height: calc(100vh - 260px);  /* adjust for header + filters height */
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 /* ===== FORM COMPONENTS ===== */
 .form-grid {
     display: grid;
@@ -4681,4 +4659,26 @@ body {
 [data-theme="dark"] .bulk-actions {
     background: rgba(255, 193, 7, 0.15);
     border-color: rgba(255, 193, 7, 0.4);
+}
+
+/* ==== Scroll Pane Fix (DROP-IN, safe) ====
+   Ensures the main content area becomes a proper scrolling pane
+   while the sticky header stays pinned. Also enables horizontal
+   scrolling for wide tables. */
+.main-content {
+  /* contain inner scroll */
+  overflow: hidden;
+}
+
+.content {
+  /* allow flex child to shrink and scroll */
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* allow both vertical and horizontal scroll for tables */
+.data-table-container {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
