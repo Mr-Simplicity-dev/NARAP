@@ -8769,28 +8769,48 @@ window.testMemberUpdate = async function(memberId) {
 // Keep row highlight in sync with checkbox state
 (function setupRowSelectedHighlightSync() {
     if (window.__rowSelectedHighlightBound) return;
-    function sync(tbody, selector) {
+
+    function sync(tbody, selector, updateFn) {
         if (!tbody) return;
-        tbody.addEventListener('change', function(e) {
+        tbody.addEventListener('change', function (e) {
             if (!e.target.matches(selector)) return;
+
             const cb = e.target;
             const tr = cb.closest('tr');
             if (!tr) return;
-            if (cb.checked) tr.classList.add('row-selected');
-        updateCertificatesSelectionUI();
-            else tr.classList.remove('row-selected');
+
+            if (cb.checked) {
+                tr.classList.add('row-selected');
+            } else {
+                tr.classList.remove('row-selected');
+            }
+
+            // Refresh header visibility + checkbox cells
+            if (typeof updateFn === 'function') updateFn();
         });
     }
-    sync(document.getElementById('membersTableBody'), '.member-checkbox');
-    var certTbody = document.getElementById('certificatesTableBody');
+
+    // Members
+    sync(
+        document.getElementById('membersTableBody'),
+        '.member-checkbox',
+        window.updateMembersSelectionUI
+    );
+
+    // Certificates
+    let certTbody = document.getElementById('certificatesTableBody');
     if (!certTbody) {
-        var certTable = document.getElementById('certificatesTable');
+        const certTable = document.getElementById('certificatesTable');
         if (certTable) certTbody = certTable.querySelector('tbody');
     }
-    sync(certTbody, '.certificate-checkbox');
+    sync(
+        certTbody,
+        '.certificate-checkbox',
+        window.updateCertificatesSelectionUI
+    );
+
     window.__rowSelectedHighlightBound = true;
 })();
-
 
 // ---- Robust row click-to-select (document-level delegation) ----
 (function enableRowClickSelect() {
