@@ -625,6 +625,29 @@ body {
     z-index: 999;
 }
 
+/* Make the main content occupy the viewport height next to the fixed sidebar */
+.main-content {
+  height: 100vh;              /* full viewport height */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;           /* prevent body-level scroll bleed */
+}
+
+/* Only the inner .content area scrolls beneath the sticky header */
+.content {
+  flex: 1;                    /* take remaining space below .header */
+  overflow-y: auto;           /* scroll just this pane */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Optional: if your data tables can get very tall, limit just that area */
+.data-table-container {
+  max-height: calc(100vh - 260px);  /* adjust for header + filters height */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+
 /* ===== FORM COMPONENTS ===== */
 .form-grid {
     display: grid;
