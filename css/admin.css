@@ -4661,16 +4661,45 @@ body {
     border-color: rgba(255, 193, 7, 0.4);
 }
 
-/* ==== Import Status Box: vertical + horizontal scrolling (DROP-IN, safe) ==== */
+/* ==== Table & Content Scroll Behavior (DROP-IN, safe) ====
+   - Restores vertical scrolling for the main content area
+   - Enables horizontal scrolling for wide tables
+   - Keeps sticky header/sidebar behavior intact
+*/
+.main-content {
+  /* contain inner scroll so header stays pinned */
+  overflow: hidden;
+}
+
+.content {
+  /* allow flex child to shrink and scroll */
+  min-height: 0;
+  overflow-y: auto;       /* vertical scroll here */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* scroll both ways inside table wrapper */
+.data-table-container {
+  overflow: auto;         /* X + Y scroll if needed */
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* (optional) ensure table can be wider than container to trigger X-scroll */
+.data-table {
+  width: 100%;
+}
+.data-table.has-wide-columns {
+  width: max-content;     /* add this class in HTML/JS if you need forced horizontal scroll */
+}
+
+/* ==== Import Status Box: vertical + horizontal scrolling ==== */
 #importStatus {
-  overflow: auto;               /* both axes */
-  max-height: 70vh;             /* ensure inner vertical scroll within modal */
+  overflow: auto;
+  max-height: 70vh;
   width: 100%;
   box-sizing: border-box;
-  white-space: pre;             /* keep long lines unwrapped so X-scroll appears */
+  white-space: pre;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
-/* If there is an inner container, inherit the same behavior */
-#importStatus > * {
-  white-space: inherit;
-}
+#importStatus > * { white-space: inherit; }
