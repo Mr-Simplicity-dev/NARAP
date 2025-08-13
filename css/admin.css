@@ -5141,3 +5141,34 @@ td.checkbox-cell {
     text-align: center;
 }
 
+
+
+/* ==== Restore vertical scrollbars (page + tables) ==== */
+html, body {
+    height: 100%;
+    overflow-y: auto; /* always allow vertical scroll if content exceeds viewport */
+}
+
+.main-content {
+    /* content column can scroll independently if it grows */
+    overflow-y: auto;
+}
+
+.content {
+    /* inner content block also allowed to scroll */
+    overflow-y: auto;
+}
+
+/* table wrappers can scroll vertically when many rows are present */
+.data-table-container,
+.table-scroll-y {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: 75vh; /* adjust if you need more/less viewport coverage */
+}
+
+/* ensure horizontal scroll remains available too */
+.data-table-container {
+    overflow-x: auto;
+}
+
