@@ -5038,3 +5038,12 @@ body {
     cursor: pointer;
 }
 
+
+
+/* Selected row state */
+#membersTableBody tr.row-selected,
+#certificatesTableBody tr.row-selected {
+    background-color: #e8f0fe; /* light selection */
+    outline: 2px solid rgba(59, 130, 246, 0.6); /* blue outline */
+}
+

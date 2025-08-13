@@ -8725,26 +8725,35 @@ window.testMemberUpdate = async function(memberId) {
 
 
 // ---- Enhanced: reveal & toggle checkboxes on row click (members & certificates) ----
+
 (function setupRowCheckboxRevealAndToggle() {
-    if (window.__rowRevealToggleBound) return;
+    // Allow rebinding by not using a global guard; remove any previous listeners by relying on unique function reference.
     function bind(tbody, selector) {
         if (!tbody) return;
         tbody.addEventListener('click', function(e) {
+            // Ignore clicks on native interactive controls
             if (e.target.closest('button, a, input, select, label, textarea')) return;
             const tr = e.target.closest('tr');
             if (!tr) return;
             const cb = tr.querySelector(selector);
             if (!cb) return;
             const cbTd = cb.closest('td');
+
+            // Reveal checkbox cell if hidden, and select
             if (cbTd && cbTd.style.display === 'none') {
                 cbTd.style.display = '';
-                cb.checked = true;
-            } else {
-                cb.checked = !cb.checked;
             }
-            cb.dispatchEvent(new Event('change', { bubbles: true }));
+            if (!cb.checked) {
+                cb.checked = true; // select-only on row click
+                tr.classList.add('row-selected');
+                cb.dispatchEvent(new Event('change', { bubbles: true }));
+            } else {
+                // Already selected; keep it selected on row click (do not uncheck).
+                tr.classList.add('row-selected');
+            }
         }, false);
     }
+
     bind(document.getElementById('membersTableBody'), '.member-checkbox');
     var certTbody = document.getElementById('certificatesTableBody');
     if (!certTbody) {
@@ -8752,5 +8761,29 @@ window.testMemberUpdate = async function(memberId) {
         if (certTable) certTbody = certTable.querySelector('tbody');
     }
     bind(certTbody, '.certificate-checkbox');
-    window.__rowRevealToggleBound = true;
+})();
+
+
+// Keep row highlight in sync with checkbox state
+(function setupRowSelectedHighlightSync() {
+    if (window.__rowSelectedHighlightBound) return;
+    function sync(tbody, selector) {
+        if (!tbody) return;
+        tbody.addEventListener('change', function(e) {
+            if (!e.target.matches(selector)) return;
+            const cb = e.target;
+            const tr = cb.closest('tr');
+            if (!tr) return;
+            if (cb.checked) tr.classList.add('row-selected');
+            else tr.classList.remove('row-selected');
+        });
+    }
+    sync(document.getElementById('membersTableBody'), '.member-checkbox');
+    var certTbody = document.getElementById('certificatesTableBody');
+    if (!certTbody) {
+        var certTable = document.getElementById('certificatesTable');
+        if (certTable) certTbody = certTable.querySelector('tbody');
+    }
+    sync(certTbody, '.certificate-checkbox');
+    window.__rowSelectedHighlightBound = true;
 })();
