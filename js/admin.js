@@ -4259,7 +4259,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
             const rowHTML = `
                 <tr>
                     <td>${index + 1}</td>
-                    <td>
+                    <td style=\"display:none;\">
                         <input type="checkbox" class="member-checkbox" value="${memberId}" 
                                onchange="toggleMemberSelection(this)">
                     </td>
@@ -8671,3 +8671,23 @@ window.testMemberUpdate = async function(memberId) {
     showMessage('Test update error: ' + error.message, 'error');
   }
 };
+
+// ---- Reveal member checkbox on row click (safe) ----
+(function setupMemberRowCheckboxReveal() {
+    if (window.__memberRowRevealBound) return;
+    const tbody = document.getElementById('membersTableBody');
+    if (!tbody) return;
+    tbody.addEventListener('click', function(e) {
+        // Ignore clicks on interactive controls
+        if (e.target.closest('button, a, input, select, label, textarea')) return;
+        const tr = e.target.closest('tr');
+        if (!tr) return;
+        const cb = tr.querySelector('.member-checkbox');
+        if (!cb) return;
+        const cbTd = cb.closest('td');
+        if (cbTd && cbTd.style.display === 'none') {
+            cbTd.style.display = '';
+        }
+    }, false);
+    window.__memberRowRevealBound = true;
+})();
