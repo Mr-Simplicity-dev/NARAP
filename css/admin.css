@@ -3115,7 +3115,7 @@ body {
     .data-table th:nth-child(1), /* Photo */
     .data-table td:nth-child(1) {
         width: 10%;
-        min-width: 60px;
+        min-width: 45px;
     }
     
     .data-table th:nth-child(2), /* Name */
