@@ -5290,3 +5290,44 @@ html, body { height: 100%; overflow-y: auto; }
   background: inherit; /* avoids visual seam if sticky is used */
 }
 
+
+
+/* ==== Compact action buttons so scrollbar doesn't cover them ==== */
+/* Keep action column content on one line */
+#membersTable td:last-child, #certificatesTable td:last-child {
+    white-space: nowrap;
+}
+
+/* Reduce button font-size and padding in the action column */
+#membersTable td:last-child button,
+#membersTable td:last-child .btn,
+#membersTable td:last-child a.button,
+#certificatesTable td:last-child button,
+#certificatesTable td:last-child .btn,
+#certificatesTable td:last-child a.button {
+    font-size: 12px;
+    line-height: 1.2;
+    padding: 4px 8px;
+    margin-right: 6px;
+}
+
+/* Shrink any icons inside action buttons */
+#membersTable td:last-child i,
+#certificatesTable td:last-child i {
+    font-size: 12px;
+}
+
+/* Slightly tighter on smaller screens */
+@media (max-width: 1024px) {
+  #membersTable td:last-child button,
+  #membersTable td:last-child .btn,
+  #membersTable td:last-child a.button,
+  #certificatesTable td:last-child button,
+  #certificatesTable td:last-child .btn,
+  #certificatesTable td:last-child a.button {
+      font-size: 11px;
+      padding: 3px 6px;
+      margin-right: 4px;
+  }
+}
+
