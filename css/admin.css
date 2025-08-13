@@ -4770,3 +4770,49 @@ body {
     }
 }
 
+
+
+/* ===== FOOTER: CENTERED BRAND + TWO-ROW LAYOUT (2025-08-13) ===== */
+/* Row 1: centered "Designed & Developed by" + brand link */
+.admin-footer{
+  flex-direction: column;           /* stack brand row above details row */
+  align-items: center;              /* center the brand row content */
+  gap: 8px;
+}
+
+.admin-footer .footer-brand{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+.admin-footer .footer-brand .brand-logo{
+  width: 18px; height: 18px; display: inline-block;
+}
+
+.admin-footer .footer-brand .brand-name{
+  font-weight: 700;
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+/* Row 2: left = phone/address, right = status */
+.admin-footer .footer-row{
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;   /* keeps status on the far right */
+  gap: 16px;
+}
+
+@media (max-width: 640px){
+  .admin-footer .footer-row{
+    flex-direction: column;
+    align-items: flex-start;        /* stack phone/address above status on small screens */
+    gap: 10px;
+  }
+}
+
