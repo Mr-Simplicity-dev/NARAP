@@ -4661,13 +4661,16 @@ body {
     border-color: rgba(255, 193, 7, 0.4);
 }
 
-/* ==== Import Errors Box: horizontal + vertical scrolling ==== */
-#importErrorsBox {
-  overflow-x: auto;             /* enable left-right scroll */
-  white-space: pre;             /* prevent line wrapping */
-  max-width: 100%;
+/* ==== Import Status Box: vertical + horizontal scrolling (DROP-IN, safe) ==== */
+#importStatus {
+  overflow: auto;               /* both axes */
+  max-height: 70vh;             /* ensure inner vertical scroll within modal */
+  width: 100%;
+  box-sizing: border-box;
+  white-space: pre;             /* keep long lines unwrapped so X-scroll appears */
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
-#importErrorsBox > div {
-  white-space: inherit;         /* keep each line unwrapped */
+/* If there is an inner container, inherit the same behavior */
+#importStatus > * {
+  white-space: inherit;
 }
