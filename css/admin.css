@@ -3000,7 +3000,7 @@ body {
 .data-table th:nth-child(5), /* Position */
 .data-table td:nth-child(5) {
     width: 18%;
-    min-width: 120px;
+    min-width: 80px;
 }
 
 .data-table th:nth-child(6), /* State */
