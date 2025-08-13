@@ -5172,3 +5172,91 @@ html, body {
     overflow-x: auto;
 }
 
+
+
+/* ==== Ensure horizontal scrollbar for wide tables (desktop + mobile) ==== */
+.data-table-container,
+.table-scroll-x,
+#membersTableWrapper,
+#certificatesTableWrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Fallback: if the table isn't wrapped, still allow horizontal scroll via parent .content area */
+.content .data-table {
+    min-width: 1100px;        /* wider than typical content to force horizontal scrolling when needed */
+}
+
+/* Do NOT clip horizontal overflow at higher levels */
+.main-content, .content {
+    overflow-x: visible;
+}
+
+
+
+/* ===== MEMBERS TABLE SPECIFIC TWEAKS (bundle) ===== */
+#membersTable { table-layout: fixed; width: 100%; }
+#membersTable th, #membersTable td { vertical-align: middle; }
+
+/* S/N (1), PHOTO (2), NAME (3), EMAIL (4), CODE (5), POSITION (6), STATE (7), ZONE (8) */
+#membersTable th:nth-child(1), #membersTable td:nth-child(1) { width: 60px; text-align: center; white-space: nowrap; }
+#membersTable th:nth-child(2), #membersTable td:nth-child(2) { width: 80px; text-align: center; }
+
+#membersTable td:nth-child(2) img,
+#membersTable td img.member-photo,
+#membersTable td img.profile-photo,
+#membersTable td img.passport,
+#membersTable td img {
+  width: 56px; height: 56px; object-fit: cover; border-radius: 6px; display: block; margin: 0 auto;
+}
+
+#membersTable th:nth-child(3), #membersTable td:nth-child(3) { white-space: normal; word-break: break-word; }
+
+#membersTable th:nth-child(6), #membersTable td:nth-child(6) { width: 140px; white-space: nowrap; text-align: left; }
+#membersTable th:nth-child(7), #membersTable td:nth-child(7) { width: 120px; white-space: nowrap; text-align: left; }
+#membersTable th:nth-child(8), #membersTable td:nth-child(8) { width: 100px; white-space: nowrap; text-align: left; }
+
+#membersTable th:nth-child(2) { text-align: center; }
+
+
+
+/* Hide the Select All header and all checkboxes in that column by default */
+th:has(#selectAllMembers), th:has(#selectAllCertificates) { display: none; }
+td.checkbox-cell { display: none; }
+
+/* Show Select All header when there is any selection */
+#membersTable.selection-active th:has(#selectAllMembers),
+#certificatesTable.selection-active th:has(#selectAllCertificates) {
+  display: table-cell !important;
+}
+
+
+
+/* ==== Restore vertical scrollbars ==== */
+html, body { height: 100%; overflow-y: auto; }
+.main-content { overflow-y: auto; }
+.content { overflow-y: auto; }
+.data-table-container, .table-scroll-y { overflow-y: auto; -webkit-overflow-scrolling: touch; max-height: 75vh; }
+
+
+
+/* ==== Ensure horizontal scrollbar for wide tables ==== */
+.data-table-container, .table-scroll-x, #membersTableWrapper, #certificatesTableWrapper {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+/* Force width so scrollbar appears when needed */
+.content .data-table { min-width: 1100px; }
+/* Prevent clipping at parents */
+.main-content, .content { overflow-x: visible; }
+
+
+
+/* Clickable row feedback */
+#membersTableBody tr:hover, #certificatesTableBody tr:hover { background-color: #f0f8ff; cursor: pointer; }
+/* Selected row */
+#membersTableBody tr.row-selected, #certificatesTableBody tr.row-selected {
+  background-color: #e8f0fe; outline: 2px solid rgba(59,130,246,0.6);
+}
+
