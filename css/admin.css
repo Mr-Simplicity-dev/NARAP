@@ -3114,7 +3114,7 @@ body {
     /* Responsive column widths for member table (8 columns) */
     .data-table th:nth-child(1), /* Photo */
     .data-table td:nth-child(1) {
-        width: 10%;
+        width: 8%;
         min-width: 45px;
     }
     
