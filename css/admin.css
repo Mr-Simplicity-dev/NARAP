@@ -2981,14 +2981,14 @@ body {
 
 .data-table th:nth-child(2), /* Name */
 .data-table td:nth-child(2) {
-    width: 15%;
-    min-width: 100px;
+    width: 18%;
+    min-width: 120px;
 }
 
 .data-table th:nth-child(3), /* Email */
 .data-table td:nth-child(3) {
     width: 20%;
-    min-width: 150px;
+    min-width: 120px;
 }
 
 .data-table th:nth-child(4), /* Code */
