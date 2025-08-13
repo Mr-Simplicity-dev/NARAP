@@ -192,6 +192,25 @@ class DataCache {
 }
 
 // ==================== GLOBAL CONSTANTS AND STATE ====================
+    
+// ---- Pagination: persistent values & defaults (DROP-IN, safe) ----
+let membersPerPage = parseInt(localStorage.getItem('membersPerPage') || '10', 10);
+let certificatesPerPage = parseInt(localStorage.getItem('certificatesPerPage') || '10', 10);
+
+// Guard current page vars if not present
+if (typeof window.membersCurrentPage !== 'number') window.membersCurrentPage = 1;
+if (typeof window.certificatesCurrentPage !== 'number') window.certificatesCurrentPage = 1;
+
+// Keep per-page dropdowns in sync with current values
+function syncPerPageDropdowns() {
+  const mSel = document.getElementById('membersPerPage');
+  if (mSel && String(mSel.value) != String(membersPerPage)) mSel.value = String(membersPerPage);
+
+  const cSel = document.getElementById('certificatesPerPage');
+  if (cSel && String(cSel.value) != String(certificatesPerPage)) cSel.value = String(certificatesPerPage);
+}
+window.syncPerPageDropdowns = syncPerPageDropdowns;
+
 
 const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K';
 
@@ -1598,6 +1617,47 @@ async function clearAllCertificates() {
     }
 }
 
+
+
+// ---- Event delegation for per-page dropdowns (DROP-IN, safe) ----
+if (!window.__perPageHandlersBound) {
+  document.addEventListener('change', function (e) {
+    const t = e.target;
+
+    // Members per-page
+    if (t && t.matches('#membersPerPage')) {
+      const val = parseInt(t.value, 10);
+      if (!Number.isNaN(val) && val > 0) {
+        membersPerPage = val;
+        localStorage.setItem('membersPerPage', String(val));
+        window.membersCurrentPage = 1;
+        if (typeof window.applyMemberFilters === 'function') {
+          window.applyMemberFilters();
+        } else if (typeof window.renderMembers === 'function') {
+          window.renderMembers();
+        }
+        syncPerPageDropdowns();
+      }
+    }
+
+    // Certificates per-page
+    if (t && t.matches('#certificatesPerPage')) {
+      const val = parseInt(t.value, 10);
+      if (!Number.isNaN(val) && val > 0) {
+        certificatesPerPage = val;
+        localStorage.setItem('certificatesPerPage', String(val));
+        window.certificatesCurrentPage = 1;
+        if (typeof window.applyCertificateFilters === 'function') {
+          window.applyCertificateFilters();
+        } else if (typeof window.renderCertificates === 'function') {
+          window.renderCertificates();
+        }
+        syncPerPageDropdowns();
+      }
+    }
+  }, false);
+  window.__perPageHandlersBound = true;
+}
 // ==================== LOGIN FUNCTIONS ====================
 
 function login(event) {
