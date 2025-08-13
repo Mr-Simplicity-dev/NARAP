@@ -4661,24 +4661,13 @@ body {
     border-color: rgba(255, 193, 7, 0.4);
 }
 
-/* ==== Scroll Pane Fix (DROP-IN, safe) ====
-   Ensures the main content area becomes a proper scrolling pane
-   while the sticky header stays pinned. Also enables horizontal
-   scrolling for wide tables. */
-.main-content {
-  /* contain inner scroll */
-  overflow: hidden;
+/* ==== Import Errors Box: horizontal + vertical scrolling ==== */
+#importErrorsBox {
+  overflow-x: auto;             /* enable left-right scroll */
+  white-space: pre;             /* prevent line wrapping */
+  max-width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
-
-.content {
-  /* allow flex child to shrink and scroll */
-  min-height: 0;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* allow both vertical and horizontal scroll for tables */
-.data-table-container {
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+#importErrorsBox > div {
+  white-space: inherit;         /* keep each line unwrapped */
 }
