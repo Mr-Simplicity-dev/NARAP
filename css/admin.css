@@ -5331,3 +5331,51 @@ html, body { height: 100%; overflow-y: auto; }
   }
 }
 
+
+
+/* ==== Keep Actions column visible and never under the scrollbar ==== */
+.data-table-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+  padding-right: 12px; /* fallback gutter */
+}
+
+/* Sticky last column (Actions) on both tables */
+#membersTable th:last-child,
+#membersTable td:last-child,
+#certificatesTable th:last-child,
+#certificatesTable td:last-child {
+  position: sticky;
+  right: 0;
+  background: #fff;
+  z-index: 3;           /* sit above table content */
+  box-shadow: -1px 0 0 rgba(0,0,0,0.06); /* subtle divider */
+}
+
+/* Ensure the Actions column has enough width for buttons */
+#membersTable td:last-child,
+#certificatesTable td:last-child {
+  min-width: 180px;     /* adjust if needed */
+  white-space: nowrap;  /* keep buttons on one line */
+}
+
+/* Compact buttons in Actions column */
+#membersTable td:last-child button,
+#membersTable td:last-child .btn,
+#membersTable td:last-child a.button,
+#certificatesTable td:last-child button,
+#certificatesTable td:last-child .btn,
+#certificatesTable td:last-child a.button {
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 4px 8px;
+  margin-right: 6px;
+}
+
+/* Make sure the table is wide enough to trigger horizontal scroll when needed */
+.data-table {
+  min-width: 1100px;
+  border-collapse: separate; /* sticky cells behave more reliably */
+}
+
