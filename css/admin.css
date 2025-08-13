@@ -2981,14 +2981,14 @@ body {
 
 .data-table th:nth-child(2), /* Name */
 .data-table td:nth-child(2) {
-    width: 18%;
+    width: 15%;
     min-width: 120px;
 }
 
 .data-table th:nth-child(3), /* Email */
 .data-table td:nth-child(3) {
     width: 20%;
-    min-width: 120px;
+    min-width: 150px;
 }
 
 .data-table th:nth-child(4), /* Code */
@@ -2999,8 +2999,8 @@ body {
 
 .data-table th:nth-child(5), /* Position */
 .data-table td:nth-child(5) {
-    width: 10%;
-    min-width: 50px;
+    width: 18%;
+    min-width: 140px;
 }
 
 .data-table th:nth-child(6), /* State */
@@ -3114,14 +3114,14 @@ body {
     /* Responsive column widths for member table (8 columns) */
     .data-table th:nth-child(1), /* Photo */
     .data-table td:nth-child(1) {
-        width: 8%;
-        min-width: 45px;
+        width: 10%;
+        min-width: 60px;
     }
     
     .data-table th:nth-child(2), /* Name */
     .data-table td:nth-child(2) {
-        width: 10%;
-        min-width: 70px;
+        width: 15%;
+        min-width: 100px;
     }
     
     .data-table th:nth-child(3), /* Email */
@@ -3138,8 +3138,8 @@ body {
     
     .data-table th:nth-child(5), /* Position */
     .data-table td:nth-child(5) {
-        width: 10%;
-        min-width: 80px;
+        width: 18%;
+        min-width: 110px;
     }
     
     .data-table th:nth-child(6), /* State */
@@ -4161,7 +4161,7 @@ body {
     font-weight: 600;
     color: var(--text-color);
     margin-bottom: 4px;
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .certificate-number {
@@ -5064,5 +5064,80 @@ td.checkbox-cell {
 #membersTable.selection-active th:has(#selectAllMembers),
 #certificatesTable.selection-active th:has(#selectAllCertificates) {
     display: table-cell !important;
+}
+
+
+
+/* ===== MEMBERS TABLE SPECIFIC TWEAKS ===== */
+#membersTable {
+    table-layout: fixed;
+    width: 100%;
+}
+
+#membersTable th,
+#membersTable td {
+    vertical-align: middle;
+}
+
+/* S/N (1), PHOTO (2), NAME (3), EMAIL (4), CODE (5), POSITION (6), STATE (7), ZONE (8) */
+#membersTable th:nth-child(1),
+#membersTable td:nth-child(1) {
+    width: 60px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+#membersTable th:nth-child(2),
+#membersTable td:nth-child(2) {
+    width: 80px;
+    text-align: center;
+}
+
+/* Photo sizing */
+#membersTable td:nth-child(2) img,
+#membersTable td img.member-photo,
+#membersTable td img.profile-photo,
+#membersTable td img.passport,
+#membersTable td img {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 6px;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Allow long names to wrap nicely */
+#membersTable th:nth-child(3),
+#membersTable td:nth-child(3) {
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* Make POSITION column tighter */
+#membersTable th:nth-child(6),
+#membersTable td:nth-child(6) {
+    width: 140px;       /* reduce from overly wide */
+    white-space: nowrap;
+    text-align: left;
+}
+
+/* STATE and ZONE sensible widths */
+#membersTable th:nth-child(7),
+#membersTable td:nth-child(7) {
+    width: 120px;
+    white-space: nowrap;
+    text-align: left;
+}
+#membersTable th:nth-child(8),
+#membersTable td:nth-child(8) {
+    width: 100px;
+    white-space: nowrap;
+    text-align: left;
+}
+
+/* Make sure header 'PHOTO' visually centers above images */
+#membersTable th:nth-child(2) {
+    text-align: center;
 }
 
