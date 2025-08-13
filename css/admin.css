@@ -5260,3 +5260,34 @@ html, body { height: 100%; overflow-y: auto; }
   background-color: #e8f0fe; outline: 2px solid rgba(59,130,246,0.6);
 }
 
+
+
+/* ==== OVERRIDE: Remove vertical (up/down) scrollbar from table containers; keep horizontal ==== */
+.data-table-container,
+.table-scroll-y,
+#membersTableWrapper,
+#certificatesTableWrapper,
+#membersTableParent,
+#certificatesTableParent {
+  overflow-y: hidden !important;   /* remove vertical scroll */
+  overflow-x: auto !important;     /* keep horizontal scroll */
+  max-height: none !important;     /* don't clamp height to cause vertical scroll */
+  scrollbar-gutter: auto !important; /* don't reserve vertical gutter */
+  padding-right: 0 !important;       /* no extra gutter padding */
+}
+
+/* Mobile container too */
+@media (max-width: 768px) {
+  .data-table-container {
+    overflow-y: hidden !important;
+    overflow-x: auto !important;
+  }
+}
+
+/* If any inner elements were forcing vertical scroll, neutralize */
+.data-table,
+#membersTable,
+#certificatesTable {
+  height: auto !important;
+}
+
