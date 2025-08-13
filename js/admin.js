@@ -1645,11 +1645,7 @@ if (!window.__perPageHandlersBound) {
           syncPerPageDropdowns();
         }
       }
-    } else if (typeof window.renderMembers === 'function') {
-          window.renderMembers();
-        }
-        syncPerPageDropdowns();
-      }
+      return;
     }
 
     // Certificates per-page
@@ -1672,15 +1668,13 @@ if (!window.__perPageHandlersBound) {
           syncPerPageDropdowns();
         }
       }
-    } else if (typeof window.renderCertificates === 'function') {
-          window.renderCertificates();
-        }
-        syncPerPageDropdowns();
-      }
+      return;
     }
+
   }, false);
   window.__perPageHandlersBound = true;
 }
+
 // ==================== LOGIN FUNCTIONS ====================
 
 function login(event) {
