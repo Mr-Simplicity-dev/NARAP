@@ -8746,10 +8746,12 @@ window.testMemberUpdate = async function(memberId) {
             if (!cb.checked) {
                 cb.checked = true; // select-only on row click
                 tr.classList.add('row-selected');
+        updateCertificatesSelectionUI();
                 cb.dispatchEvent(new Event('change', { bubbles: true }));
             } else {
                 // Already selected; keep it selected on row click (do not uncheck).
                 tr.classList.add('row-selected');
+        updateCertificatesSelectionUI();
             }
         }, false);
     }
@@ -8767,24 +8769,46 @@ window.testMemberUpdate = async function(memberId) {
 // Keep row highlight in sync with checkbox state
 (function setupRowSelectedHighlightSync() {
     if (window.__rowSelectedHighlightBound) return;
-    function sync(tbody, selector) {
+
+    function sync(tbody, selector, updateFn) {
         if (!tbody) return;
-        tbody.addEventListener('change', function(e) {
+        tbody.addEventListener('change', function (e) {
             if (!e.target.matches(selector)) return;
+
             const cb = e.target;
             const tr = cb.closest('tr');
             if (!tr) return;
-            if (cb.checked) tr.classList.add('row-selected');
-            else tr.classList.remove('row-selected');
+
+            if (cb.checked) {
+                tr.classList.add('row-selected');
+            } else {
+                tr.classList.remove('row-selected');
+            }
+
+            // Refresh header visibility + cells based on selection
+            if (typeof updateFn === 'function') updateFn();
         });
     }
-    sync(document.getElementById('membersTableBody'), '.member-checkbox');
-    var certTbody = document.getElementById('certificatesTableBody');
+
+    // Members
+    sync(
+        document.getElementById('membersTableBody'),
+        '.member-checkbox',
+        updateMembersSelectionUI
+    );
+
+    // Certificates
+    let certTbody = document.getElementById('certificatesTableBody');
     if (!certTbody) {
-        var certTable = document.getElementById('certificatesTable');
+        const certTable = document.getElementById('certificatesTable');
         if (certTable) certTbody = certTable.querySelector('tbody');
     }
-    sync(certTbody, '.certificate-checkbox');
+    sync(
+        certTbody,
+        '.certificate-checkbox',
+        updateCertificatesSelectionUI
+    );
+
     window.__rowSelectedHighlightBound = true;
 })();
 
@@ -8809,6 +8833,8 @@ window.testMemberUpdate = async function(memberId) {
           cb.dispatchEvent(new Event('change', { bubbles: true }));
         }
         tr.classList.add('row-selected');
+        updateCertificatesSelectionUI();
+        updateMembersSelectionUI();
         return; // stop here so we don't also handle certs accidentally
       }
     }
@@ -8826,8 +8852,57 @@ window.testMemberUpdate = async function(memberId) {
           cb.dispatchEvent(new Event('change', { bubbles: true }));
         }
         tr.classList.add('row-selected');
+        updateCertificatesSelectionUI();
       }
     }
   }, false);
   window.__docRowClickSelectBound = true;
 })();
+
+
+// ---- Selection UI sync (header visibility + checkbox cells) ----
+function updateSelectionUI(tableId, tbodySelector, checkboxSelector, headerCheckboxId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    let tbody = document.querySelector(tbodySelector);
+    if (!tbody && table) tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    const checkboxes = Array.from(tbody.querySelectorAll(checkboxSelector));
+    const anyChecked = checkboxes.some(cb => cb.checked);
+
+    // Toggle header <th> that contains the header checkbox
+    const headerCb = document.getElementById(headerCheckboxId);
+    if (headerCb && headerCb.closest('th')) {
+        headerCb.closest('th').style.display = anyChecked ? 'table-cell' : 'none';
+    }
+
+    // Toggle table class to allow CSS overrides
+    if (anyChecked) {
+        table.classList.add('selection-active');
+    } else {
+        table.classList.remove('selection-active');
+    }
+
+    // When none selected, hide all row checkbox cells again; when selected, show only for checked rows
+    checkboxes.forEach(cb => {
+        const td = cb.closest('td');
+        if (!td) return;
+        if (anyChecked) {
+            // Show the cell for checked rows; keep unchecked rows hidden to reduce clutter
+            td.style.display = cb.checked ? '' : 'none';
+        } else {
+            // Hide all when nothing selected
+            td.style.display = 'none';
+        }
+    });
+}
+
+// Convenience wrappers
+function updateMembersSelectionUI() {
+    updateSelectionUI('membersTable', '#membersTableBody', '.member-checkbox', 'selectAllMembers');
+}
+function updateCertificatesSelectionUI() {
+    updateSelectionUI('certificatesTable', '#certificatesTableBody, #certificatesTable tbody', '.certificate-checkbox', 'selectAllCertificates');
+}
+

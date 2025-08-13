@@ -5058,3 +5058,11 @@ td.checkbox-cell {
     display: none;
 }
 
+
+
+/* Show Select All header cell when the table has any selection */
+#membersTable.selection-active th:has(#selectAllMembers),
+#certificatesTable.selection-active th:has(#selectAllCertificates) {
+    display: table-cell !important;
+}
+
