@@ -5260,3 +5260,33 @@ html, body { height: 100%; overflow-y: auto; }
   background-color: #e8f0fe; outline: 2px solid rgba(59,130,246,0.6);
 }
 
+
+
+/* ==== Keep scrollbar from covering the action column ==== */
+.data-table-container,
+.table-scroll-y,
+#membersTableWrapper,
+#certificatesTableWrapper,
+#membersTableParent,
+#certificatesTableParent {
+  /* Reserve gutter so the vertical scrollbar doesn't overlay content */
+  scrollbar-gutter: stable both-edges;
+  /* Fallback spacing for browsers without scrollbar-gutter */
+  padding-right: 12px;
+}
+
+/* Extra breathing room on the last column (actions) */
+#membersTable th:last-child,
+#membersTable td:last-child,
+#certificatesTable th:last-child,
+#certificatesTable td:last-child {
+  padding-right: 16px;
+}
+
+/* If you have a sticky actions column, keep it above scrollbars */
+.actions-cell, .action-cell, .actions, td.actions, td.action-cell {
+  position: relative;
+  z-index: 1;
+  background: inherit; /* avoids visual seam if sticky is used */
+}
+
