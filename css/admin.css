@@ -3121,7 +3121,7 @@ body {
     .data-table th:nth-child(2), /* Name */
     .data-table td:nth-child(2) {
         width: 10%;
-        min-width: 100px;
+        min-width: 70px;
     }
     
     .data-table th:nth-child(3), /* Email */
