@@ -4880,3 +4880,70 @@ body {
   }
 }
 
+
+
+/* ===== FOOTER REFINEMENT: brand below text, phone+address inline, spaced from status ===== */
+.admin-footer{
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-footer .footer-brand{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.admin-footer .footer-brand .brand-top{
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.admin-footer .footer-brand .brand-name{
+  font-weight: 700;
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.admin-footer .footer-row{
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.admin-footer .footer-left{
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-footer .footer-left .footer-group{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.admin-footer .footer-right{
+  margin-left: auto;
+  padding-left: 40px; /* space between address line and Connected status */
+}
+
+@media (max-width: 640px){
+  .admin-footer .footer-row{
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .admin-footer .footer-right{
+    margin-left: 0;
+    padding-left: 0;
+  }
+}
+
