@@ -231,6 +231,22 @@ function sortMembersAlpha(list) {
     return list.slice().sort(compareByStateThenName);
 }
 
+// ---- Certificates alphabetical sort (safe) ----
+function compareCertificatesAlpha(a, b) {
+    const ra = (a && (a.recipientName || a.memberName || a.name) ? String(a.recipientName || a.memberName || a.name) : '').trim().toLowerCase();
+    const rb = (b && (b.recipientName || b.memberName || b.name) ? String(b.recipientName || b.memberName || b.name) : '').trim().toLowerCase();
+    if (ra !== rb) return ra.localeCompare(rb);
+    const ca = (a && (a.certificateNumber || a.number) ? String(a.certificateNumber || a.number) : '').trim().toLowerCase();
+    const cb = (b && (b.certificateNumber || b.number) ? String(b.certificateNumber || b.number) : '').trim().toLowerCase();
+    return ca.localeCompare(cb);
+}
+
+function sortCertificatesAlpha(list) {
+    if (!Array.isArray(list)) return list;
+    return list.slice().sort(compareCertificatesAlpha);
+}
+
+
 // Global state
 window.appState = {
     members: [],
@@ -3843,6 +3859,7 @@ async function loadCertificates(
     showMessage('Error loading certificates: ' + error.message, 'error');
 
     const localCertificates = getLocalCertificates();
+localCertificates = sortCertificatesAlpha(localCertificates);
     if (typeof window !== 'undefined') {
       window.currentCertificates = localCertificates;
     }
