@@ -7354,4 +7354,4 @@ async function importMembersData(parsedData, withProgress = false) {
     const msg = `New: ${newMembers.length} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup}`;
     console.log('Import summary:', msg);
   } catch (_) {}
-}\n
+}
