@@ -225,6 +225,12 @@ function compareByStateThenName(a, b) {
     return na.localeCompare(nb);
 }
 
+function enforceMembersAlpha() {
+  if (!Array.isArray(window.members)) window.members = [];
+  window.members = sortMembersAlpha(window.members);
+  if (typeof saveLocalMembers === 'function') saveLocalMembers(window.members);
+}
+
 function sortMembersAlpha(list) {
     if (!Array.isArray(list)) return list;
     // Create a shallow copy to avoid mutating external arrays unexpectedly
@@ -522,24 +528,22 @@ function saveLocalCertificates(certificates) {
 }
 
 function getLocalMembers() {
-    try {
-        const members = localStorage.getItem('narap_members');
-        if (members) {
-            return JSON.parse(members);
-        }
-    } catch (error) {
-        
-    }
+  try {
+    const raw = localStorage.getItem('narap_members');
+    if (!raw) return [];
+    const arr = JSON.parse(raw) || [];
+    return sortMembersAlpha(arr);
+  } catch (_) {
     return [];
+  }
 }
 
 function saveLocalMembers(members) {
-    try {
-        localStorage.setItem('narap_members', JSON.stringify(members));
-        
-    } catch (error) {
-        
-    }
+  try {
+    const arr = Array.isArray(members) ? members : [];
+    const sorted = sortMembersAlpha(arr);
+    localStorage.setItem('narap_members', JSON.stringify(sorted));
+  } catch (_) { /* no-op */ }
 }
 
 function getPendingSync() {
@@ -7216,6 +7220,8 @@ async function importMembersData(parsedData, withProgress = false) {
 
   // Ensure the local list exists
   window.members = Array.isArray(window.members) ? window.members : [];
+if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
+
 
   const newMembers = [];
   const errors = [];
