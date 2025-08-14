@@ -7094,17 +7094,50 @@ function finishImportProgress(state) {
   var label = (state === 'cancelled') ? 'Cancelled' : 'Done';
   updateImportProgress(p.total, p.total, label);
 }
-async function importData(){
+function resolveImportType() {
   try {
-    // Determine import type (members | certificates)
-    var type = (typeof importType !== 'undefined' && importType)
-      || (document.querySelector('input[name="importType"]:checked') ? document.querySelector('input[name="importType"]:checked').value : 'members');
+    // 1) Checked radio: <input type="radio" name="importType" value="members|certificates">
+    var r = document.querySelector('#importModal input[name="importType"]:checked') 
+         || document.querySelector('input[name="importType"]:checked');
+    if (r && r.value) return String(r.value).toLowerCase();
+
+    // 2) Select element: <select id="importType"> or name="importType"
+    var s = document.getElementById('importType') 
+         || document.querySelector('#importModal select[name="importType"]')
+         || document.querySelector('select[name="importType"]');
+    if (s && typeof s.value !== 'undefined') return String(s.value).toLowerCase();
+
+    // 3) Data attribute on a trigger button in modal
+    var btn = document.querySelector('#importModal [data-import-type]') 
+           || document.querySelector('[data-import-type]');
+    if (btn && btn.dataset && btn.dataset.importType) {
+      return String(btn.dataset.importType).toLowerCase();
+    }
+
+    // 4) Global variable (guard against ID globals returning element objects)
+    if (typeof window.importType !== 'undefined' && typeof window.importType === 'string') {
+      return String(window.importType).toLowerCase();
+    }
+
+    // Fallback
+    return 'members';
+  } catch (_) {
+    return 'members';
+  }
+}
+async async function importData(){
+  try {
+    // Determine import type robustly (radios, select, data-attr, or global string)
+    var type = resolveImportType();
+    if (type && type.indexOf('[object ') === 0) type = 'members'; // safety
+    if (type.includes('member')) type = 'members';
+    else if (type.includes('cert')) type = 'certificates';
 
     // Resolve file input
     var fileInput = document.getElementById('csvFileInput')
                   || document.querySelector('#importModal input[type="file"]')
                   || document.querySelector('input[type="file"][name="csvFile"]')
-                  || document.querySelector('input[type="file"][accept*=\"csv\"]');
+                  || document.querySelector('input[type="file"][accept*="csv"]');
     if (!fileInput || !fileInput.files || !fileInput.files[0]) {
       if (typeof showMessage === 'function') showMessage('Please choose a CSV file to import.', 'warning');
       return;
@@ -7138,21 +7171,19 @@ async function importData(){
 
         // Dispatch
         if (type === 'members') {
-          await importMembersData(normalized, true);
+          if (typeof importMembersData === 'function') await importMembersData(normalized, true);
+          else if (typeof showMessage === 'function') showMessage('importMembersData() not found', 'error');
         } else if (type === 'certificates') {
-          if (typeof importCertificateData === 'function') {
-            await importCertificateData(normalized, true);
-          } else {
-            if (typeof showMessage === 'function') showMessage('Certificate import function not found.', 'error');
-          }
+          if (typeof importCertificateData === 'function') await importCertificateData(normalized, true);
+          else if (typeof showMessage === 'function') showMessage('importCertificateData() not found', 'error');
         } else {
-          if (typeof showMessage === 'function') showMessage('Unknown import type: ' + type, 'error');
+          if (typeof showMessage === 'function') showMessage('Unknown import type: ' + String(type), 'error');
           if (typeof finishImportProgress === 'function') finishImportProgress('cancelled');
           return;
         }
 
         if (typeof finishImportProgress === 'function') finishImportProgress('done');
-        if (typeof showMessage === 'function') showMessage(type + ' imported successfully!', 'success');
+        if (typeof showMessage === 'function') showMessage((type === 'members' ? 'Members' : 'Certificates') + ' imported successfully!', 'success');
 
       } catch (err) {
         if (typeof finishImportProgress === 'function') finishImportProgress('cancelled');
@@ -7171,6 +7202,7 @@ async function importData(){
     if (typeof showMessage === 'function') showMessage('Failed to import CSV: ' + (e && e.message ? e.message : String(e)), 'error');
   }
 }
+
 
 
 
