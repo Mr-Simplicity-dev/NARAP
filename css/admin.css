@@ -5412,3 +5412,42 @@ html, body { height: 100%; overflow-y: auto; }
   margin-right: 0 !important;
 }
 
+
+
+/* ==== DESKTOP vs MOBILE OVERRIDES ========================================= */
+/* Apply tight spacing ONLY on desktop (>=1025px) */
+@media (min-width: 1025px) {
+  /* Certificates: S/N + CERT # tight */
+  #certificatesTable, #certificateTable { table-layout: fixed !important; }
+  #certificatesTable th:nth-child(1), #certificatesTable td:nth-child(1),
+  #certificateTable  th:nth-child(1), #certificateTable  td:nth-child(1) {
+    width: 36px !important; min-width: 36px !important; max-width: 36px !important;
+    padding-left: 2px !important; padding-right: 2px !important;
+    text-align: center !important; white-space: nowrap !important;
+  }
+  #certificatesTable th:nth-child(2), #certificatesTable td:nth-child(2),
+  #certificateTable  th:nth-child(2), #certificateTable  td:nth-child(2) {
+    width: 80px !important; min-width: 80px !important; max-width: 80px !important;
+    padding-left: 4px !important; padding-right: 2px !important;
+    white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
+  }
+}
+
+/* On mobile/tablet (<=1024px), REVERT to relaxed spacing */
+@media (max-width: 1024px) {
+  /* Certificates: relax widths/padding so mobile isn't over-tight */
+  #certificatesTable, #certificateTable { table-layout: auto !important; }
+  #certificatesTable th:nth-child(1), #certificatesTable td:nth-child(1),
+  #certificateTable  th:nth-child(1), #certificateTable  td:nth-child(1) {
+    width: auto !important; min-width: unset !important; max-width: none !important;
+    padding-left: 6px !important; padding-right: 6px !important;
+    white-space: nowrap !important; /* keep number compact but not forced width */
+  }
+  #certificatesTable th:nth-child(2), #certificatesTable td:nth-child(2),
+  #certificateTable  th:nth-child(2), #certificateTable  td:nth-child(2) {
+    width: auto !important; min-width: unset !important; max-width: none !important;
+    padding-left: 8px !important; padding-right: 8px !important;
+    white-space: normal !important; overflow: visible !important; text-overflow: clip !important;
+  }
+}
+
