@@ -271,6 +271,11 @@ function getBackendUrl() {
 }
 
 const backendUrl = getBackendUrl();
+
+// ---- Safe JSON helper: never throws on empty/invalid JSON bodies ----
+async function tryJson(res){
+  try { return await tryJson(res); } catch (_) { return null; }
+}
 window.backendUrl = backendUrl;
 
 
@@ -336,7 +341,7 @@ async function testCorsConnectivity() {
         });
         
         if (response.ok) {
-            const data = await response.json();
+            const data = await tryJson(response);
             console.log('✅ CORS test successful:', data);
             return { success: true, data };
         } else {
@@ -374,7 +379,7 @@ async function testBackendConnectivity() {
             });
             
             if (response.ok) {
-                const data = await response.json();
+                const data = await tryJson(response);
                 results[test.name] = { success: true, data };
                 console.log(`✅ ${test.name} successful`);
             } else {
@@ -578,7 +583,7 @@ async function exportMembers(format = 'csv') {
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            const responseData = await response.json();
+            const responseData = await tryJson(response);
             
             // Handle different response formats
             if (Array.isArray(responseData)) {
@@ -913,7 +918,7 @@ async function syncPendingChanges() {
                 }
                 
                 if (response.ok) {
-                    const result = await response.json();
+                    const result = await tryJson(response);
                     // Update local member with backend ID
                     if (result.data && result.data._id) {
                         const currentMembers = window.currentMembers || [];
@@ -927,7 +932,7 @@ async function syncPendingChanges() {
                     }
                     syncedCount++;
                 } else {
-                    const errorData = await response.json().catch(() => ({}));
+                    const errorData = await tryJson(response).catch(() => ({}));
                     console.error('AddUser sync error:', errorData);
                     
                     // Handle network errors specifically
@@ -974,7 +979,7 @@ async function syncPendingChanges() {
                             });
                             
                             if (retryResponse.ok) {
-                                const result = await retryResponse.json();
+                                const result = await tryJson(retryResponse);
                                 if (result.data && result.data._id) {
                                     const currentMembers = window.currentMembers || [];
                                     const memberIndex = currentMembers.findIndex(m => m._id === member._id);
@@ -1032,7 +1037,7 @@ async function syncPendingChanges() {
                             });
                             
                             if (retryResponse.ok) {
-                                const result = await retryResponse.json();
+                                const result = await tryJson(retryResponse);
                                 if (result.data && result.data._id) {
                                     const currentMembers = window.currentMembers || [];
                                     const memberIndex = currentMembers.findIndex(m => m._id === member._id);
@@ -1125,7 +1130,7 @@ async function syncPendingChanges() {
                     // Member was successfully deleted from backend
                     syncedCount++;
                 } else {
-                    const errorData = await response.json().catch(() => ({}));
+                    const errorData = await tryJson(response).catch(() => ({}));
                     const errorMessage = errorData.message || `HTTP ${response.status}`;
                     
                     // If the user doesn't exist in the backend, that's actually a successful sync
@@ -1287,13 +1292,13 @@ async function clearAllData() {
                 console.log('🔍 Backend response status:', response.status);
                 
                 if (response.ok) {
-                    const result = await response.json();
+                    const result = await tryJson(response);
                     console.log('✅ Backend database cleared:', result);
                     showMessage(`Backend cleared: ${result.data.totalDeleted} records deleted`, 'success');
                 } else {
                     let errorData = {};
                     try {
-                        errorData = await response.json();
+                        errorData = await tryJson(response);
                     } catch (parseError) {
                         errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
                     }
@@ -1527,13 +1532,13 @@ async function clearAllCertificates() {
                 console.log('🔍 Backend response status:', response.status);
                 
                 if (response.ok) {
-                    const result = await response.json();
+                    const result = await tryJson(response);
                     console.log('✅ Backend certificates cleared:', result);
                     showMessage(`Backend certificates cleared: ${result.data.certificatesDeleted} certificates deleted`, 'success');
                 } else {
                     let errorData = {};
                     try {
-                        errorData = await response.json();
+                        errorData = await tryJson(response);
                     } catch (parseError) {
                         errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
                     }
@@ -1811,7 +1816,7 @@ async function loadDashboardStats() {
             try {
                 const response = await fetch(`${backendUrl}/api/analytics/dashboard`);
                 if (response.ok) {
-                    const stats = await response.json();
+                    const stats = await tryJson(response);
                     if (stats && stats.success) {
                         backendStats = stats;
                     }
@@ -2071,7 +2076,7 @@ async function getAnalyticsData() {
             
             
             if (response.ok) {
-                const data = await response.json();
+                const data = await tryJson(response);
                 
                 
                 if (data && data.success) {
@@ -2931,7 +2936,7 @@ async function checkServerStatus() {
             console.log('📡 Server response headers:', Object.fromEntries(response.headers.entries()));
             
             if (response.ok) {
-                const data = await response.json();
+                const data = await tryJson(response);
                 console.log('📊 Server health data:', data);
                 
                 if (data && data.status === 'healthy') {
@@ -3276,7 +3281,7 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
                 const response = await fetch(`${backendUrl}/api/users/members`);
                 
                 if (response.ok) {
-                    const data = await response.json();
+                    const data = await tryJson(response);
                     
                     
                     // Handle different response formats
@@ -3668,10 +3673,10 @@ async function addMember(event) {
                 console.log('🔍 Backend response status:', response.status);
                 
                 if (response.ok) {
-                    backendResponse = await response.json();
+                    backendResponse = await tryJson(response);
                     console.log('✅ Member added successfully to backend:', backendResponse);
                 } else {
-                    const errorData = await response.json().catch(() => ({}));
+                    const errorData = await tryJson(response).catch(() => ({}));
                     console.error('❌ Backend error response:', errorData);
                     throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
@@ -3767,7 +3772,7 @@ async function getCertificates() {
             });
             
             if (res.ok) {
-                const responseData = await res.json();
+                const responseData = await tryJson(res);
                 
                 // Handle different response formats
                 if (Array.isArray(responseData)) {
@@ -4524,7 +4529,7 @@ async function deleteMember(memberId) {
                     backendDeleteSuccess = true;
                     console.log('✅ Member deleted from backend successfully');
                 } else {
-                    const errorData = await response.json().catch(() => ({}));
+                    const errorData = await tryJson(response).catch(() => ({}));
                     throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
             } catch (error) {
@@ -4878,10 +4883,10 @@ async function editMember(event) {
                 console.log('📡 Backend response status:', response.status);
                 
                 if (response.ok) {
-                    backendResponse = await response.json();
+                    backendResponse = await tryJson(response);
                     console.log('✅ Backend update successful:', backendResponse);
                 } else {
-                    const errorData = await response.json().catch(() => ({}));
+                    const errorData = await tryJson(response).catch(() => ({}));
                     console.log('❌ Backend update failed:', response.status, errorData);
                     throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
@@ -5946,7 +5951,7 @@ async function issueCertificate(event) {
                 });
                 
                 if (response.ok) {
-                    const result = await response.json();
+                    const result = await tryJson(response);
                     if (result.certificate) {
                         certificateData._id = result.certificate._id;
                         backendSuccess = true;
@@ -6014,7 +6019,7 @@ async function autoFillCertificateFields() {
                 
                 const response = await fetch(`${backendUrl}/api/users/getUsers`);
                 if (response.ok) {
-                    const result = await response.json();
+                    const result = await tryJson(response);
                     let backendMembers = [];
                     
                     // Handle different response formats
@@ -7310,11 +7315,11 @@ async function importMembersData(parsedData, withProgress = false) {
         });
 
         if (res.ok) {
-          const json = await res.json();
+          const json = await tryJson(res);
           created = (json && (json.data || json.user || json.result)) || member;
         } else {
           let msg = '';
-          try { const err = await res.json(); msg = err.message || ''; } catch (_) {}
+          try { const err = await tryJson(res); msg = err.message || ''; } catch (_) {}
           if (/exists/i.test(msg)) {
             // Server says duplicate → keep locally so user still sees it
             created = member;
@@ -7543,12 +7548,12 @@ const row = parsedData[i];
       });
 
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
+        const err = await tryJson(resp).catch(() => ({}));
         errors.push(`Row ${rowNumber}: ${err.message || 'Failed to create certificate'}`);
         continue;
       }
 
-      const result = await resp.json();
+      const result = await tryJson(resp);
       created.push(result.certificate || result);
       console.log(`✅ Certificate imported: ${number}`);
     } catch (e) {
@@ -7747,14 +7752,14 @@ async function importCertificateData(parsedData, withProgress=false) {
         // capture server message for clarity
         let msg = `HTTP ${resp.status}`;
         try {
-          const errData = await resp.json();
+          const errData = await tryJson(resp);
           if (errData?.message) msg = errData.message;
         } catch (_) {}
         errors.push(`Row ${rowNumber}: ${msg}`);
         continue;
       }
 
-      const result = await resp.json();
+      const result = await tryJson(resp);
       created.push(result.certificate || result);
       console.log(`✅ Certificate imported: ${number}`);
     } catch (e) {
@@ -8590,7 +8595,7 @@ async function cleanupDatabaseCertificates() {
         });
         
         if (response.ok) {
-            const result = await response.json();
+            const result = await tryJson(response);
             showMessage(`✅ ${result.message}`, 'success');
             
             // Refresh certificates display
@@ -8602,7 +8607,7 @@ async function cleanupDatabaseCertificates() {
                 loadAnalytics();
             }
         } else {
-            const error = await response.json();
+            const error = await tryJson(response);
             showMessage(`❌ Failed to cleanup certificates: ${error.message}`, 'error');
         }
     } catch (error) {
@@ -8631,7 +8636,7 @@ async function updateMemberPhoto(memberCode) {
         body: formData
       });
       
-      const result = await response.json();
+      const result = await tryJson(response);
       
       if (result.success) {
         showMessage('Member passport photo updated successfully!', 'success');
@@ -8806,7 +8811,7 @@ async function bulkDeleteMembers() {
         });
         
         if (response.ok) {
-            const result = await response.json();
+            const result = await tryJson(response);
             showMessage(`Successfully deleted ${result.deletedCount} member(s).`, 'success');
             
             // Clear selections and refresh table
@@ -8814,7 +8819,7 @@ async function bulkDeleteMembers() {
             updateBulkActionsVisibility('members');
             refreshMembers();
         } else {
-            const error = await response.json();
+            const error = await tryJson(response);
             showMessage(`Failed to delete members: ${error.message}`, 'error');
         }
     } catch (error) {
@@ -8850,7 +8855,7 @@ async function bulkDeleteCertificates() {
         });
         
         if (response.ok) {
-            const result = await response.json();
+            const result = await tryJson(response);
             showMessage(`Successfully deleted ${result.deletedCount} certificate(s).`, 'success');
             
             // Clear selections and refresh table
@@ -8858,7 +8863,7 @@ async function bulkDeleteCertificates() {
             updateBulkActionsVisibility('certificates');
             refreshCertificates();
         } else {
-            const error = await response.json();
+            const error = await tryJson(response);
             showMessage(`Failed to delete certificates: ${error.message}`, 'error');
         }
     } catch (error) {
@@ -9059,14 +9064,14 @@ window.testMemberUpdate = async function(memberId) {
     });
     
     if (response.ok) {
-      const result = await response.json();
+      const result = await tryJson(response);
       console.log('✅ Update successful:', result);
       showMessage('Test update successful!', 'success');
       
       // Refresh the members list
       await loadMembers();
     } else {
-      const error = await response.json();
+      const error = await tryJson(response);
       console.log('❌ Update failed:', error);
       showMessage('Test update failed: ' + error.message, 'error');
     }
