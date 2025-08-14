@@ -7624,7 +7624,7 @@ const row = parsedData[i];
     // --- Required checks (position/state optional; expiryDate optional) ---
     const rowIssues = [];
     if (!recipient) rowIssues.push('Missing value for recipient');
-    if (!email) rowIssues.push('Missing value for email');
+    // email is optional; no required check
     if (!number) rowIssues.push('Missing value for certificateNumber');
     if (!issueDate) rowIssues.push('Missing value for issueDate');
 
