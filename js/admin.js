@@ -7094,66 +7094,75 @@ function finishImportProgress(state) {
   var label = (state === 'cancelled') ? 'Cancelled' : 'Done';
   updateImportProgress(p.total, p.total, label);
 }
+async 
 async function importData(){
-        ensureImportProgressUI();
-        resetImportProgress();
-        window.__importAbortController = ('AbortController' in window) ? new AbortController() : null;
-        window.__importCancel = false;
+  try {
+    // Figure out the import type (members | certificates)
+    var type = (typeof importType !== 'undefined' && importType)
+      || (document.querySelector('input[name="importType"]:checked') ? document.querySelector('input[name="importType"]:checked').value : 'members');
 
-    const fileInput = document.getElementById('importFile');
-    const importType = document.getElementById('importType')?.value || 'members';
-    
-    if (!fileInput || !fileInput.files[0]) {
-        showMessage('Please select a file to import', 'warning');
-        return;
+    // Find a file input
+    var fileInput = document.getElementById('csvFileInput')
+                  || document.querySelector('#importModal input[type="file"]')
+                  || document.querySelector('input[type="file"][name="csvFile"]')
+                  || document.querySelector('input[type="file"][accept*="csv"]');
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+      if (typeof showMessage === 'function') showMessage('Please choose a CSV file to import.', 'warning');
+      return;
     }
 
-    const file = fileInput.files[0];
-    
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-        showMessage('Please select a valid CSV file', 'error');
-        return;
-    }
+    var file = fileInput.files[0];
 
-    const reader = new FileReader();
+    // Prep progress UI
+    if (typeof ensureImportProgressUI === 'function') ensureImportProgressUI();
+    if (typeof resetImportProgress === 'function') resetImportProgress();
+    if (typeof updateImportProgress === 'function') updateImportProgress(0, 1, 'Preparing');
 
-    reader.onload = async function(e) {
-        try {
-            const csvData = e.target.result;
-            const parsedData = parseCSV(csvData);
-
-            if (parsedData.length === 0) {
-                showMessage('No valid data found in CSV file', 'error');
-                return;
-            }
-
-            console.log('📊 Parsed CSV data:', parsedData);
-
-            const normalized = normalizeRows(parsedData, importType);
-            if (importType === 'members') {
-                await importMembersData(normalized, true);
-            } else if (importType === 'certificates') {
-                await importCertificateData(normalized, true);
-            }
-
-            $1
-            try {
-              if (typeof updatedLocal !== 'undefined') {
-                const msg = `New: ${newMembers.length || 0} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup}`;
-                showMessage(msg, 'info');
-                console.log('Import summary:', msg);
-              }
-            } catch(_) {}
-            closeImportModal();
-        } catch (error) {
-            showMessage('Failed to import CSV: ' + error.message, 'error');
-            console.error('CSV Import Error:', error);
+    // Read file
+    var reader = new FileReader();
+    reader.onload = async function(e){
+      try {
+        var csvText = e.target.result;
+        var rows = (typeof parseCSV === 'function') ? parseCSV(csvText) : [];
+        if (!rows || !rows.length) {
+          if (typeof showMessage === 'function') showMessage('No valid data found in CSV.', 'warning');
+          return;
         }
-    };
 
+        // Optional header normalization
+        var normalized = (typeof normalizeRows === 'function') ? normalizeRows(rows, type) : rows;
+
+        // Dispatch
+        if (type === 'members') {
+          await importMembersData(normalized, true);
+        } else if (type === 'certificates') {
+          await importCertificateData(normalized, true);
+        } else {
+          if (typeof showMessage === 'function') showMessage('Unknown import type: ' + type, 'error');
+          return;
+        }
+
+        if (typeof finishImportProgress === 'function') finishImportProgress('done');
+        if (typeof showMessage === 'function') showMessage(type + ' imported successfully!', 'success');
+
+      } catch (err) {
+        if (typeof finishImportProgress === 'function') finishImportProgress('cancelled');
+        console.error('CSV Import Error:', err);
+        if (typeof showMessage === 'function') showMessage('Failed to import CSV: ' + (err && err.message ? err.message : String(err)), 'error');
+      }
+    };
+    reader.onerror = function(ev){
+      if (typeof finishImportProgress === 'function') finishImportProgress('cancelled');
+      if (typeof showMessage === 'function') showMessage('Failed to read CSV file.', 'error');
+    };
     reader.readAsText(file);
+  } catch (e) {
+    if (typeof finishImportProgress === 'function') finishImportProgress('cancelled');
+    console.error('CSV Import Error:', e);
+    if (typeof showMessage === 'function') showMessage('Failed to import CSV: ' + (e && e.message ? e.message : String(e)), 'error');
+  }
 }
+
 
 
 async function importMembersData(parsedData, withProgress = false) {
