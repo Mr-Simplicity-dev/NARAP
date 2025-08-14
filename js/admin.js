@@ -9161,3 +9161,138 @@ function updateCertificatesSelectionUI() {
 
   window.__flexSelectionBound = true;
 })();
+
+
+// ===== NARAP: pagination flash fix + state initials (desktop) ==================
+
+// --- 1) Prevent certificates pagination from flashing on initial page load
+(function preventCertificatesPaginationFlash(){
+  if (window.__certPagFlashFixed) return;
+  function hide(el){
+    if (!el) return;
+    el.style.visibility = 'hidden';
+    el.style.height = '0px';
+    el.style.overflow = 'hidden';
+  }
+  function show(el){
+    if (!el) return;
+    el.style.visibility = '';
+    el.style.height = '';
+    el.style.overflow = '';
+  }
+  const certPag = document.getElementById('certificatesPagination');
+  if (certPag) hide(certPag);
+
+  // Expose toggler for renderers to use
+  window.setCertificatesPaginationVisible = function(visible){
+    const el = document.getElementById('certificatesPagination');
+    if (!el) return;
+    if (visible) show(el); else hide(el);
+  };
+
+  // Observe changes: when items are injected (after render), reveal
+  if (certPag && typeof MutationObserver !== 'undefined'){
+    const obs = new MutationObserver(function(){
+      // Show only if there are actual page items and the tab is active OR table is visible
+      const hasContent = certPag.querySelectorAll('li, a, button').length > 0;
+      const isVisible = !!(certPag.offsetParent || document.querySelector('#certificatesTable'));
+      if (hasContent && isVisible){
+        show(certPag);
+      }
+    });
+    obs.observe(certPag, { childList: true, subtree: true });
+  }
+
+  window.__certPagFlashFixed = true;
+})();
+
+// --- 2) Members-by-State initials (short labels)
+(function setupStateInitials(){
+  if (window.__stateInitialsSetup) return;
+
+  function _normalizeStateName(raw) {
+    let s = (raw || 'Unknown').toString().trim();
+    s = s.replace(/\s+/g, ' ');
+    s = s.replace(/\s*state\s*$/i, '');
+    if (/^(fct|abuja|fct abuja|abuja fct)$/i.test(s)) s = 'FCT Abuja';
+    s = s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    return s;
+  }
+
+  // Create the shortest unique prefix (1→2→3) per state set.
+  function buildShortLabelMap(stateNames){
+    const clean = Array.from(new Set((stateNames || []).map(_normalizeStateName)));
+    const map = Object.create(null);
+    // Try 1-letter first
+    const buckets1 = {};
+    clean.forEach(s => {
+      const key = s[0];
+      buckets1[key] = buckets1[key] || [];
+      buckets1[key].push(s);
+    });
+    clean.forEach(s => {
+      const b = buckets1[s[0]] || [];
+      if (b.length === 1) {
+        map[s] = s[0].toUpperCase();
+      }
+    });
+    // For collisions, try 2 letters
+    const unresolved = clean.filter(s => !map[s]);
+    const buckets2 = {};
+    unresolved.forEach(s => {
+      const key = s.slice(0,2);
+      buckets2[key] = buckets2[key] || [];
+      buckets2[key].push(s);
+    });
+    unresolved.forEach(s => {
+      const b = buckets2[s.slice(0,2)] || [];
+      if (b.length === 1) {
+        map[s] = s.slice(0,2).toUpperCase();
+      }
+    });
+    // Still collisions? go to 3 letters
+    const unresolved3 = clean.filter(s => !map[s]);
+    unresolved3.forEach(s => {
+      map[s] = s.slice(0,3).toUpperCase();
+    });
+    return map;
+  }
+
+  // Wrap renderStateChart so labels use initials; fall back gracefully
+  (function wrapRenderStateChart(){
+    if (window.__stateChartWrapped) return;
+
+    function wrap(){
+      if (typeof window.renderStateChart !== 'function') return false;
+
+      const original = window.renderStateChart;
+      window.renderStateChart = function(data){
+        try {
+          const arr = Array.isArray(data && data.membersByState) ? data.membersByState.slice() : [];
+          const fullNames = arr.map(it => it && (it._id || it.state || it.name));
+          const labelMap = buildShortLabelMap(fullNames);
+          // Mutate _id to initials so existing chart code uses them as labels
+          const patched = Object.assign({}, data, {
+            membersByState: arr.map(it => ({
+              _id: labelMap[_normalizeStateName(it._id || it.state || it.name)] || (it._id || it.state || it.name),
+              count: Number(it.count || it.total || it.value || 0)
+            }))
+          });
+          return original(patched);
+        } catch (err) {
+          return original(data);
+        }
+      };
+      window.__stateChartWrapped = true;
+      return true;
+    }
+
+    if (!wrap()){
+      const iv = setInterval(() => { if (wrap()) clearInterval(iv); }, 100);
+      setTimeout(() => clearInterval(iv), 6000);
+    }
+  })();
+
+  window.__stateInitialsSetup = true;
+})();
+
