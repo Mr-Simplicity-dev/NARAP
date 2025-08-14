@@ -5581,3 +5581,22 @@ html, body { height: 100%; overflow-y: auto; }
 /* Give state chart canvas enough room for many labels */
 #stateChart { min-height: 240px; max-height: 85vh; }
 
+/* ==== Import Status & Errors: vertical + horizontal scrolling (DROP-IN, safe) ==== */
+#importStatus {
+  overflow: auto;               /* both axes */
+  max-height: 70vh;
+  width: 100%;
+  box-sizing: border-box;
+  white-space: pre;             /* keep long lines for horizontal scroll */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+#importStatus > * { white-space: inherit; }
+
+#importErrorsBox {
+  overflow: auto;               /* both axes */
+  max-height: 40vh;
+  width: 100%;
+  box-sizing: border-box;
+  white-space: pre;             /* do not wrap long error lines */
+  border-radius: 8px;
+}
