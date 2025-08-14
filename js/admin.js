@@ -7132,11 +7132,13 @@ function resolveImportType() {
 }
 async function importData(){
   try {
+    // Determine import type robustly (radios, select, data-attr, or global string)
     var type = resolveImportType();
-    if (type && type.indexOf('[object ') === 0) type = 'members';
+    if (type && type.indexOf('[object ') === 0) type = 'members'; // safety
     if (type.includes('member')) type = 'members';
     else if (type.includes('cert')) type = 'certificates';
 
+    // Resolve file input
     var fileInput = document.getElementById('csvFileInput')
                   || document.querySelector('#importModal input[type="file"]')
                   || document.querySelector('input[type="file"][name="csvFile"]')
@@ -7147,13 +7149,17 @@ async function importData(){
     }
 
     var file = fileInput.files[0];
+
+    // Prep progress UI
     if (typeof ensureImportProgressUI === 'function') ensureImportProgressUI();
     if (typeof resetImportProgress === 'function') resetImportProgress();
     if (typeof updateImportProgress === 'function') updateImportProgress(0, 1, 'Preparing');
 
+    // Prepare cancel infra for this run
     window.__importAbortController = ('AbortController' in window) ? new AbortController() : null;
     window.__importCancel = false;
 
+    // Read file
     var reader = new FileReader();
     reader.onload = async function(e){
       try {
@@ -7165,8 +7171,10 @@ async function importData(){
           return;
         }
 
+        // Optional header normalization
         var normalized = (typeof normalizeRows === 'function') ? normalizeRows(rows, type) : rows;
 
+        // Dispatch
         if (type === 'members') {
           if (typeof importMembersData === 'function') await importMembersData(normalized, true);
           else if (typeof showMessage === 'function') showMessage('importMembersData() not found', 'error');
@@ -7206,18 +7214,32 @@ async function importData(){
 async function importMembersData(parsedData, withProgress = false) {
   console.log('🔄 Importing members data...');
 
+  // Ensure the local list exists
   window.members = Array.isArray(window.members) ? window.members : [];
 
   const newMembers = [];
   const errors = [];
   const total = parsedData.length;
 
+  // Abort support (for the Cancel button)
   const controller = (window.__importAbortController && 'signal' in (window.__importAbortController || {}))
     ? window.__importAbortController
     : (('AbortController' in window) ? new AbortController() : null);
   let cancelled = false;
 
-  const idx = (typeof buildExistingMemberIndex === 'function') ? buildExistingMemberIndex() : { byCode:{}, byEmail:{}, base: window.members };
+  // Local duplicate index (by code/email)
+  const idx = (typeof buildExistingMemberIndex === 'function')
+    ? buildExistingMemberIndex()
+    : (() => {
+        const byCode = Object.create(null), byEmail = Object.create(null);
+        for (const m of window.members) {
+          const c = (m.code || m.Code || '').toString().trim().toLowerCase();
+          const e = (m.email || m.Email || '').toString().trim().toLowerCase();
+          if (c) byCode[c] = m;
+          if (e) byEmail[e] = m;
+        }
+        return { byCode, byEmail, base: window.members };
+      })();
 
   let updatedLocal = 0, skippedDup = 0;
 
@@ -7230,9 +7252,10 @@ async function importMembersData(parsedData, withProgress = false) {
     if (window.__importCancel) { cancelled = true; break; }
 
     const row = parsedData[i];
-    const rowNumber = i + 2;
+    const rowNumber = i + 2; // +2: CSV header + 0-indexed array
 
     try {
+      // Validate required fields
       if (!row.Name || !row.Code || !row.State || !row.Zone) {
         errors.push(`Row ${rowNumber}: Missing required fields (Name, Code, State, Zone)`);
         if (withProgress && typeof updateImportProgress === 'function') {
@@ -7246,8 +7269,10 @@ async function importMembersData(parsedData, withProgress = false) {
       const emailTrim = row.Email ? String(row.Email).trim() : '';
       const emailKey  = emailTrim.toLowerCase();
 
+      // Local duplicate check (by code or email)
       const dup = (codeKey && idx.byCode[codeKey]) || (emailKey && idx.byEmail[emailKey]);
       if (dup) {
+        // Upsert locally so the table reflects new data
         dup.name     = String(row.Name).trim() || dup.name;
         dup.email    = emailTrim || dup.email;
         dup.code     = codeUpper || dup.code;
@@ -7265,6 +7290,7 @@ async function importMembersData(parsedData, withProgress = false) {
         continue;
       }
 
+      // Build the member object to send/store
       const member = {
         name: String(row.Name).trim(),
         email: emailTrim,
@@ -7277,6 +7303,7 @@ async function importMembersData(parsedData, withProgress = false) {
         cardGenerated: false
       };
 
+      // Try network create; fall back to keeping it locally if it fails
       let created = null;
       try {
         const url = (typeof backendUrl !== 'undefined' ? backendUrl : 'https://narap-backend.onrender.com') + '/api/users/addUser';
@@ -7291,9 +7318,10 @@ async function importMembersData(parsedData, withProgress = false) {
           const json = await tryJson(res);
           created = (json && (json.data || json.user || json.result)) || member;
         } else {
-          const errJson = await tryJson(res);
-          const msg = (errJson && errJson.message) ? errJson.message : '';
+          let msg = '';
+          try { const err = await tryJson(res); msg = err.message || ''; } catch (_) {}
           if (/exists/i.test(msg)) {
+            // Server says duplicate → keep locally so user still sees it
             created = member;
             errors.push(`Row ${rowNumber}: ${msg}`);
           } else {
@@ -7306,11 +7334,12 @@ async function importMembersData(parsedData, withProgress = false) {
           break;
         }
         errors.push(`Row ${rowNumber}: Network error - ${e.message}`);
-        created = member;
+        created = member; // keep locally
       }
 
       if (created) {
         newMembers.push(created);
+        // Update indices so later rows see the new addition
         idx.byCode[codeKey] = created;
         if (emailKey) idx.byEmail[emailKey] = created;
       }
@@ -7327,6 +7356,7 @@ async function importMembersData(parsedData, withProgress = false) {
     }
   }
 
+  // Merge newly created/kept members into the main list
   if (newMembers.length) {
     window.members = Array.isArray(window.members)
       ? [...window.members, ...newMembers]
@@ -7350,8 +7380,2614 @@ async function importMembersData(parsedData, withProgress = false) {
     if (typeof showMessage === 'function') showMessage('Members imported successfully!', 'success');
   }
 
+  // Optional summary log
   try {
     const msg = `New: ${newMembers.length} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup}`;
     console.log('Import summary:', msg);
   } catch (_) {}
 }
+
+function parseCSV(csvString) {
+    const lines = csvString.split('\n');
+    if (lines.length === 0) return [];
+    
+    // Extract headers (first line)
+    const headers = lines[0].split(',').map(header => header.trim());
+    
+    console.log('📋 CSV Headers:', headers);
+    
+    // Process remaining lines
+    const result = [];
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue; // Skip empty lines
+        
+        // Handle quoted values and commas within quotes
+        const values = parseCSVLine(lines[i]);
+        const row = {};
+        
+        headers.forEach((header, index) => {
+            row[header] = values[index] ? values[index].trim() : '';
+        });
+        
+        // Only add rows that have at least some data
+        const hasData = Object.values(row).some(value => value && value.trim() !== '');
+        if (hasData) {
+            result.push(row);
+        }
+    }
+    
+    console.log(`📊 Parsed ${result.length} rows from CSV`);
+    return result;
+}
+
+// Normalize parsed rows headers to expected keys (case-insensitive, common variants)
+function normalizeRows(rows, type) {
+  const canon = (s)=> (s||'').toString().trim().toLowerCase();
+  const keyMapMembers = {
+    'Name': ['name','full name','member name'],
+    'Email': ['email','e-mail','mail'],
+    'Code': ['code','member code','membership code','reg no','regno','reg no.'],
+    'Position': ['position','role'],
+    'State': ['state','state name','st'],
+    'Zone': ['zone','region','zonal'],
+    'Password': ['password','pass']
+  };
+  const keyMapCerts = {
+    'Certificate Number': ['certificate number','cert #','cert number','number','no','certificate no','certificate no.'],
+    'Recipient': ['recipient','name','full name','member name'],
+    'Email': ['email','e-mail','mail'],
+    'Title': ['title','certificate title','course title'],
+    'Type': ['type','category'],
+    'Status': ['status','state'],
+    'Issue Date': ['issue date','date issued','issued on','date'],
+    'Issued By': ['issued by','issuer','authorized by']
+  };
+  const remap = (row, map) => {
+    const out = {}; 
+    const entries = Object.entries(row||{});
+    for (const [k,v] of entries) {
+      const lk = canon(k);
+      let matched = false;
+      for (const target in map) {
+        const aliases = map[target];
+        if (aliases.some(a=>lk===canon(a))) { out[target] = v; matched = true; break; }
+      }
+      if (!matched) out[k] = v;
+    }
+    return out;
+  };
+  const map = (type==='certificates') ? keyMapCerts : keyMapMembers;
+  return (rows||[]).map(r=>remap(r,map));
+}
+
+// Helper function to parse CSV line with proper quote handling
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                // Escaped quote
+                current += '"';
+                i++; // Skip next quote
+            } else {
+                // Toggle quote state
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            // End of field
+            result.push(current);
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    // Add the last field
+    result.push(current);
+    
+    return result;
+}
+
+async function importCertificateData(parsedData, withProgress=false) {
+  console.log('🔄 Importing certificate data...');
+
+  const created = [];
+  const errors = [];
+  const total = parsedData.length;
+  const controller = window.__importAbortController || (('AbortController' in window) ? new AbortController() : null);
+  let cancelled = false;
+if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Importing certificates'); 
+  if (withProgress && cancelled) { finishImportProgress('cancelled'); }
+}
+  for (let i = 0; i < parsedData.length; i++) {
+      if (window.__importCancel) { cancelled = true; break; }
+const row = parsedData[i];
+    const rowNumber = i + 2; // header is row 1
+
+    try {
+      // Expected headers (case-sensitive to what your parser builds):
+      // Certificate Number, Recipient, Email, Title, Type, Status, Issue Date, Issued By
+
+      const number = (row['Certificate Number'] || '').toUpperCase().trim();
+      const recipient = (row['Recipient'] || '').trim();
+      const email = (row['Email'] || '').trim();
+      const title = (row['Title'] || '').trim();
+      const type = (row['Type'] || 'membership').trim().toLowerCase();
+      const status = (row['Status'] || 'active').trim().toLowerCase();
+      const issueDate = row['Issue Date'] ? new Date(row['Issue Date']).toISOString() : '';
+      const issuedBy = (row['Issued By'] || '').trim();
+
+      // Basic validation
+      if (!number || !recipient || !title) {
+        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Title)`);
+        continue;
+      }
+
+      // Build payload for your existing create endpoint
+      const payload = {
+        number,
+        recipient,
+        email,
+        title,
+        type: type || 'membership',
+        description: '',           // optional
+        issueDate: issueDate || undefined,
+        status: status || 'active',
+        issuedBy: issuedBy || undefined
+      };
+
+      const resp = await fetch(`${backendUrl}/api/certificates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp.ok) {
+        const err = await tryJson(resp).catch(() => ({}));
+        errors.push(`Row ${rowNumber}: ${err.message || 'Failed to create certificate'}`);
+        continue;
+      }
+
+      const result = await tryJson(resp);
+      created.push(result.certificate || result);
+      console.log(`✅ Certificate imported: ${number}`);
+    } catch (e) {
+      errors.push(`Row ${rowNumber}: ${e.message}`);
+    }
+  }
+
+  // Optional: refresh certificates list if you have a loader
+  if (typeof loadCertificates === 'function') {
+    await loadCertificates();
+  }
+
+  if (errors.length) {
+    console.warn('❌ Certificate import errors:', errors);
+    showMessage(`Certificates imported with ${errors.length} errors. Check console.`, 'warning');
+  } else {
+    showMessage(`Successfully imported ${created.length} certificates!`, 'success');
+  }
+}
+
+
+function downloadSampleCSV() {
+    const importType = document.getElementById('importType')?.value || 'members';
+    
+    if (importType === 'members') {
+        const sampleData = [
+            { Name: 'John Doe', Email: 'john@example.com', Code: 'NARAP001', Position: 'MEMBER', State: 'Lagos', Zone: 'South West', Password: 'password123' },
+            { Name: 'Jane Smith', Email: 'jane@example.com', Code: 'NARAP002', Position: 'SECRETARY', State: 'Abuja', Zone: 'North Central', Password: 'password123' },
+            { Name: 'Mike Johnson', Email: 'mike@example.com', Code: 'NARAP003', Position: 'TREASURER', State: 'Kano', Zone: 'North West', Password: 'password123' }
+        ];
+        
+        const csvContent = convertToCSV(sampleData);
+        downloadFile(csvContent, 'sample_members.csv', 'text/csv');
+        showMessage('Sample members CSV downloaded!', 'success');
+    } else if (importType === 'certificates') {
+        const sampleData = [
+            { CertificateID: 'CERT001', MemberID: 'NARAP001', Type: 'Standard', IssueDate: '2024-01-15', ExpiryDate: '2025-01-15', Status: 'Active' },
+            { CertificateID: 'CERT002', MemberID: 'NARAP002', Type: 'Premium', IssueDate: '2024-02-20', ExpiryDate: '2025-02-20', Status: 'Active' }
+        ];
+        
+        const csvContent = convertToCSV(sampleData);
+        downloadFile(csvContent, 'sample_certificates.csv', 'text/csv');
+        showMessage('Sample certificates CSV downloaded!', 'success');
+    }
+}
+
+function downloadSampleCSV() {
+  const importType = document.getElementById('importType')?.value || 'certificatess';
+  
+  if (importType === 'members') {
+    const sampleData = [
+      { Name: 'John Doe', Email: 'john@example.com', Code: 'NARAP001', Position: 'MEMBER', State: 'LAGOS', Zone: 'South West', Password: 'password123' },
+      { Name: 'Jane Smith', Email: 'jane@example.com', Code: 'NARAP002', Position: 'SECRETARY', State: 'FCT', Zone: 'North Central', Password: 'password123' },
+      { Name: 'Mike Johnson', Email: 'mike@example.com', Code: 'NARAP003', Position: 'TREASURER', State: 'KANO', Zone: 'North West', Password: 'password123' }
+    ];
+    const csvContent = convertToCSV(sampleData);
+    downloadFile(csvContent, 'sample_certificates.csv', 'text/csv');
+    showMessage('Sample certificates CSV downloaded!', 'success');
+
+  } else if (importType === 'certificates') {
+    // Must match backend importer headers exactly:
+    // Certificate Number, Recipient, Email, Title, Type, Status, Issue Date, Valid Until, Issued By
+    const sampleData = [
+      {
+        "Certificate Number": "NARAP-CERT-0001",
+        "Recipient": "John Doe",
+        "Email": "john@example.com",
+        "Title": "Membership Certificate",
+        "Type": "membership",
+        "Status": "active",
+        "Issue Date": "2024-01-15",
+        "Valid Until": "",
+        "Issued By": "NARAP Authority"
+      },
+      {
+        "Certificate Number": "NARAP-CERT-0002",
+        "Recipient": "Jane Smith",
+        "Email": "jane@example.com",
+        "Title": "Membership Certificate",
+        "Type": "membership",
+        "Status": "active",
+        "Issue Date": "2024-02-20",
+        "Valid Until": "",
+        "Issued By": "NARAP Authority"
+      },
+      {
+        "Certificate Number": "NARAP-CERT-0003",
+        "Recipient": "Mike Johnson",
+        "Email": "mike@example.com",
+        "Title": "Leadership Award",
+        "Type": "award",
+        "Status": "active",
+        "Issue Date": "2024-03-10",
+        "Valid Until": "",
+        "Issued By": "NARAP Authority"
+      }
+    ];
+    const csvContent = convertToCSV(sampleData);
+    downloadFile(csvContent, 'sample_certificates.csv', 'text/csv');
+    showMessage('Sample certificates CSV downloaded!', 'success');
+  }
+}
+
+
+function generateDefaultPassword() {
+    return 'NARAP' + Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function updateCsvFormat() {
+    const importType = document.getElementById('importType')?.value || 'members';
+    const helpDiv = document.getElementById('csvFormatHelp');
+    
+    if (!helpDiv) return;
+    
+    if (importType === 'members') {
+        helpDiv.innerHTML = `
+            <strong>Required columns:</strong> Name, Code, State, Zone<br/>
+            <strong>Optional columns:</strong> Email, Position, Password (auto-generated if missing)<br/>
+            <strong>Valid positions:</strong> MEMBER, PRESIDENT, SECRETARY, TREASURER, etc. (must be uppercase)<br/>
+            <strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password
+        `;
+    } else if (importType === 'certificates') {
+        helpDiv.innerHTML = `
+            <strong>Required columns:</strong> CertificateID, MemberID, Type<br/>
+            <strong>Optional columns:</strong> IssueDate, ExpiryDate, Status<br/>
+            <strong>Example:</strong> CertificateID,MemberID,Type,IssueDate,ExpiryDate,Status
+        `;
+    }
+}
+
+async function importCertificateData(parsedData, withProgress=false) {
+  console.log('🔄 Importing certificate data...');
+
+  const created = [];
+  const errors = [];
+
+  // Helper: get a field by trying multiple header names (case-sensitive to your parsed keys)
+  const pick = (row, ...keys) => {
+    for (const k of keys) {
+      if (row[k] != null && String(row[k]).trim() !== '') return String(row[k]).trim();
+    }
+    return '';
+  };
+
+  for (let i = 0; i < parsedData.length; i++) {
+    const row = parsedData[i];
+    const rowNumber = i + 2; // header is row 1
+
+    try {
+      // Support BOTH header styles
+      const number =
+        (pick(row, 'Certificate Number', 'CertificateID') || '').toUpperCase();
+      const recipient =
+        pick(row, 'Recipient', 'Member Name', 'Name'); // fallback if you include it
+      const email =
+        pick(row, 'Email', 'Member Email');
+      const title =
+        pick(row, 'Title', 'Certificate Title') || 'Membership Certificate';
+      const type =
+        (pick(row, 'Type') || 'membership').toLowerCase();            // membership/award/...
+      const status =
+        (pick(row, 'Status') || 'active').toLowerCase();              // active/revoked/expired
+      const issueDate =
+        pick(row, 'Issue Date', 'IssueDate');                         // YYYY-MM-DD preferred
+      const validUntil =
+        pick(row, 'Valid Until', 'ExpiryDate');                       // may be blank
+      const issuedBy =
+        pick(row, 'Issued By') || 'NARAP Authority';
+
+      // Basic validation (backend requires number, recipient, title)
+      if (!number || !recipient || !title) {
+        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Title)`);
+        continue;
+      }
+
+      const payload = {
+        number,                           // required
+        recipient,                        // required
+        email,                            // optional
+        title,                            // required
+        type: type || 'membership',
+        description: '',                  // optional
+        issueDate: issueDate || undefined,
+        validUntil: validUntil || undefined,
+        status: status || 'active',
+        issuedBy: issuedBy || undefined
+      };
+
+      const resp = await fetch(`${backendUrl}/api/certificates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp.ok) {
+        // capture server message for clarity
+        let msg = `HTTP ${resp.status}`;
+        try {
+          const errData = await tryJson(resp);
+          if (errData?.message) msg = errData.message;
+        } catch (_) {}
+        errors.push(`Row ${rowNumber}: ${msg}`);
+        continue;
+      }
+
+      const result = await tryJson(resp);
+      created.push(result.certificate || result);
+      console.log(`✅ Certificate imported: ${number}`);
+    } catch (e) {
+      errors.push(`Row ${rowNumber}: ${e.message}`);
+    }
+  }
+
+  if (typeof loadCertificates === 'function') {
+    await loadCertificates();
+  }
+
+  if (errors.length) {
+    console.warn('❌ Certificate import errors:', errors);
+    showMessage(`Certificates imported with ${errors.length} errors. See details below.`, 'warning');
+    showImportErrors(errors); // helper below
+  } else {
+    showMessage(`Successfully imported ${created.length} certificates!`, 'success');
+  }
+}
+
+// Optional: show detailed errors inside the import modal
+function showImportErrors(errors) {
+  let box = document.getElementById('importErrorsBox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'importErrorsBox';
+    box.style.maxHeight = '200px';
+    box.style.overflowY = 'auto';
+    box.style.marginTop = '12px';
+    box.style.padding = '10px';
+    box.style.border = '1px solid #f5c2c7';
+    box.style.background = '#f8d7da';
+    box.style.color = '#842029';
+    const modalBody = document.querySelector('#importModal .modal-body') || document.body;
+    modalBody.appendChild(box);
+  }
+  box.innerHTML = `<strong>Import Errors (${errors.length}):</strong><br>` +
+    errors.map(e => `<div>• ${e}</div>`).join('');
+}
+
+
+function restoreBackup() {
+    const fileInput = document.getElementById('restoreFile');
+    if (!fileInput || !fileInput.files[0]) {
+        showMessage('Please select a backup file to restore', 'warning');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            const backup = JSON.parse(e.target.result);
+            showMessage('Restore feature coming soon!', 'info');
+            closeRestoreModal();
+        } catch (error) {
+            showMessage('Invalid backup file format.', 'error');
+        }
+    };
+    
+    reader.readAsText(file);
+}
+
+// ==================== SYNC STATUS FUNCTIONS ====================
+
+function updateSyncStatus() {
+    const pendingSync = getPendingSync();
+    const totalPending = 
+        pendingSync.memberCreations.length +
+        pendingSync.memberUpdates.length +
+        pendingSync.memberDeletions.length +
+        pendingSync.certificateCreations.length +
+        pendingSync.certificateUpdates.length;
+    
+    // Update sync status in UI if elements exist
+    const syncStatusElement = document.getElementById('syncStatus');
+    if (syncStatusElement) {
+        if (totalPending > 0) {
+            syncStatusElement.textContent = `${totalPending} pending changes`;
+            syncStatusElement.className = 'sync-status pending';
+        } else {
+            syncStatusElement.textContent = 'All changes synced';
+            syncStatusElement.className = 'sync-status synced';
+        }
+    }
+    
+    // Update sync button state
+    const syncButton = document.querySelector('[onclick="syncWithBackend()"]');
+    if (syncButton) {
+        if (totalPending > 0) {
+            syncButton.disabled = false;
+            syncButton.innerHTML = `<i class="fas fa-sync"></i> Sync (${totalPending})`;
+        } else {
+            syncButton.disabled = true;
+            syncButton.innerHTML = `<i class="fas fa-sync"></i> Synced`;
+        }
+    }
+    
+    return totalPending;
+}
+
+function showSyncDetails() {
+    const pendingSync = getPendingSync();
+    const details = [];
+    
+    if (pendingSync.memberCreations.length > 0) {
+        details.push(`${pendingSync.memberCreations.length} new members`);
+    }
+    if (pendingSync.memberUpdates.length > 0) {
+        details.push(`${pendingSync.memberUpdates.length} member updates`);
+    }
+    if (pendingSync.memberDeletions.length > 0) {
+        details.push(`${pendingSync.memberDeletions.length} member deletions`);
+    }
+    if (pendingSync.certificateCreations.length > 0) {
+        details.push(`${pendingSync.certificateCreations.length} new certificates`);
+    }
+    if (pendingSync.certificateUpdates.length > 0) {
+        details.push(`${pendingSync.certificateUpdates.length} certificate updates`);
+    }
+    
+    if (details.length > 0) {
+        showMessage(`Pending changes: ${details.join(', ')}`, 'info');
+    } else {
+        showMessage('No pending changes to sync', 'success');
+    }
+}
+
+// ==================== INITIALIZATION ====================
+
+// Initialize utility classes
+const performanceMonitor = new PerformanceMonitor();
+const notificationManager = new NotificationManager();
+const dataCache = new DataCache();
+
+// Make functions globally accessible
+window.login = login;
+window.logout = logout;
+window.fillAdminCredentials = fillAdminCredentials;
+window.clearLoginForm = clearLoginForm;
+window.switchTab = switchTab;
+window.toggleSidebar = toggleSidebar;
+window.addMember = addMember;
+window.loadMembers = loadMembers;
+window.loadCertificates = loadCertificates;
+window.loadDashboard = loadDashboard;
+window.exportMembers = exportMembers;
+window.exportCertificates = exportCertificates;
+window.exportCertificatesButton = exportCertificatesButton;
+window.exportAllData = exportAllData;
+window.createBackup = createBackup;
+window.clearAllData = clearAllData;
+window.clearAllCertificates = clearAllCertificates;
+window.syncWithBackend = syncWithBackend;
+window.syncPendingChanges = syncPendingChanges;
+window.checkPasswordStrength = checkPasswordStrength;
+window.testBackendConnection = testBackendConnection;
+window.updateBackendUrl = updateBackendUrl;
+window.showAddMemberModal = showAddMemberModal;
+window.closeAddMemberModal = closeAddMemberModal;
+window.showEditMemberModal = showEditMemberModal;
+window.closeEditMemberModal = closeEditMemberModal;
+window.clearMemberSearch = clearMemberSearch;
+window.showImportModal = showImportModal;
+window.closeImportModal = closeImportModal;
+window.displayMembers = displayMembers;
+window.filterMembers = filterMembers;
+window.refreshMembers = refreshMembers;
+window.deleteMember = deleteMember;
+window.editMember = editMember;
+window.displayCertificates = displayCertificates;
+window.viewCertificate = viewCertificate;
+window.downloadCertificate = downloadCertificate;
+window.toggleTheme = toggleTheme;
+window.showIssueCertificateModal = showIssueCertificateModal;
+window.closeIssueCertificateModal = closeIssueCertificateModal;
+window.closeViewCertificateModal = closeViewCertificateModal;
+window.closeViewIdCardModal = closeViewIdCardModal;
+window.refreshCertificates = refreshCertificates;
+window.clearCertificateFilters = clearCertificateFilters;
+window.generateCertificatePreview = generateCertificatePreview;
+window.issueCertificate = issueCertificate;
+window.autoFillCertificateFields = autoFillCertificateFields;
+window.handleEmailInput = handleEmailInput;
+window.printCertificate = printCertificate;
+window.generateIdCardPreview = generateIdCardPreview;
+window.hideIdCardPreview = hideIdCardPreview;
+window.printIdCard = printIdCard;
+window.downloadIdCard = downloadIdCard;
+window.testServerConnection = testServerConnection;
+window.refreshMembersTable = refreshMembersTable;
+window.confirmClearAllData = confirmClearAllData;
+window.confirmClearCertificates = confirmClearCertificates;
+window.closeConfirmModal = closeConfirmModal;
+window.showRestoreModal = showRestoreModal;
+window.closeRestoreModal = closeRestoreModal;
+window.importData = importData;
+window.downloadSampleCSV = downloadSampleCSV;
+window.restoreBackup = restoreBackup;
+        // window.selectAllMembers = selectAllMembers; // Removed - no longer needed
+    // window.getSelectedMembers = getSelectedMembers; // Removed - no longer needed
+    // window.bulkDeleteMembers = bulkDeleteMembers; // Removed - no longer needed
+    // window.bulkExportMembers = bulkExportMembers; // Removed - no longer needed
+window.updateMembersCount = updateMembersCount;
+window.changeMembersPerPage = changeMembersPerPage;
+window.goToMembersPage = goToMembersPage;
+window.handleOnline = handleOnline;
+window.handleOffline = handleOffline;
+window.updateConnectionStatus = updateConnectionStatus;
+window.setupAutoSync = setupAutoSync;
+window.updateSyncStatus = updateSyncStatus;
+window.showSyncDetails = showSyncDetails;
+window.loadInitialData = loadInitialData;
+window.clearPendingDeletions = clearPendingDeletions;
+window.loadDashboard = loadDashboard;
+window.loadDashboardStats = loadDashboardStats;
+window.loadRecentActivity = loadRecentActivity;
+window.loadAnalytics = loadAnalytics;
+window.loadSystemPage = loadSystemPage;
+window.handleFileUpload = handleFileUpload;
+window.handleImageUpload = handleImageUpload;
+window.handleCSVUpload = handleCSVUpload;
+window.handleJSONUpload = handleJSONUpload;
+window.showImagePreview = showImagePreview;
+window.clearFileUpload = clearFileUpload;
+window.testPassportUpload = testPassportUpload;
+window.debugFileUpload = debugFileUpload;
+window.getImageUrl = getImageUrl;
+
+// Test function to verify clear buttons are working
+function testClearButtons() {
+    console.log('🧪 Testing clear buttons...');
+    
+    // Test if functions are accessible
+    console.log('✅ clearAllData function accessible:', typeof clearAllData);
+    console.log('✅ clearAllCertificates function accessible:', typeof clearAllCertificates);
+    console.log('✅ confirmClearAllData function accessible:', typeof confirmClearAllData);
+    console.log('✅ confirmClearCertificates function accessible:', typeof confirmClearCertificates);
+    
+    // Test if modal elements exist
+    const modal = document.getElementById('confirmModal');
+    const title = document.getElementById('confirmTitle');
+    const message = document.getElementById('confirmMessage');
+    const confirmButton = document.getElementById('confirmYes');
+    const cancelButton = document.getElementById('confirmNo');
+    
+    console.log('✅ Modal elements check:', {
+        modal: !!modal,
+        title: !!title,
+        message: !!message,
+        confirmButton: !!confirmButton,
+        cancelButton: !!cancelButton
+    });
+    
+    // Test if buttons exist in HTML
+    const clearAllDataBtn = document.querySelector('button[onclick="confirmClearAllData()"]');
+    const clearCertificatesBtn = document.querySelector('button[onclick="confirmClearCertificates()"]');
+    
+    console.log('✅ HTML buttons check:', {
+        clearAllDataBtn: !!clearAllDataBtn,
+        clearCertificatesBtn: !!clearCertificatesBtn
+    });
+    
+    // Test modal functionality
+    if (modal && title && message && confirmButton && cancelButton) {
+        console.log('✅ All modal elements found - testing modal display...');
+        showPasswordDialog('Test Action', () => {
+            console.log('✅ Modal callback executed successfully');
+        });
+    } else {
+        console.log('❌ Some modal elements missing - check HTML structure');
+    }
+    
+    console.log('🎉 Clear buttons test completed!');
+}
+
+// Expose test function
+window.testClearButtons = testClearButtons;
+
+// Function to check modal elements on page load
+function checkModalElements() {
+    console.log('🔍 Checking modal elements on page load...');
+    
+    const modal = document.getElementById('confirmModal');
+    const title = document.getElementById('confirmTitle');
+    const message = document.getElementById('confirmMessage');
+    const confirmButton = document.getElementById('confirmYes');
+    const cancelButton = document.getElementById('confirmNo');
+    
+    const elements = {
+        modal: !!modal,
+        title: !!title,
+        message: !!message,
+        confirmButton: !!confirmButton,
+        cancelButton: !!cancelButton
+    };
+    
+    console.log('📋 Modal elements status:', elements);
+    
+    const allFound = Object.values(elements).every(found => found);
+    
+    if (allFound) {
+        console.log('✅ All modal elements found and ready!');
+    } else {
+        console.log('❌ Some modal elements missing:', Object.keys(elements).filter(key => !elements[key]));
+        console.log('💡 This might cause issues with clear buttons');
+    }
+    
+    return allFound;
+}
+
+// Check modal elements when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkModalElements);
+} else {
+    checkModalElements();
+}
+
+// Expose check function
+window.checkModalElements = checkModalElements;
+
+
+// ==================== FILE UPLOAD FUNCTIONS ====================
+
+function handleFileUpload(input, labelId) {
+    
+    
+    const file = input.files[0];
+    const label = document.getElementById(labelId);
+    
+    // Debug information
+    debugFileUpload(input, labelId);
+    
+    if (!file) {
+        if (label) {
+            label.textContent = 'Choose file';
+            label.classList.remove('has-file');
+        }
+        return;
+    }
+    
+    // Update label with file name
+    if (label) {
+        label.textContent = file.name;
+        label.classList.add('has-file');
+    }
+    
+    // Handle different file types
+    const fileType = file.type;
+    const isImage = fileType.startsWith('image/');
+    const isCSV = fileType === 'text/csv' || file.name.toLowerCase().endsWith('.csv');
+    const isJSON = fileType === 'application/json' || file.name.toLowerCase().endsWith('.json');
+    
+    if (isImage) {
+        // Handle image files (passport photos, signatures)
+        handleImageUpload(input, file);
+    } else if (isCSV) {
+        // Handle CSV files (import)
+        handleCSVUpload(input, file);
+    } else if (isJSON) {
+        // Handle JSON files (backup restore)
+        handleJSONUpload(input, file);
+    } else {
+        showMessage('Unsupported file type. Please select an image, CSV, or JSON file.', 'error');
+        input.value = '';
+        if (label) {
+            label.textContent = 'Choose file';
+            label.classList.remove('has-file');
+        }
+    }
+}
+
+function handleImageUpload(input, file) {
+    // Validate file size (max 5MB for images)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+        showMessage('Image file is too large. Please select a file smaller than 5MB.', 'error');
+        input.value = '';
+        return;
+    }
+    
+    // Validate image dimensions
+    const img = new Image();
+    img.onload = function() {
+        const maxWidth = 800;
+        const maxHeight = 800;
+        
+        if (this.width > maxWidth || this.height > maxHeight) {
+            showMessage(`Image dimensions are too large. Please select an image smaller than ${maxWidth}x${maxHeight} pixels.`, 'error');
+            input.value = '';
+            return;
+        }
+        
+        // Show preview for passport photos and signatures
+        if (input.id.includes('Passport') || input.id.includes('Signature')) {
+            showImagePreview(URL.createObjectURL(file), input.id + 'Preview');
+        }
+        
+        showMessage('Image selected successfully!', 'success');
+    };
+    
+    img.onerror = function() {
+        showMessage('Invalid image file. Please select a valid image.', 'error');
+        input.value = '';
+    };
+    
+    img.src = URL.createObjectURL(file);
+}
+
+function handleCSVUpload(input, file) {
+    // Validate file size (max 10MB for CSV)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        showMessage('CSV file is too large. Please select a file smaller than 10MB.', 'error');
+        input.value = '';
+        return;
+    }
+    
+    showMessage('CSV file selected. Click "Import" to process the file.', 'info');
+}
+
+function handleJSONUpload(input, file) {
+    // Validate file size (max 10MB for JSON)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        showMessage('JSON file is too large. Please select a file smaller than 10MB.', 'error');
+        input.value = '';
+        return;
+    }
+    
+    showMessage('JSON backup file selected. Click "Restore" to process the file.', 'info');
+}
+
+function showImagePreview(base64Data, previewId) {
+    const previewElement = document.getElementById(previewId);
+    if (previewElement) {
+        previewElement.src = base64Data;
+        previewElement.style.display = 'block';
+    }
+}
+
+function clearFileUpload(input, labelId) {
+    input.value = '';
+    const label = document.getElementById(labelId);
+    if (label) {
+        label.textContent = 'Choose file';
+        label.classList.remove('has-file');
+    }
+    
+    // Remove hidden input data
+    const hiddenInput = document.querySelector(`input[name="${input.id}Data"]`);
+    if (hiddenInput) {
+        hiddenInput.remove();
+    }
+    
+    // Clear preview if exists
+    const previewId = input.id + 'Preview';
+    const previewElement = document.getElementById(previewId);
+    if (previewElement) {
+        previewElement.style.display = 'none';
+        previewElement.src = '';
+    }
+    
+    // Also clear any existing preview images
+    const allPreviews = document.querySelectorAll('.passport-preview, .signature-preview');
+    allPreviews.forEach(preview => {
+        if (preview.id === previewId) {
+            preview.style.display = 'none';
+            preview.src = '';
+        }
+    });
+}
+
+// ==================== INITIAL DATA LOADING ====================
+
+async function loadInitialData() {
+    try {
+        
+        // Get user's saved pagination preferences
+        const savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
+        const savedCertificatesPerPage = parseInt(localStorage.getItem('narap_certificates_per_page')) || 10;
+        
+        // Load members data (this will load from local storage first, then sync with backend)
+        if (typeof loadMembers === 'function') {
+            await loadMembers(1, savedMembersPerPage);
+        }
+        
+        // Load certificates data
+        if (typeof loadCertificates === 'function') {
+            await loadCertificates(1, savedCertificatesPerPage);
+        }
+        
+        // Update pagination selectors to reflect saved preferences
+        const membersPerPageSelect = document.getElementById('membersPerPage');
+        if (membersPerPageSelect) {
+            membersPerPageSelect.value = savedMembersPerPage;
+        }
+        
+        const certificatesPerPageSelect = document.getElementById('certificatesPerPage');
+        if (certificatesPerPageSelect) {
+            certificatesPerPageSelect.value = savedCertificatesPerPage;
+        }
+        
+    } catch (error) {
+        console.error('Error loading initial data:', error);
+    }
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        
+        
+        // Initialize notification manager container
+        if (notificationManager) {
+            notificationManager.createContainer();
+        }
+        
+        // Check login state
+        const isLoggedIn = localStorage.getItem('narap_logged_in') === 'true';
+        const loginSection = document.getElementById('loginSection');
+        const adminSection = document.getElementById('adminSection');
+        
+        if (isLoggedIn) {
+            if (loginSection) loginSection.style.display = 'none';
+            if (adminSection) adminSection.style.display = 'block';
+            
+        } else {
+            if (loginSection) loginSection.style.display = 'flex';
+            if (adminSection) adminSection.style.display = 'none';
+            
+        }
+        
+        // Auto-fill admin credentials
+        if (typeof fillAdminCredentials === 'function') fillAdminCredentials();
+        
+        // Initialize theme
+        const savedTheme = localStorage.getItem('narap_theme');
+        const themeToggle = document.getElementById('themeToggle');
+        if (savedTheme === 'dark') {
+            document.body.setAttribute('data-theme', 'dark');
+            if (themeToggle) {
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+                themeToggle.title = 'Switch to Light Theme';
+            }
+        }
+        
+        // Initialize dashboard if logged in
+        if (isLoggedIn && typeof loadDashboard === 'function') {
+            loadDashboard();
+            
+            // Load initial data (members and certificates)
+            if (typeof loadInitialData === 'function') {
+                loadInitialData();
+            }
+            
+            // Switch to dashboard tab by default
+            setTimeout(() => {
+                switchTab('dashboard');
+            }, 100);
+        }
+        
+        // Add event listeners for member selection
+        document.addEventListener('change', function(e) {
+            if (e.target.name === 'memberSelect') {
+                updateMembersCount();
+            }
+        });
+
+        // Add event listeners for online/offline status
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        updateConnectionStatus(); // Initial check
+        
+        // Set up auto-sync on page load
+        setupAutoSync();
+        
+        // Update sync status
+        updateSyncStatus();
+        
+        // Set up periodic server status check (every 30 seconds)
+        setInterval(async () => {
+            if (document.getElementById('serverStatus')) {
+                const status = await checkServerStatus();
+                updateSystemStat('serverStatus', status);
+            }
+        }, 30000);
+        
+        // Initial server status check
+        setTimeout(async () => {
+            if (document.getElementById('serverStatus')) {
+                const status = await checkServerStatus();
+                updateSystemStat('serverStatus', status);
+            }
+        }, 2000);
+        
+        // Initialize pagination visibility - hide by default
+        const membersPaginationContainer = document.getElementById('membersPagination');
+        const certificatesPaginationContainer = document.getElementById('certificatesPagination');
+        if (membersPaginationContainer) {
+            membersPaginationContainer.style.display = 'none';
+        }
+        if (certificatesPaginationContainer) {
+            certificatesPaginationContainer.style.display = 'none';
+        }
+        
+        // Setup pagination event listeners
+        setupPaginationEventListeners();
+        
+        // Load initial data (but don't show pagination yet)
+        if (typeof loadInitialData === 'function') loadInitialData();
+        
+        // Ensure pagination is hidden after initial data load
+        setTimeout(() => {
+            if (membersPaginationContainer) {
+                membersPaginationContainer.style.display = 'none';
+            }
+            if (certificatesPaginationContainer) {
+                certificatesPaginationContainer.style.display = 'none';
+            }
+        }, 100);
+        
+        
+        
+    } catch (error) {
+        
+    }
+}); 
+
+// ==================== UPLOAD TESTING FUNCTIONS ====================
+
+function testPassportUpload() {
+    
+    
+    // Test if file input exists
+    const passportInput = document.getElementById('memberPassport');
+    if (!passportInput) {
+        
+        return false;
+    }
+    
+    // Test if label exists
+    const passportLabel = document.getElementById('passportLabel');
+    if (!passportLabel) {
+        
+        return false;
+    }
+    
+    // Test if preview element exists
+    const passportPreview = document.getElementById('memberPassportPreview');
+    if (!passportPreview) {
+        
+        return false;
+    }
+    
+    
+    
+    
+    
+    
+    return true;
+}
+
+function debugFileUpload(input, labelId) {
+    // Debug function for file upload issues
+    console.log('Debug file upload:', { input, labelId });
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+// Enhanced image error handling for member table (similar to verification page)
+function handleMemberTableImageError(img, originalUrl, alternativeUrls) {
+    console.log('❌ Member table image failed to load:', originalUrl);
+    
+    if (!alternativeUrls || alternativeUrls.length === 0) {
+        console.log('❌ No alternative URLs available, using default avatar');
+        img.src = DEFAULT_AVATAR;
+        return;
+    }
+    
+    let currentIndex = 0;
+    
+    function tryNextAlternative() {
+        if (currentIndex >= alternativeUrls.length) {
+            console.log('❌ All alternative URLs failed, using default avatar');
+            img.src = DEFAULT_AVATAR;
+            return;
+        }
+        
+        const testUrl = alternativeUrls[currentIndex];
+        console.log(`🔄 Trying alternative URL ${currentIndex + 1}:`, testUrl);
+        
+        const testImg = new Image();
+        testImg.onload = function() {
+            console.log('✅ Alternative URL worked:', testUrl);
+            img.src = testUrl;
+        };
+        testImg.onerror = function() {
+            console.log('❌ Alternative URL failed:', testUrl);
+            currentIndex++;
+            setTimeout(tryNextAlternative, 300); // Faster retry
+        };
+        testImg.src = testUrl;
+    }
+    
+    // Start trying alternatives immediately
+    setTimeout(tryNextAlternative, 100);
+}
+
+function getImageUrl(imagePath) {
+    console.log('🔍 getImageUrl called with:', imagePath);
+    
+    if (!imagePath) {
+        console.log('❌ No image path provided, using default avatar');
+        return DEFAULT_AVATAR;
+    }
+
+    // Apply the same robust URL processing logic as verification page
+    let validImageUrl = null;
+    
+    try {
+        // Check for full URLs first (including Cloudinary)
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+            validImageUrl = imagePath;
+            console.log('✅ Using full URL:', validImageUrl);
+        } 
+        // Check for relative URLs
+        else if (imagePath.startsWith('/')) {
+            validImageUrl = `${backendUrl}${imagePath}`;
+            console.log('✅ Using relative URL:', validImageUrl);
+        } 
+        // Check for Cloudinary-style filenames
+        else if (imagePath.includes('passportPhoto-') || imagePath.includes('signature-')) {
+            const fieldType = imagePath.includes('passportPhoto-') ? 'passportPhoto' : 'signature';
+            validImageUrl = `${backendUrl}/api/uploads/${fieldType === 'passportPhoto' ? 'passports' : 'signatures'}/${imagePath}`;
+            console.log('✅ Using backend upload endpoint:', validImageUrl);
+        } 
+        // Check for full paths from Multer upload
+        else if (imagePath.includes('uploads/passports/')) {
+            const filename = imagePath.split('uploads/passports/').pop();
+            validImageUrl = `${backendUrl}/api/uploads/passports/${filename}`;
+            console.log('✅ Using extracted passport filename:', validImageUrl);
+        }
+        else if (imagePath.includes('uploads/signatures/')) {
+            const filename = imagePath.split('uploads/signatures/').pop();
+            validImageUrl = `${backendUrl}/api/uploads/signatures/${filename}`;
+            console.log('✅ Using extracted signature filename:', validImageUrl);
+        }
+        // Check for absolute paths (Windows or Unix)
+        else if (imagePath.includes('\\') || imagePath.includes('/')) {
+            const filename = imagePath.split(/[\\/]/).pop();
+            validImageUrl = `${backendUrl}/api/uploads/passports/${filename}`;
+            console.log('✅ Using extracted filename from absolute path:', validImageUrl);
+        }
+        // Generic fallback for other filenames
+        else {
+            validImageUrl = `${backendUrl}/api/uploads/passports/${imagePath}`;
+            console.log('✅ Using generic fallback URL:', validImageUrl);
+        }
+        
+        console.log('🎯 Final image URL:', validImageUrl);
+        return validImageUrl;
+        
+    } catch (error) {
+        console.log('❌ Error processing image URL:', error);
+        return DEFAULT_AVATAR;
+    }
+}
+
+// Utility function to clean up certificates with null certificate numbers
+async function cleanupNullCertificateNumbers() {
+    try {
+        
+        
+        const certificates = getLocalCertificates() || [];
+        let updated = false;
+        
+        for (let i = 0; i < certificates.length; i++) {
+            const cert = certificates[i];
+            if (!cert.number || cert.number.trim() === '' || cert.number === null) {
+                
+                certificates[i] = {
+                    ...cert,
+                    number: generateUniqueCertificateNumber(),
+                    certificateNumber: cert.certificateNumber || generateUniqueCertificateNumber()
+                };
+                updated = true;
+            }
+        }
+        
+        if (updated) {
+            saveLocalCertificates(certificates);
+            window.currentCertificates = certificates;
+            
+            
+            // Refresh display if certificates tab is active
+            const certificatesPanel = document.getElementById('panel-certificates');
+            if (certificatesPanel && certificatesPanel.classList.contains('active')) {
+                displayCertificates(certificates);
+            }
+        }
+        
+        return updated;
+    } catch (error) {
+        
+        return false;
+    }
+}
+
+// Call cleanup function on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Clean up any existing certificates with null certificate numbers
+    setTimeout(() => {
+        cleanupNullCertificateNumbers();
+    }, 1000);
+});
+
+// Function to cleanup database certificates with null certificate numbers
+async function cleanupDatabaseCertificates() {
+    if (!confirm('This will fix all certificates with null certificate numbers in the database. Continue?')) {
+        return;
+    }
+    
+    try {
+        showMessage('Cleaning up database certificates...', 'info');
+        
+        const response = await fetch(`${backendUrl}/api/cleanup-certificates`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const result = await tryJson(response);
+            showMessage(`✅ ${result.message}`, 'success');
+            
+            // Refresh certificates display
+            await loadCertificates();
+            
+            // Refresh analytics if on analytics tab
+            const analyticsPanel = document.getElementById('panel-analytics');
+            if (analyticsPanel && analyticsPanel.classList.contains('active')) {
+                loadAnalytics();
+            }
+        } else {
+            const error = await tryJson(response);
+            showMessage(`❌ Failed to cleanup certificates: ${error.message}`, 'error');
+        }
+    } catch (error) {
+        
+        showMessage('❌ Failed to cleanup certificates: ' + error.message, 'error');
+    }
+}
+
+// Function to update member passport photo
+async function updateMemberPhoto(memberCode) {
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  
+  fileInput.onchange = async function() {
+    const file = this.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('passportPhoto', file);
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/updateMemberPhoto/${memberCode}`, {
+        method: 'PUT',
+        body: formData
+      });
+      
+      const result = await tryJson(response);
+      
+      if (result.success) {
+        showMessage('Member passport photo updated successfully!', 'success');
+        // Refresh the members table
+        refreshMembers();
+      } else {
+        showMessage(result.message || 'Failed to update passport photo', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating member photo:', error);
+      showMessage('Error updating member photo', 'error');
+    }
+    
+    // Clean up
+    document.body.removeChild(fileInput);
+  };
+  
+  document.body.appendChild(fileInput);
+  fileInput.click();
+}
+
+// Expose functions to window for debugging
+window.updateMemberPhoto = updateMemberPhoto;
+window.importData = importData;
+window.downloadSampleCSV = downloadSampleCSV;
+window.updateCsvFormat = updateCsvFormat;
+window.generateDefaultPassword = generateDefaultPassword;
+
+// ==================== BULK ACTIONS FUNCTIONALITY ====================
+
+// Global state for bulk selections
+window.bulkSelections = {
+    members: new Set(),
+    certificates: new Set()
+};
+
+// Select all functionality
+function selectAllMembers() {
+    const selectAllCheckbox = document.getElementById('selectAllMembers');
+    const memberCheckboxes = document.querySelectorAll('.member-checkbox');
+    
+    memberCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+        const memberId = checkbox.value;
+        const row = checkbox.closest('tr');
+        
+        if (selectAllCheckbox.checked) {
+            window.bulkSelections.members.add(memberId);
+            row.classList.add('selected');
+        } else {
+            window.bulkSelections.members.delete(memberId);
+            row.classList.remove('selected');
+        }
+    });
+    
+    updateBulkActionsVisibility('members');
+    updateSelectionCount('members');
+}
+
+function selectAllCertificates() {
+    const selectAllCheckbox = document.getElementById('selectAllCertificates');
+    const certificateCheckboxes = document.querySelectorAll('.certificate-checkbox');
+    
+    certificateCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+        const certificateId = checkbox.value;
+        const row = checkbox.closest('tr');
+        
+        if (selectAllCheckbox.checked) {
+            window.bulkSelections.certificates.add(certificateId);
+            row.classList.add('selected');
+        } else {
+            window.bulkSelections.certificates.delete(certificateId);
+            row.classList.remove('selected');
+        }
+    });
+    
+    updateBulkActionsVisibility('certificates');
+    updateSelectionCount('certificates');
+}
+
+// Individual checkbox selection
+function toggleMemberSelection(checkbox) {
+    const memberId = checkbox.value;
+    const row = checkbox.closest('tr');
+    const selectAllCheckbox = document.getElementById('selectAllMembers');
+    
+    if (checkbox.checked) {
+        window.bulkSelections.members.add(memberId);
+        row.classList.add('selected');
+    } else {
+        window.bulkSelections.members.delete(memberId);
+        row.classList.remove('selected');
+    }
+    
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.member-checkbox');
+    const checkedCheckboxes = document.querySelectorAll('.member-checkbox:checked');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && allCheckboxes.length === checkedCheckboxes.length;
+    selectAllCheckbox.indeterminate = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length;
+    
+    updateBulkActionsVisibility('members');
+    updateSelectionCount('members');
+}
+
+function toggleCertificateSelection(checkbox) {
+    const certificateId = checkbox.value;
+    const row = checkbox.closest('tr');
+    const selectAllCheckbox = document.getElementById('selectAllCertificates');
+    
+    if (checkbox.checked) {
+        window.bulkSelections.certificates.add(certificateId);
+        row.classList.add('selected');
+    } else {
+        window.bulkSelections.certificates.delete(certificateId);
+        row.classList.remove('selected');
+    }
+    
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.certificate-checkbox');
+    const checkedCheckboxes = document.querySelectorAll('.certificate-checkbox:checked');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && allCheckboxes.length === checkedCheckboxes.length;
+    selectAllCheckbox.indeterminate = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length;
+    
+    updateBulkActionsVisibility('certificates');
+    updateSelectionCount('certificates');
+}
+
+// Update bulk actions visibility
+function updateBulkActionsVisibility(type) {
+    const bulkActions = document.getElementById(`${type}BulkActions`);
+    const selections = window.bulkSelections[type];
+    
+    if (selections.size > 0) {
+        bulkActions.style.display = 'flex';
+    } else {
+        bulkActions.style.display = 'none';
+    }
+}
+
+// Update selection count
+function updateSelectionCount(type) {
+    const selections = window.bulkSelections[type];
+    const count = selections.size;
+    console.log(`${type} selected: ${count}`);
+}
+
+// Bulk delete members
+async function bulkDeleteMembers() {
+    const selectedMembers = Array.from(window.bulkSelections.members);
+    
+    if (selectedMembers.length === 0) {
+        showMessage('No members selected for deletion.', 'warning');
+        return;
+    }
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedMembers.length} selected member(s)? This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    try {
+        showMessage('Deleting selected members...', 'info');
+        
+        const response = await fetch(`${getBackendUrl()}/api/users/users/bulk-delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userIds: selectedMembers })
+        });
+        
+        if (response.ok) {
+            const result = await tryJson(response);
+            showMessage(`Successfully deleted ${result.deletedCount} member(s).`, 'success');
+            
+            // Clear selections and refresh table
+            window.bulkSelections.members.clear();
+            updateBulkActionsVisibility('members');
+            refreshMembers();
+        } else {
+            const error = await tryJson(response);
+            showMessage(`Failed to delete members: ${error.message}`, 'error');
+        }
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        showMessage('An error occurred while deleting members.', 'error');
+    }
+}
+
+// Bulk delete certificates
+async function bulkDeleteCertificates() {
+    const selectedCertificates = Array.from(window.bulkSelections.certificates);
+    
+    if (selectedCertificates.length === 0) {
+        showMessage('No certificates selected for deletion.', 'warning');
+        return;
+    }
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedCertificates.length} selected certificate(s)? This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    try {
+        showMessage('Deleting selected certificates...', 'info');
+        
+        const response = await fetch(`${getBackendUrl()}/api/certificates/bulk-delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ certificateIds: selectedCertificates })
+        });
+        
+        if (response.ok) {
+            const result = await tryJson(response);
+            showMessage(`Successfully deleted ${result.deletedCount} certificate(s).`, 'success');
+            
+            // Clear selections and refresh table
+            window.bulkSelections.certificates.clear();
+            updateBulkActionsVisibility('certificates');
+            refreshCertificates();
+        } else {
+            const error = await tryJson(response);
+            showMessage(`Failed to delete certificates: ${error.message}`, 'error');
+        }
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        showMessage('An error occurred while deleting certificates.', 'error');
+    }
+}
+
+// Bulk export members
+async function bulkExportMembers() {
+    const selectedMembers = Array.from(window.bulkSelections.members);
+    
+    if (selectedMembers.length === 0) {
+        showMessage('No members selected for export.', 'warning');
+        return;
+    }
+    
+    try {
+        showMessage('Exporting selected members...', 'info');
+        
+        // Get selected members data
+        const membersData = window.appState.members.filter(member => 
+            selectedMembers.includes(member._id || member.id)
+        );
+        
+        if (membersData.length === 0) {
+            showMessage('No member data found for selected items.', 'error');
+            return;
+        }
+        
+        // Export as CSV
+        const csv = convertToCSV(membersData);
+        const filename = `selected_members_${new Date().toISOString().split('T')[0]}.csv`;
+        downloadFile(csv, filename, 'text/csv');
+        
+        showMessage(`Successfully exported ${membersData.length} member(s).`, 'success');
+    } catch (error) {
+        console.error('Bulk export error:', error);
+        showMessage('An error occurred while exporting members.', 'error');
+    }
+}
+
+// Bulk export certificates
+async function bulkExportCertificates() {
+    const selectedCertificates = Array.from(window.bulkSelections.certificates);
+    
+    if (selectedCertificates.length === 0) {
+        showMessage('No certificates selected for export.', 'warning');
+        return;
+    }
+    
+    try {
+        showMessage('Exporting selected certificates...', 'info');
+        
+        // Get selected certificates data
+        const certificatesData = window.appState.certificates.filter(certificate => 
+            selectedCertificates.includes(certificate._id || certificate.id)
+        );
+        
+        if (certificatesData.length === 0) {
+            showMessage('No certificate data found for selected items.', 'error');
+            return;
+        }
+        
+        // Export as CSV
+        const csv = convertToCSV(certificatesData);
+        const filename = `selected_certificates_${new Date().toISOString().split('T')[0]}.csv`;
+        downloadFile(csv, filename, 'text/csv');
+        
+        showMessage(`Successfully exported ${certificatesData.length} certificate(s).`, 'success');
+    } catch (error) {
+        console.error('Bulk export error:', error);
+        showMessage('An error occurred while exporting certificates.', 'error');
+    }
+}
+
+// Bulk update members
+async function bulkUpdateMembers() {
+    const selectedMembers = Array.from(window.bulkSelections.members);
+    
+    if (selectedMembers.length === 0) {
+        showMessage('No members selected for update.', 'warning');
+        return;
+    }
+    
+    showMessage(`Bulk update functionality for ${selectedMembers.length} members is under development.`, 'info');
+}
+
+// Bulk revoke certificates
+async function bulkRevokeCertificates() {
+    const selectedCertificates = Array.from(window.bulkSelections.certificates);
+    
+    if (selectedCertificates.length === 0) {
+        showMessage('No certificates selected for revocation.', 'warning');
+        return;
+    }
+    
+    const confirmMessage = `Are you sure you want to revoke ${selectedCertificates.length} selected certificate(s)? This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    try {
+        showMessage('Revoking selected certificates...', 'info');
+        
+        // Revoke each certificate
+        const revokePromises = selectedCertificates.map(async (certificateId) => {
+            const response = await fetch(`${getBackendUrl()}/api/certificates/${certificateId}/revoke`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            return response.ok;
+        });
+        
+        const results = await Promise.all(revokePromises);
+        const successCount = results.filter(result => result).length;
+        
+        if (successCount > 0) {
+            showMessage(`Successfully revoked ${successCount} certificate(s).`, 'success');
+            
+            // Clear selections and refresh table
+            window.bulkSelections.certificates.clear();
+            updateBulkActionsVisibility('certificates');
+            refreshCertificates();
+        } else {
+            showMessage('Failed to revoke any certificates.', 'error');
+        }
+    } catch (error) {
+        console.error('Bulk revoke error:', error);
+        showMessage('An error occurred while revoking certificates.', 'error');
+    }
+}
+
+// Clear all selections
+function clearAllSelections(type) {
+    window.bulkSelections[type].clear();
+    
+    // Uncheck all checkboxes
+    const checkboxes = document.querySelectorAll(`.${type.slice(0, -1)}-checkbox`);
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        checkbox.closest('tr').classList.remove('selected');
+    });
+    
+    // Reset select all checkbox
+    const selectAllCheckbox = document.getElementById(`selectAll${type.charAt(0).toUpperCase() + type.slice(1)}`);
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+    
+    updateBulkActionsVisibility(type);
+    updateSelectionCount(type);
+}
+
+// Expose bulk action functions to window
+window.selectAllMembers = selectAllMembers;
+window.selectAllCertificates = selectAllCertificates;
+window.toggleMemberSelection = toggleMemberSelection;
+window.toggleCertificateSelection = toggleCertificateSelection;
+window.bulkDeleteMembers = bulkDeleteMembers;
+window.bulkDeleteCertificates = bulkDeleteCertificates;
+window.bulkExportMembers = bulkExportMembers;
+window.bulkExportCertificates = bulkExportCertificates;
+window.bulkUpdateMembers = bulkUpdateMembers;
+window.bulkRevokeCertificates = bulkRevokeCertificates;
+window.clearAllSelections = clearAllSelections;
+
+// Test function for member update
+window.testMemberUpdate = async function(memberId) {
+  console.log('🧪 Testing member update for ID:', memberId);
+  
+  const member = window.currentMembers?.find(m => m._id === memberId || m.id === memberId);
+  if (!member) {
+    console.log('❌ Member not found');
+    return;
+  }
+  
+  console.log('📋 Member data:', member);
+  
+  // Create test form data
+  const formData = new FormData();
+  formData.append('name', member.name + ' (Updated)');
+  formData.append('email', member.email || '');
+  formData.append('code', member.code);
+  formData.append('position', member.position || 'MEMBER');
+  formData.append('state', member.state);
+  formData.append('zone', member.zone);
+  
+  try {
+    console.log('🔄 Sending update request...');
+    const response = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
+      method: 'PUT',
+      body: formData
+    });
+    
+    if (response.ok) {
+      const result = await tryJson(response);
+      console.log('✅ Update successful:', result);
+      showMessage('Test update successful!', 'success');
+      
+      // Refresh the members list
+      await loadMembers();
+    } else {
+      const error = await tryJson(response);
+      console.log('❌ Update failed:', error);
+      showMessage('Test update failed: ' + error.message, 'error');
+    }
+  } catch (error) {
+    console.log('❌ Update error:', error);
+    showMessage('Test update error: ' + error.message, 'error');
+  }
+};
+
+// ---- Reveal member checkbox on row click (safe) ----
+(function setupMemberRowCheckboxReveal() {
+    if (window.__memberRowRevealBound) return;
+    const tbody = document.getElementById('membersTableBody');
+    if (!tbody) return;
+    tbody.addEventListener('click', function(e) {
+        // Ignore clicks on interactive controls
+        if (e.target.closest('button, a, input, select, label, textarea')) return;
+        const tr = e.target.closest('tr');
+        if (!tr) return;
+        const cb = tr.querySelector('.member-checkbox');
+        if (!cb) return;
+        const cbTd = cb.closest('td');
+        if (cbTd && cbTd.style.display === 'none') {
+            cbTd.style.display = '';
+            cb.checked = true;
+        } else {
+            cb.checked = !cb.checked;
+        }
+    }, false);
+    window.__memberRowRevealBound = true;
+})();
+
+
+// ---- Reveal certificate checkbox on row click (safe) ----
+(function setupCertificateRowCheckboxReveal() {
+    if (window.__certRowRevealBound) return;
+    // Try a specific tbody id if present, else attach to the table's tbody
+    let tbody = document.getElementById('certificatesTableBody');
+    if (!tbody) {
+        const table = document.getElementById('certificatesTable');
+        if (table) tbody = table.querySelector('tbody');
+    }
+    if (!tbody) return;
+    tbody.addEventListener('click', function(e) {
+        if (e.target.closest('button, a, input, select, label, textarea')) return;
+        const tr = e.target.closest('tr');
+        if (!tr) return;
+        const cb = tr.querySelector('.certificate-checkbox');
+        if (!cb) return;
+        const cbTd = cb.closest('td');
+        if (cbTd && cbTd.style.display === 'none') {
+            cbTd.style.display = '';
+            cb.checked = true;
+        } else {
+            cb.checked = !cb.checked;
+        }
+    }, false);
+    window.__certRowRevealBound = true;
+})();
+
+
+// ---- Enhanced: reveal & toggle checkboxes on row click (members & certificates) ----
+
+(function setupRowCheckboxRevealAndToggle() {
+    // Allow rebinding by not using a global guard; remove any previous listeners by relying on unique function reference.
+    function bind(tbody, selector) {
+        if (!tbody) return;
+        tbody.addEventListener('click', function(e) {
+            // Ignore clicks on native interactive controls
+            if (e.target.closest('button, a, input, select, label, textarea')) return;
+            const tr = e.target.closest('tr');
+            if (!tr) return;
+            const cb = tr.querySelector(selector);
+            if (!cb) return;
+            const cbTd = cb.closest('td');
+
+            // Reveal checkbox cell if hidden, and select
+            if (cbTd && cbTd.style.display === 'none') {
+                cbTd.style.display = '';
+            }
+            if (!cb.checked) {
+                cb.checked = true; // select-only on row click
+                tr.classList.add('row-selected');
+        updateCertificatesSelectionUI();
+                cb.dispatchEvent(new Event('change', { bubbles: true }));
+            } else {
+                // Already selected; keep it selected on row click (do not uncheck).
+                tr.classList.add('row-selected');
+        updateCertificatesSelectionUI();
+            }
+        }, false);
+    }
+
+    bind(document.getElementById('membersTableBody'), '.member-checkbox');
+    var certTbody = document.getElementById('certificatesTableBody');
+    if (!certTbody) {
+        var certTable = document.getElementById('certificatesTable');
+        if (certTable) certTbody = certTable.querySelector('tbody');
+    }
+    bind(certTbody, '.certificate-checkbox');
+})();
+
+
+// Keep row highlight in sync with checkbox state
+(function setupRowSelectedHighlightSync() {
+    if (window.__rowSelectedHighlightBound) return;
+
+    function sync(tbody, selector, updateFn) {
+        if (!tbody) return;
+        tbody.addEventListener('change', function (e) {
+            if (!e.target.matches(selector)) return;
+
+            const cb = e.target;
+            const tr = cb.closest('tr');
+            if (!tr) return;
+
+            if (cb.checked) {
+                tr.classList.add('row-selected');
+            } else {
+                tr.classList.remove('row-selected');
+            }
+
+            // Refresh header visibility + cells based on selection
+            if (typeof updateFn === 'function') updateFn();
+        });
+    }
+
+    // Members
+    sync(
+        document.getElementById('membersTableBody'),
+        '.member-checkbox',
+        updateMembersSelectionUI
+    );
+
+    // Certificates
+    let certTbody = document.getElementById('certificatesTableBody');
+    if (!certTbody) {
+        const certTable = document.getElementById('certificatesTable');
+        if (certTable) certTbody = certTable.querySelector('tbody');
+    }
+    sync(
+        certTbody,
+        '.certificate-checkbox',
+        updateCertificatesSelectionUI
+    );
+
+    window.__rowSelectedHighlightBound = true;
+})();
+
+
+// ---- Robust row click-to-select (document-level delegation) ----
+(function enableRowClickSelect() {
+  if (window.__docRowClickSelectBound) return;
+  document.addEventListener('click', function(e) {
+    // Ignore clicks on interactive controls
+    if (e.target.closest('button, a, input, select, label, textarea')) return;
+
+    // Handle Members table
+    const membersTbody = e.target.closest('#membersTableBody tr');
+    if (membersTbody) {
+      const tr = membersTbody;
+      const cb = tr.querySelector('.member-checkbox');
+      if (cb) {
+        const cbTd = cb.closest('td');
+        if (cbTd && cbTd.style.display === 'none') cbTd.style.display = '';
+        if (!cb.checked) {
+          cb.checked = true;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        tr.classList.add('row-selected');
+        updateCertificatesSelectionUI();
+        updateMembersSelectionUI();
+        return; // stop here so we don't also handle certs accidentally
+      }
+    }
+
+    // Handle Certificates table
+    const certsTbody = e.target.closest('#certificatesTableBody tr, #certificatesTable tbody tr');
+    if (certsTbody) {
+      const tr = certsTbody;
+      const cb = tr.querySelector('.certificate-checkbox');
+      if (cb) {
+        const cbTd = cb.closest('td');
+        if (cbTd && cbTd.style.display === 'none') cbTd.style.display = '';
+        if (!cb.checked) {
+          cb.checked = true;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        tr.classList.add('row-selected');
+        updateCertificatesSelectionUI();
+      }
+    }
+  }, false);
+  window.__docRowClickSelectBound = true;
+})();
+
+
+// ---- Selection UI sync (header visibility + checkbox cells) ----
+function updateSelectionUI(tableId, tbodySelector, checkboxSelector, headerCheckboxId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    let tbody = document.querySelector(tbodySelector);
+    if (!tbody && table) tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    const checkboxes = Array.from(tbody.querySelectorAll(checkboxSelector));
+    const anyChecked = checkboxes.some(cb => cb.checked);
+
+    // Toggle header <th> that contains the header checkbox
+    const headerCb = document.getElementById(headerCheckboxId);
+    if (headerCb && headerCb.closest('th')) {
+        headerCb.closest('th').style.display = anyChecked ? 'table-cell' : 'none';
+    }
+
+    // Toggle table class to allow CSS overrides
+    if (anyChecked) {
+        table.classList.add('selection-active');
+    } else {
+        table.classList.remove('selection-active');
+    }
+
+    // When none selected, hide all row checkbox cells again; when selected, show only for checked rows
+    checkboxes.forEach(cb => {
+        const td = cb.closest('td');
+        if (!td) return;
+        if (anyChecked) {
+            // Show the cell for checked rows; keep unchecked rows hidden to reduce clutter
+            td.style.display = cb.checked ? '' : 'none';
+        } else {
+            // Hide all when nothing selected
+            td.style.display = 'none';
+        }
+    });
+}
+
+// Convenience wrappers
+function updateMembersSelectionUI() {
+    updateSelectionUI('membersTable', '#membersTableBody', '.member-checkbox', 'selectAllMembers');
+}
+function updateCertificatesSelectionUI() {
+    updateSelectionUI('certificatesTable', '#certificatesTableBody, #certificatesTable tbody', '.certificate-checkbox', 'selectAllCertificates');
+}
+
+
+
+// ===== Selection UX v2 (row click toggles select/unselect; header shows/hides) =====
+(function setupSelectionV2() {
+  if (window.__selectionV2Bound) return;
+
+  function updateSelectionUI(tableId, tbodySelector, checkboxSelector, headerCheckboxId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    let tbody = document.querySelector(tbodySelector);
+    if (!tbody && table) tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    const checkboxes = Array.from(tbody.querySelectorAll(checkboxSelector));
+    const anyChecked = checkboxes.some(cb => cb.checked);
+
+    // Toggle header <th> (Select All) visibility
+    const headerCb = document.getElementById(headerCheckboxId);
+    if (headerCb && headerCb.closest('th')) {
+      headerCb.closest('th').style.display = anyChecked ? 'table-cell' : 'none';
+    }
+
+    // Mark table state for CSS if needed
+    table.classList.toggle('selection-active', anyChecked);
+
+    // Show checkbox cell only for checked rows; hide all if none selected
+    checkboxes.forEach(cb => {
+      const td = cb.closest('td');
+      const tr = cb.closest('tr');
+      if (tr) tr.classList.toggle('row-selected', cb.checked);
+      if (td) td.style.display = anyChecked ? (cb.checked ? '' : 'none') : 'none';
+    });
+  }
+
+  // Expose for reuse
+  window.updateMembersSelectionUI = function() {
+    updateSelectionUI('membersTable', '#membersTableBody', '.member-checkbox', 'selectAllMembers');
+  };
+  window.updateCertificatesSelectionUI = function() {
+    updateSelectionUI('certificatesTable', '#certificatesTableBody, #certificatesTable tbody', '.certificate-checkbox', 'selectAllCertificates');
+  };
+
+  // Document-level change: keep highlights/visibility in sync
+  document.addEventListener('change', function(e) {
+    if (e.target.matches('.member-checkbox')) {
+      window.updateMembersSelectionUI();
+    } else if (e.target.matches('.certificate-checkbox')) {
+      window.updateCertificatesSelectionUI();
+    }
+  }, false);
+
+  // Document-level click: toggle selection on row click (reveal + check/uncheck)
+  document.addEventListener('click', function(e) {
+    // Ignore native controls
+    if (e.target.closest('button, a, input, select, label, textarea')) return;
+
+    // Members row?
+    let tr = e.target.closest('#membersTableBody tr');
+    if (tr) {
+      const cb = tr.querySelector('.member-checkbox');
+      if (cb) {
+        const td = cb.closest('td');
+        if (td && td.style.display === 'none') td.style.display = '';
+        cb.checked = !cb.checked;                 // <-- toggle (select/unselect)
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return;
+    }
+
+    // Certificates row?
+    tr = e.target.closest('#certificatesTableBody tr, #certificatesTable tbody tr');
+    if (tr) {
+      const cb = tr.querySelector('.certificate-checkbox');
+      if (cb) {
+        const td = cb.closest('td');
+        if (td && td.style.display === 'none') td.style.display = '';
+        cb.checked = !cb.checked;                 // <-- toggle (select/unselect)
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }, false);
+
+  // Initial sync in case rows exist before scripts run
+  document.addEventListener('DOMContentLoaded', function() {
+    window.updateMembersSelectionUI();
+    window.updateCertificatesSelectionUI();
+  });
+
+  window.__selectionV2Bound = true;
+})();
+
+// ===== Flexible Selection Patch (merged) =====
+(function setupFlexibleSelection() {
+  if (window.__flexSelectionBound) return;
+
+  function findHeaderSelectAllCell(table) {
+    if (!table) return null;
+    const th = table.querySelector('thead th:has(input[type="checkbox"][id*="selectAll" i])');
+    return th || null;
+  }
+
+  function updateSelectionForTbody(tbody) {
+    if (!tbody) return;
+    const table = tbody.closest('table');
+    const headerCell = findHeaderSelectAllCell(table);
+    const rowCbs = Array.from(tbody.querySelectorAll('input[type="checkbox"]'))
+      .filter(cb => !(cb.id || '').toLowerCase().includes('selectall'));
+
+    const anyChecked = rowCbs.some(cb => cb.checked);
+
+    if (headerCell) headerCell.style.display = anyChecked ? 'table-cell' : 'none';
+
+    rowCbs.forEach(cb => {
+      const tr = cb.closest('tr');
+      const td = cb.closest('td');
+      if (tr) tr.classList.toggle('row-selected', cb.checked);
+      if (td) td.style.display = anyChecked ? (cb.checked ? '' : 'none') : 'none';
+    });
+
+    if (table) table.classList.toggle('selection-active', anyChecked);
+  }
+
+  // Change handler (bubble) keeps UI in sync for any checkbox in any tbody
+  document.addEventListener('change', function(e) {
+    if (!e.target.matches('tbody input[type="checkbox"]')) return;
+    const tbody = e.target.closest('tbody');
+    updateSelectionForTbody(tbody);
+  }, false);
+
+  // Row click toggler — use CAPTURE to run before other handlers and avoid double toggling
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('button, a, input, select, label, textarea')) return;
+
+    const tr = e.target.closest('tbody tr');
+    if (!tr) return;
+
+    // Prefer specific classes if present
+    let cb = tr.querySelector('input[type="checkbox"].member-checkbox, input[type="checkbox"].certificate-checkbox');
+    if (!cb) cb = tr.querySelector('input[type="checkbox"]');
+    if (!cb) return;
+
+    const td = cb.closest('td');
+    if (td && td.style.display === 'none') td.style.display = '';
+
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Prevent other legacy click listeners from re-toggling
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }, true); // <-- capture phase
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('tbody').forEach(updateSelectionForTbody);
+  }, false);
+
+  window.__flexSelectionBound = true;
+})();
+
+
+// ==== NO-FLASH PAGINATION + STATE INITIALS (compact labels + full-name tooltips) ====
+
+// 1) Hide paginations by default; show only when ready
+(function setupNoFlashPagination(){
+  if (window.__noFlashPagBound) return;
+
+  function hide(el){
+    if (!el) return;
+    el.style.display = 'none';
+  }
+  function show(el){
+    if (!el) return;
+    el.style.display = '';
+  }
+
+  // Initial hide on DOM ready
+  document.addEventListener('DOMContentLoaded', function(){
+    ['certificatesPagination', 'analyticsPagination'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) hide(el);
+    });
+  });
+
+  // Public togglers your renderers can call
+  window.setCertificatesPaginationVisible = function(visible){
+    const el = document.getElementById('certificatesPagination');
+    if (!el) return;
+    (visible ? show : hide)(el);
+  };
+  window.setAnalyticsPaginationVisible = function(visible){
+    const el = document.getElementById('analyticsPagination');
+    if (!el) return;
+    (visible ? show : hide)(el);
+  };
+
+  // As a safety net: reveal cert pagination only when it actually has items
+  const certPag = document.getElementById('certificatesPagination');
+  if (certPag && typeof MutationObserver !== 'undefined'){
+    const obs = new MutationObserver(function(){
+      const hasItems = certPag.querySelectorAll('li, a, button').length > 0;
+      if (hasItems) show(certPag);
+    });
+    obs.observe(certPag, { childList: true, subtree: true });
+  }
+
+  // Same for analytics
+  const anaPag = document.getElementById('analyticsPagination');
+  if (anaPag && typeof MutationObserver !== 'undefined'){
+    const obs2 = new MutationObserver(function(){
+      const hasItems = anaPag.querySelectorAll('li, a, button').length > 0;
+      if (hasItems) show(anaPag);
+    });
+    obs2.observe(anaPag, { childList: true, subtree: true });
+  }
+
+  window.__noFlashPagBound = true;
+})();
+
+// 2) Very small initials on chart axis; full names in tooltips.
+(function tightenStateChartLabels(){
+  if (window.__tightStateLabelsBound) return;
+
+  // Reuse a robust normalizer
+  function _normalizeStateName(raw) {
+    let s = (raw || 'Unknown').toString().trim();
+    s = s.replace(/\s+/g, ' ');
+    s = s.replace(/\s*state\s*$/i, '');
+    if (/^(fct|abuja|fct abuja|abuja fct)$/i.test(s)) s = 'FCT Abuja';
+    s = s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    return s;
+  }
+
+  // Build shortest-unique initials map
+  function buildShortLabelMap(stateNames){
+    const clean = Array.from(new Set((stateNames || []).map(_normalizeStateName)));
+    const map = Object.create(null);
+
+    // 1-letter pass
+    const b1 = {};
+    clean.forEach(s => { const k = s[0]; (b1[k] ||= []).push(s); });
+    clean.forEach(s => { if ((b1[s[0]]||[]).length === 1) map[s] = s[0].toUpperCase(); });
+
+    // 2-letter pass for collisions
+    const unresolved = clean.filter(s => !map[s]);
+    const b2 = {};
+    unresolved.forEach(s => { const k = s.slice(0,2); (b2[k] ||= []).push(s); });
+    unresolved.forEach(s => { if ((b2[s.slice(0,2)]||[]).length === 1) map[s] = s.slice(0,2).toUpperCase(); });
+
+    // 3-letter fallback
+    const unresolved3 = clean.filter(s => !map[s]);
+    unresolved3.forEach(s => { map[s] = s.slice(0,3).toUpperCase(); });
+
+    return map;
+  }
+
+  // Wrap renderStateChart to adjust labels + options
+  (function wrap(){
+    if (typeof window.renderStateChart !== 'function') return;
+
+    const original = window.renderStateChart;
+    window.renderStateChart = function(data){
+      try {
+        const arr = Array.isArray(data && data.membersByState) ? data.membersByState.slice() : [];
+        const fullNames = arr.map(it => it && (it._id || it.state || it.name));
+        const labelMap = buildShortLabelMap(fullNames);
+
+        // Build mapped data, but keep a reverse map for tooltips
+        const reverse = Object.create(null);
+        fullNames.forEach(fn => { const key = _normalizeStateName(fn); reverse[labelMap[key]] = _normalizeStateName(fn); });
+
+        const patched = Object.assign({}, data, {
+          membersByState: arr.map(it => {
+            const full = _normalizeStateName(it._id || it.state || it.name);
+            const short = labelMap[full] || full;
+            return { _id: short, count: Number(it.count || it.total || it.value || 0), __full: full };
+          })
+        });
+
+        // Call original to create Chart.js instance
+        const chart = original(patched);
+
+        // Try to adjust Chart.js options post-creation (v3+ pattern)
+        try {
+          if (chart && chart.options) {
+            // Horizontal bars with tiny y-axis tick font; don't overlap
+            chart.options.indexAxis = 'y';
+            chart.options.maintainAspectRatio = false;
+            chart.options.scales = chart.options.scales || {};
+            chart.options.scales.y = chart.options.scales.y || {};
+            chart.options.scales.y.ticks = Object.assign({}, chart.options.scales.y.ticks, {
+              autoSkip: false,
+              maxTicksLimit: 100,
+              font: { size: 8 }  // tiny initials
+            });
+            chart.options.scales.x = Object.assign({ beginAtZero: true }, chart.options.scales.x);
+
+            // Tooltips: show full state name + count
+            chart.options.plugins = chart.options.plugins || {};
+            chart.options.plugins.tooltip = chart.options.plugins.tooltip || {};
+            chart.options.plugins.tooltip.callbacks = chart.options.plugins.tooltip.callbacks || {};
+            chart.options.plugins.tooltip.callbacks.title = function(items){
+              const label = items && items[0] && items[0].label;
+              // label is the short code; map to full
+              return reverse[label] || label;
+            };
+            chart.options.plugins.tooltip.callbacks.label = function(item){
+              const v = (item && item.parsed && (item.parsed.x ?? item.parsed.y)) || 0;
+              return 'Count: ' + v;
+            };
+
+            chart.update('none');
+          }
+        } catch(e){ /* best effort */ }
+
+        return chart;
+      } catch (e) {
+        return original(data);
+      }
+    };
+
+    window.__tightStateLabelsBound = true;
+  })();
+})();
+
+
+
+// === State Chart: Full names + Alphabetical + Small labels (desktop & mobile) ===
+(function wrapStateChartAlphaFull(){
+  if (window.__stateChartAlphaFullWrapped) return;
+
+  function _normalizeStateName(raw) {
+    let s = (raw || 'Unknown').toString().trim().replace(/\s+/g, ' ');
+    s = s.replace(/\s*state\s*$/i, '');
+    if (/^(fct|abuja|fct abuja|abuja fct)$/i.test(s)) s = 'FCT Abuja';
+    return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function ensureCanvasHeightFor(count){
+    var cv = document.getElementById('stateChart');
+    if (!cv) return;
+    // about 20px per row + padding, capped so page stays usable
+    var px = Math.min(20 * Math.max(count, 5) + 80, Math.max(window.innerHeight * 0.85, 360));
+    cv.style.height = px + 'px';
+  }
+
+  const hook = function(){
+    if (typeof window.renderStateChart !== 'function') return false;
+
+    const original = window.renderStateChart;
+    window.renderStateChart = function(data){
+      try {
+        const src = Array.isArray(data && data.membersByState) ? data.membersByState.slice() : [];
+        // Convert to full, normalized names + numeric counts
+        const full = src.map(it => ({
+          _id: _normalizeStateName(it && (it._id || it.state || it.name)),
+          count: Number(it && (it.count || it.total || it.value || 0)) || 0
+        }));
+        // Sort ALPHABETICALLY by state name
+        full.sort((a, b) => a._id.localeCompare(b._id));
+
+        // Adjust canvas height for all labels to be readable
+        ensureCanvasHeightFor(full.length);
+
+        // Build patched data object
+        const patched = Object.assign({}, data, { membersByState: full });
+
+        // Create chart through original
+        const chart = original(patched);
+
+        // Enforce tiny label font + no autoskip + horizontal bars
+        try {
+          if (chart && chart.options) {
+            chart.options.indexAxis = 'y';
+            chart.options.maintainAspectRatio = false;
+            chart.options.scales = chart.options.scales || {};
+            chart.options.scales.y = chart.options.scales.y || {};
+            chart.options.scales.y.ticks = Object.assign({}, chart.options.scales.y.ticks, {
+              autoSkip: false,
+              font: { size: 9 }  // small so labels don't overlap
+            });
+            chart.update('none');
+          }
+        } catch(e){ /* best effort */ }
+
+        return chart;
+      } catch (e) {
+        return original(data);
+      }
+    };
+    return true;
+  };
+
+  if (!hook()){
+    const iv = setInterval(() => { if (hook()) clearInterval(iv); }, 100);
+    setTimeout(() => clearInterval(iv), 6000);
+  }
+
+  window.__stateChartAlphaFullWrapped = true;
+})();
+
+
+
+
+/* ================== NARAP ADMIN FULL FIX (analytics + pagination) ==================
+   - Prevents pagination flash on Certificates & Analytics
+   - Members by State uses FULL names (alphabetical) with tiny labels to avoid overlap
+   - Uses Chart.js if available; otherwise draws a clean fallback on the canvas
+   - Safe to keep: this runs LAST and overrides previous wrappers
+============================================================================= */
+
+(function(){
+  // ---------- Tunables (easy to tweak) ----------
+  const STATE_LABEL_FONT_PX = 9;   // y-axis state labels (smaller = less overlap)
+  const VALUE_FONT_PX       = 9;   // value text size
+  const BAR_THICKNESS_PX    = 6;  // bar thickness for Chart.js and fallback (try 8–12)
+  const BAR_CATEGORY_PCT    = 0.60; // squeeze category slot (Chart.js)
+  const BAR_PCT             = 0.80; // squeeze bar within slot (Chart.js)
+  const PER_ROW_PX          = 20;  // canvas height per state row (raise if labels feel tight)
+
+  // ---------- Utilities ----------
+  function $(id){ return document.getElementById(id); }
+  function normalizeState(raw){
+    let s = (raw || 'Unknown').toString().trim().replace(/\s+/g, ' ');
+    s = s.replace(/\s*state\s*$/i, '');
+    if (/^(fct|abuja|fct abuja|abuja fct)$/i.test(s)) s = 'FCT Abuja';
+    return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+  function computeMembersByStateFull(data){
+    try {
+      let arr = Array.isArray(data && data.membersByState) ? data.membersByState.slice() : null;
+      if (!arr || !arr.length){
+        const full =
+          (typeof getAllMembers === 'function') ? getAllMembers() :
+          (typeof allMembers !== 'undefined') ? allMembers :
+          (typeof getLocalMembers === 'function') ? getLocalMembers() : [];
+        const map = Object.create(null);
+        (full || []).forEach(m => {
+          const st = normalizeState(m && (m.state || m.State || m.STATE));
+          map[st] = (map[st] || 0) + 1;
+        });
+        arr = Object.entries(map).map(([name, count]) => ({ name, count: Number(count)||0 }));
+      } else {
+        arr = arr.map(it => ({
+          name: normalizeState(it && (it._id || it.state || it.name)),
+          count: Number(it && (it.count || it.total || it.value || 0)) || 0
+        }));
+      }
+      arr.sort((a, b) => a.name.localeCompare(b.name));
+      return arr;
+    } catch(e){ return []; }
+  }
+
+  // ---------- 1) No-flash pagination (certificates + analytics) ----------
+  (function setupNoFlashPagination(){
+    if (window.__noFlashPagBound) return;
+
+    function hide(el){ if (el) el.style.display = 'none'; }
+    function show(el){ if (el) el.style.display = ''; }
+
+    // Hide ASAP on DOM ready
+    document.addEventListener('DOMContentLoaded', function(){
+      hide($('certificatesPagination'));
+      hide($('analyticsPagination'));
+    });
+
+    // Public togglers for your existing renderers
+    window.setCertificatesPaginationVisible = function(visible){
+      (visible ? show : hide)($('certificatesPagination'));
+    };
+    window.setAnalyticsPaginationVisible = function(visible){
+      (visible ? show : hide)($('analyticsPagination'));
+    };
+
+    // Reveal automatically only after items exist
+    const cert = $('certificatesPagination');
+    if (cert && typeof MutationObserver !== 'undefined'){
+      new MutationObserver(function(){
+        const has = cert.querySelectorAll('li, a, button').length > 0;
+        if (has) show(cert);
+      }).observe(cert, { childList: true, subtree: true });
+    }
+    const ana = $('analyticsPagination');
+    if (ana && typeof MutationObserver !== 'undefined'){
+      new MutationObserver(function(){
+        const has = ana.querySelectorAll('li, a, button').length > 0;
+        if (has) show(ana);
+      }).observe(ana, { childList: true, subtree: true });
+    }
+    window.__noFlashPagBound = true;
+  })();
+
+  // ---------- 2) Definitive "Members by State" renderer (full names, A→Z, thin bars) ----------
+  (function overrideRenderStateChart(){
+    // Replace any previous wrapper with a final renderer
+    window.renderStateChart = function(data){
+      try {
+        var canvas = $('stateChart');
+        if (!canvas) return;
+        var rows = computeMembersByStateFull(data);
+        var labels = rows.map(x => x.name);
+        var values = rows.map(x => x.count);
+
+        // Grow canvas height so all labels fit for horizontal bars
+        var minH = 240;
+        var maxH = Math.floor(window.innerHeight * 0.85);
+        var desired = Math.min(Math.max(minH, labels.length * PER_ROW_PX + 80), Math.max(maxH, minH));
+        canvas.style.height = desired + 'px';
+
+        if (typeof Chart !== 'undefined' && Chart !== null) {
+          // Destroy any old chart instance (Chart.js v3+ API)
+          try {
+            if (Chart.getChart) {
+              var old = Chart.getChart(canvas);
+              if (old) old.destroy();
+            }
+          } catch(e){}
+
+          var ctx = canvas.getContext('2d');
+          var chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Members',
+                data: values,
+                backgroundColor: '#ffc107',
+
+                // ↓↓↓ make bars thinner ↓↓↓
+                barThickness: BAR_THICKNESS_PX,
+                maxBarThickness: BAR_THICKNESS_PX,
+                categoryPercentage: BAR_CATEGORY_PCT,
+                barPercentage: BAR_PCT
+              }]
+            },
+            options: {
+              indexAxis: 'y',
+              maintainAspectRatio: false,
+              scales: {
+                x: { beginAtZero: true },
+                y: { ticks: { autoSkip: false, font: { size: STATE_LABEL_FONT_PX } } }
+              },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    title: items => (items && items[0]) ? items[0].label : '',
+                    label: item => 'Count: ' + ((item && item.parsed && (item.parsed.x ?? item.parsed.y)) || 0)
+                  }
+                }
+              }
+            }
+          });
+          window.__stateChartInstance = chart;
+          return chart;
+        } else {
+          // Minimal fallback renderer (no Chart.js)
+          var ctx2 = canvas.getContext('2d');
+          ctx2.clearRect(0, 0, canvas.width, canvas.height);
+          const W = canvas.width, H = canvas.height;
+          const leftPad = 80, rightPad = 12, topPad = 20, bottomPad = 16;
+          const innerW = W - leftPad - rightPad;
+          const innerH = H - topPad - bottomPad;
+          const maxV = Math.max(1, Math.max.apply(null, values.map(v=>+v||0)));
+
+          // Fixed thin bars with graceful scaling if height is tight
+          const GAP_BASE = 4;
+          const totalBarsH = labels.length * BAR_THICKNESS_PX + (labels.length - 1) * GAP_BASE;
+          const scale = Math.min(1, innerH / Math.max(1, totalBarsH));
+          const barH = Math.max(2, Math.floor(BAR_THICKNESS_PX * scale));
+          const gap  = Math.max(2, Math.floor(GAP_BASE * scale));
+
+          ctx2.save(); ctx2.translate(leftPad, topPad);
+
+          for (let i=0;i<labels.length;i++){
+            const v = +values[i] || 0;
+            const w = Math.round((v / maxV) * innerW);
+            const y = i * (barH + gap);
+            ctx2.fillStyle = '#ffc107';
+            ctx2.fillRect(0, y, w, barH);
+
+            ctx2.font = STATE_LABEL_FONT_PX + 'px Arial';
+            ctx2.fillStyle = '#333';
+            ctx2.textBaseline = 'middle';
+
+            // label (state name) on the left
+            ctx2.textAlign = 'right';
+            ctx2.fillText(labels[i], -6, y + barH/2);
+
+            // value at end of bar
+            ctx2.font = VALUE_FONT_PX + 'px Arial';
+            ctx2.textAlign = 'left';
+            ctx2.fillText(String(v), w + 6, y + barH/2);
+          }
+          ctx2.restore();
+          return true;
+        }
+      } catch(e){
+        // swallow
+      }
+    };
+  })();
+})();
+
+
+/* ================== NARAP: System Load Normalization (Analytics) ==================
+   Converts backend metrics into a correct 0–100% value:
+   - UNIX load averages (load1/load5/load15) → percent of total CPU capacity based on core count
+   - Summed CPU% across cores (e.g., 730 on 8 cores) → normalized to 0–100%
+   The wrapper updates common UI selectors if present and leaves originals intact.
+============================================================================= */
+(function fixSystemLoadDisplay(){
+  if (window.__systemLoadFixBound) return;
+
+  function coreCount() {
+    return (Number(navigator.hardwareConcurrency) || 4);
+  }
+
+  // Accepts:
+  //  - { load1, load5, load15 }    // UNIX load averages
+  //  - { cpuPercent }              // may be 0–100 OR 0–(100*cores)
+  function normalizeSystemLoad(metrics) {
+    const cores = coreCount();
+
+    if (metrics && typeof metrics.load1 === 'number') {
+      let pct = (metrics.load1 / Math.max(1, cores)) * 100;
+      pct = Math.max(0, Math.min(100, pct));
+      return {
+        percent: pct,
+        label: `Load(1m): ${metrics.load1.toFixed(2)}`,
+        detail: `${Math.round(pct)}% of ${cores} cores`
+      };
+    }
+
+    if (metrics && typeof metrics.cpuPercent === 'number') {
+      const raw = Number(metrics.cpuPercent);
+      let pct = raw;
+      if (raw > 100) pct = raw / Math.max(1, cores); // normalize summed cores
+      pct = Math.max(0, Math.min(100, pct));
+      return {
+        percent: pct,
+        label: `CPU: ${pct.toFixed(0)}%`,
+        detail: (raw > 100 ? `normalized from ${raw.toFixed(0)}% across ${cores} cores` : `direct`)
+      };
+    }
+
+    return { percent: 0, label: 'N/A', detail: 'no metrics' };
+  }
+
+  // Wrap analytics stats renderer
+  const prev = window.renderAnalyticsStats;
+  window.renderAnalyticsStats = function(data){
+    try {
+      // compute normalized load
+      const m = (data && data.system) || (data && data.metrics) || data || {};
+      const norm = normalizeSystemLoad(m);
+
+      // call original first (so default UI renders)
+      if (typeof prev === 'function') prev(data);
+
+      // then adjust UI if targets exist
+      const elText = document.querySelector('#systemLoadPercentText, .system-load-percent, [data-metric="system-load"] .value');
+      if (elText) elText.textContent = `${Math.round(norm.percent)}%`;
+
+      const elNote = document.querySelector('#systemLoadNote, .system-load-note, [data-metric="system-load"] .note');
+      if (elNote) elNote.textContent = norm.label;
+
+      const gauge = document.querySelector('#systemLoadGauge .fill, .system-load .fill');
+      if (gauge) gauge.style.width = `${norm.percent}%`;
+    } catch (e) {
+      if (typeof prev === 'function') prev(data);
+    }
+  };
+
+  window.__systemLoadFixBound = true;
+})();
+
