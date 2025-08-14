@@ -7094,18 +7094,17 @@ function finishImportProgress(state) {
   var label = (state === 'cancelled') ? 'Cancelled' : 'Done';
   updateImportProgress(p.total, p.total, label);
 }
-async 
 async function importData(){
   try {
-    // Figure out the import type (members | certificates)
+    // Determine import type (members | certificates)
     var type = (typeof importType !== 'undefined' && importType)
       || (document.querySelector('input[name="importType"]:checked') ? document.querySelector('input[name="importType"]:checked').value : 'members');
 
-    // Find a file input
+    // Resolve file input
     var fileInput = document.getElementById('csvFileInput')
                   || document.querySelector('#importModal input[type="file"]')
                   || document.querySelector('input[type="file"][name="csvFile"]')
-                  || document.querySelector('input[type="file"][accept*="csv"]');
+                  || document.querySelector('input[type="file"][accept*=\"csv\"]');
     if (!fileInput || !fileInput.files || !fileInput.files[0]) {
       if (typeof showMessage === 'function') showMessage('Please choose a CSV file to import.', 'warning');
       return;
@@ -7118,6 +7117,10 @@ async function importData(){
     if (typeof resetImportProgress === 'function') resetImportProgress();
     if (typeof updateImportProgress === 'function') updateImportProgress(0, 1, 'Preparing');
 
+    // Prepare cancel infra for this run
+    window.__importAbortController = ('AbortController' in window) ? new AbortController() : null;
+    window.__importCancel = false;
+
     // Read file
     var reader = new FileReader();
     reader.onload = async function(e){
@@ -7126,6 +7129,7 @@ async function importData(){
         var rows = (typeof parseCSV === 'function') ? parseCSV(csvText) : [];
         if (!rows || !rows.length) {
           if (typeof showMessage === 'function') showMessage('No valid data found in CSV.', 'warning');
+          if (typeof finishImportProgress === 'function') finishImportProgress('cancelled');
           return;
         }
 
@@ -7136,9 +7140,14 @@ async function importData(){
         if (type === 'members') {
           await importMembersData(normalized, true);
         } else if (type === 'certificates') {
-          await importCertificateData(normalized, true);
+          if (typeof importCertificateData === 'function') {
+            await importCertificateData(normalized, true);
+          } else {
+            if (typeof showMessage === 'function') showMessage('Certificate import function not found.', 'error');
+          }
         } else {
           if (typeof showMessage === 'function') showMessage('Unknown import type: ' + type, 'error');
+          if (typeof finishImportProgress === 'function') finishImportProgress('cancelled');
           return;
         }
 
@@ -7151,7 +7160,7 @@ async function importData(){
         if (typeof showMessage === 'function') showMessage('Failed to import CSV: ' + (err && err.message ? err.message : String(err)), 'error');
       }
     };
-    reader.onerror = function(ev){
+    reader.onerror = function(){
       if (typeof finishImportProgress === 'function') finishImportProgress('cancelled');
       if (typeof showMessage === 'function') showMessage('Failed to read CSV file.', 'error');
     };
@@ -7176,7 +7185,7 @@ async function importMembersData(parsedData, withProgress = false) {
   const total = parsedData.length;
 
   // Abort support (for the Cancel button)
-  const controller = window.__importAbortController && 'signal' in (window.__importAbortController || {})
+  const controller = (window.__importAbortController && 'signal' in (window.__importAbortController || {}))
     ? window.__importAbortController
     : (('AbortController' in window) ? new AbortController() : null);
   let cancelled = false;
@@ -7260,7 +7269,7 @@ async function importMembersData(parsedData, withProgress = false) {
       // Try network create; fall back to keeping it locally if it fails
       let created = null;
       try {
-        const url = 'https://narap-backend.onrender.com/api/users/addUser';
+        const url = (typeof backendUrl !== 'undefined' ? backendUrl : 'https://narap-backend.onrender.com') + '/api/users/addUser';
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -7321,6 +7330,10 @@ async function importMembersData(parsedData, withProgress = false) {
     finishImportProgress(cancelled ? 'cancelled' : 'done');
   }
 
+  if (typeof loadMembers === 'function') {
+    try { await loadMembers(); } catch(_) {}
+  }
+
   if (errors.length) {
     console.error('❌ Import errors:', errors);
     if (typeof showMessage === 'function') {
@@ -7337,8 +7350,6 @@ async function importMembersData(parsedData, withProgress = false) {
   } catch (_) {}
 }
 
-
-// Helper function to parse CSV into an array of objects (assuming first row is headers)
 function parseCSV(csvString) {
     const lines = csvString.split('\n');
     if (lines.length === 0) return [];
