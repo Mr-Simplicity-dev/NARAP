@@ -2043,9 +2043,11 @@ async function loadAnalytics() {
         // Get analytics data
         const analyticsData = await getAnalyticsData();
         
-        // Render charts and statistics
-        renderAnalyticsCharts(analyticsData);
-        renderAnalyticsStats(analyticsData);
+        
+        const normalizedData = normalizeAnalytics(analyticsData);
+// Render charts and statistics
+        renderAnalyticsCharts(normalizedData);
+        renderAnalyticsStats(normalizedData);
         
         
         
@@ -2261,6 +2263,41 @@ function showAnalyticsError() {
     if (systemHealth) {
         systemHealth.innerHTML = '<div class="error">Failed to load analytics data</div>';
     }
+}
+
+
+
+// Ensure analytics object has membersByState array; derive from local if missing
+function normalizeAnalytics(data) {
+    try {
+        if (!data || !Array.isArray(data.membersByState)) {
+            const localMembers = (typeof getLocalMembers === 'function') ? getLocalMembers() : [];
+            const map = {};
+            (localMembers || []).forEach(m => {
+                const st = (m && m.state) ? m.state : 'Unknown';
+                map[st] = (map[st] || 0) + 1;
+            });
+            const arr = Object.entries(map).map(([st, count]) => ({ _id: st, count }));
+            // Sort descending by count
+            arr.sort((a, b) => b.count - a.count);
+            data = Object.assign({}, data, { membersByState: arr });
+        } else {
+            // Ensure it's sorted descending for top-5 slice
+            data.membersByState = data.membersByState.slice().sort((a, b) => (b.count || 0) - (a.count || 0));
+        }
+    } catch (e) {
+        // fall back to local
+        const localMembers = (typeof getLocalMembers === 'function') ? getLocalMembers() : [];
+        const map = {};
+        (localMembers || []).forEach(m => {
+            const st = (m && m.state) ? m.state : 'Unknown';
+            map[st] = (map[st] || 0) + 1;
+        });
+        const arr = Object.entries(map).map(([st, count]) => ({ _id: st, count }));
+        arr.sort((a, b) => b.count - a.count);
+        data = Object.assign({}, data, { membersByState: arr });
+    }
+    return data;
 }
 
 function renderAnalyticsCharts(data) {
@@ -2561,9 +2598,16 @@ function renderStateChart(data) {
     const ctx = canvas.getContext('2d');
     
     // Check if data.membersByState exists and is an array
+
+    // Fallback: derive from local if array missing
     if (!data.membersByState || !Array.isArray(data.membersByState)) {
-        
-        return;
+        const localMembers = (typeof getLocalMembers === 'function') ? getLocalMembers() : [];
+        const map = {};
+        (localMembers || []).forEach(m => {
+            const st = (m && m.state) ? m.state : 'Unknown';
+            map[st] = (map[st] || 0) + 1;
+        });
+        data.membersByState = Object.entries(map).map(([st, count]) => ({ _id: st, count }));
     }
     
     // Top 5 states by member count
