@@ -9418,7 +9418,7 @@ function updateCertificatesSelectionUI() {
   // ---------- Tunables (easy to tweak) ----------
   const STATE_LABEL_FONT_PX = 9;   // y-axis state labels (smaller = less overlap)
   const VALUE_FONT_PX       = 9;   // value text size
-  const BAR_THICKNESS_PX    = 10;  // bar thickness for Chart.js and fallback (try 8–12)
+  const BAR_THICKNESS_PX    = 6;  // bar thickness for Chart.js and fallback (try 8–12)
   const BAR_CATEGORY_PCT    = 0.60; // squeeze category slot (Chart.js)
   const BAR_PCT             = 0.80; // squeeze bar within slot (Chart.js)
   const PER_ROW_PX          = 20;  // canvas height per state row (raise if labels feel tight)
