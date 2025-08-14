@@ -5482,3 +5482,88 @@ html, body { height: 100%; overflow-y: auto; }
   }
 }
 
+
+/* ==== CERTIFICATES TABLE: FIX COLUMN INDEXING + DESKTOP TIGHTEN ====
+   The table has a leading Select-All checkbox column, so indices are:
+   1 = checkbox, 2 = CERT #, 3 = RECIPIENT, 4 = TITLE, 5 = ISSUE DATE, 6 = STATUS, 7 = ACTIONS
+*/
+
+/* Apply only on desktop so mobile remains relaxed */
+@media (min-width: 1025px) {
+  /* Ensure widths apply */
+  #certificatesTable {
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+  }
+
+  /* (1) Header checkbox column — very narrow */
+  #certificatesTable th:nth-child(1),
+  #certificatesTable td:nth-child(1) {
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 40px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  /* (2) CERT # — compact */
+  #certificatesTable th:nth-child(2),
+  #certificatesTable td:nth-child(2) {
+    width: 76px !important;
+    min-width: 76px !important;
+    max-width: 90px !important;
+    padding-left: 4px !important;
+    padding-right: 2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* (3) RECIPIENT — pulled closer */
+  #certificatesTable th:nth-child(3),
+  #certificatesTable td:nth-child(3) {
+    padding-left: 4px !important;
+  }
+
+  /* (4) TITLE — normal */
+  #certificatesTable th:nth-child(4),
+  #certificatesTable td:nth-child(4) {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  /* Neutralize any older percentage-based widths that assumed no checkbox column */
+  /* Make sure the first "data" column isn't accidentally treated as col 1 */
+  .data-table#certificatesTable th,
+  .data-table#certificatesTable td {
+    /* do nothing here—specific nth-child overrides above take precedence */
+  }
+}
+
+/* Mobile/tablet — keep relaxed spacing and automatic layout */
+@media (max-width: 1024px) {
+  #certificatesTable {
+    table-layout: auto !important;
+  }
+  #certificatesTable th:nth-child(1),
+  #certificatesTable td:nth-child(1) {
+    width: auto !important;
+    min-width: unset !important;
+    max-width: none !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  #certificatesTable th:nth-child(2),
+  #certificatesTable td:nth-child(2) {
+    width: auto !important;
+    min-width: unset !important;
+    max-width: none !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    white-space: nowrap !important;
+  }
+}
+
