@@ -7529,6 +7529,45 @@ function parseCSVLine(line) {
 }
 
 async function importCertificateData(parsedData, withProgress=false) {
+    // === Flexible header mapping (accepts multiple header variants) ===
+            // Build normalized header list from the first row if available
+            let __headers = null;
+            if (Array.isArray(rows) && rows.length > 0) {
+              __headers = Array.from(rows[0] || []).map(h => String(h || '').trim().toLowerCase());
+            } else if (Array.isArray(sheetRows) && sheetRows.length > 0) {
+              __headers = Array.from(sheetRows[0] || []).map(h => String(h || '').trim().toLowerCase());
+            }
+
+            const headerAliases = {
+              recipient: ['recipient','name','member_name','member','recipient name'],
+              email: ['email','email_address','e-mail','mail'],
+              position: ['position','role','title'],
+              code: ['code','narap_code','membership_code','member_code'],
+              state: ['state','location','region'],
+              certificateNumber: ['certificate_number','certificate number','certificatenumber','certificate','number','cert no','cert no.'],
+              issueDate: ['issue date','issue_date','issuedate','date_issued','date issue','issued on','issued'],
+              expiryDate: ['valid until','expiry date','expiry','expiry_date','expirydate','date_expiry','date expiry','validity']
+            };
+
+            const colIndex = {};
+            if (Array.isArray(__headers)) {
+              for (const [canonical, aliases] of Object.entries(headerAliases)) {
+                const idx = __headers.findIndex(h => [canonical, ...aliases].includes(h));
+                if (idx !== -1) colIndex[canonical] = idx;
+              }
+            }
+
+            // Helper to read a field from a row using colIndex; returns empty string if missing
+            function __getField(cells, key) {
+              try {
+                if (colIndex.hasOwnProperty(key)) {
+                  const v = cells[colIndex[key]];
+                  return (v == null) ? '' : String(v).trim();
+                }
+              } catch (_) {}
+              return '';
+            }
+
   console.log('🔄 Importing certificate data...');
 
   const created = [];
