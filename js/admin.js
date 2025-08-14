@@ -9382,7 +9382,7 @@ function updateCertificatesSelectionUI() {
             chart.options.scales.y = chart.options.scales.y || {};
             chart.options.scales.y.ticks = Object.assign({}, chart.options.scales.y.ticks, {
               autoSkip: false,
-              font: { size: 9 }  // small so labels don't overlap
+              font: { size: 30 }  // small so labels don't overlap
             });
             chart.update('none');
           }
