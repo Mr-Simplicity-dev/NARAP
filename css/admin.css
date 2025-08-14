@@ -1,3 +1,4 @@
+/* ---- BEGIN admin.scrollfix.v3.bundle.css ---- */
 /* ===== BASE STYLES ===== */
 * {
     margin: 0;
@@ -5261,147 +5262,49 @@ html, body { height: 100%; overflow-y: auto; }
 }
 
 
+/* ---- END admin.scrollfix.v3.bundle.css ---- */
 
-/* ==== OVERRIDE: Remove vertical (up/down) scrollbar from table containers; keep horizontal ==== */
-.data-table-container,
-.table-scroll-y,
-#membersTableWrapper,
-#certificatesTableWrapper,
-#membersTableParent,
-#certificatesTableParent {
-  overflow-y: hidden !important;   /* remove vertical scroll */
-  overflow-x: auto !important;     /* keep horizontal scroll */
-  max-height: none !important;     /* don't clamp height to cause vertical scroll */
-  scrollbar-gutter: auto !important; /* don't reserve vertical gutter */
-  padding-right: 0 !important;       /* no extra gutter padding */
+/* ---- BEGIN neww.fixed.css ---- */
+
+/* ===== Certificates table: unify font + tighten first two columns ===== */
+
+/* Use the same font as the rest of the app */
+#certificatesTable,
+#certificatesTable th,
+#certificatesTable td,
+#certificateTable,
+#certificateTable th,
+#certificateTable td {
+  font-family: inherit !important;
+  font-size: inherit !important; /* match surrounding table/page */
 }
 
-/* Mobile container too */
-@media (max-width: 768px) {
-  .data-table-container {
-    overflow-y: hidden !important;
-    overflow-x: auto !important;
-  }
-}
-
-/* If any inner elements were forcing vertical scroll, neutralize */
-.data-table,
-#membersTable,
-#certificatesTable {
-  height: auto !important;
-}
-
-
-
-/* ===== COMPACT MODE: smaller fonts + tighter spacing ===== */
-
-/* Base table typography */
-#membersTable, #certificatesTable {
-  font-size: 13px;
-}
-#membersTable th, #membersTable td,
-#certificatesTable th, #certificatesTable td {
-  padding: 6px 8px;     /* tighter than default */
-  line-height: 1.2;
-}
-
-/* Reduce gaps between the first three columns (S/N, checkbox, photo) */
-#membersTable th:nth-child(1), #membersTable td:nth-child(1),
-#certificatesTable th:nth-child(1), #certificatesTable td:nth-child(1) {
-  width: 44px;
-  padding-left: 6px;
-  padding-right: 6px;
-  text-align: center;
-}
-
-#membersTable th:nth-child(2), #membersTable td:nth-child(2),
-#certificatesTable th:nth-child(2), #certificatesTable td:nth-child(2) {
-  width: 36px;          /* checkbox column */
-  padding-left: 4px;
-  padding-right: 4px;
-  text-align: center;
-}
-td.checkbox-cell { width: 36px; }
-
-#membersTable th:nth-child(3), #membersTable td:nth-child(3),
-#certificatesTable th:nth-child(3), #certificatesTable td:nth-child(3) {
-  width: 64px;          /* photo column */
-  padding-left: 4px;
-  padding-right: 4px;
-  text-align: center;
-}
-
-/* Smaller photo size to reduce visual bulk */
-#membersTable td:nth-child(3) img,
-#certificatesTable td:nth-child(3) img,
-#membersTable td img.member-photo,
-#certificatesTable td img.member-photo,
-#membersTable td img.profile-photo,
-#certificatesTable td img.profile-photo,
-#membersTable td img.passport,
-#certificatesTable td img.passport {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-  border-radius: 4px;
-  display: block;
-  margin: 0 auto;
-}
-
-/* Ensure no extra spacing between cells beyond padding */
-#membersTable, #certificatesTable {
-  border-collapse: separate;
+/* Collapse extra gaps that can widen columns */
+#certificatesTable, #certificateTable {
+  border-collapse: collapse;
   border-spacing: 0;
+  table-layout: auto !important;
 }
 
-/* Make action buttons compact too (kept from previous compact rules, reaffirmed) */
-#membersTable td:last-child button,
-#membersTable td:last-child .btn,
-#membersTable td:last-child a.button,
-#certificatesTable td:last-child button,
-#certificatesTable td:last-child .btn,
-#certificatesTable td:last-child a.button {
-  font-size: 12px;
-  line-height: 1.2;
-  padding: 4px 8px;
-  margin-right: 6px;
-}
-
-/* Slightly tighter on smaller screens */
-@media (max-width: 1024px) {
-  #membersTable, #certificatesTable { font-size: 12px; }
-  #membersTable th, #membersTable td,
-  #certificatesTable th, #certificatesTable td { padding: 4px 6px; }
-  #membersTable td:nth-child(3) img,
-  #certificatesTable td:nth-child(3) img { width: 36px; height: 36px; }
-}
-
-
-
-/* === Compact: tighten ZONE and ACTIONS spacing === */
-/* ZONE column (9th) narrower with tighter padding */
-#membersTable th:nth-child(9), #membersTable td:nth-child(9),
-#certificatesTable th:nth-child(9), #certificatesTable td:nth-child(9) {
-  width: 80px;
-  padding-left: 4px;
-  padding-right: 4px;
+/* S/N column (1) — compact */
+#certificatesTable th:nth-child(1), #certificatesTable td:nth-child(1),
+#certificateTable th:nth-child(1),  #certificateTable td:nth-child(1) {
+  width: 50px !important;
+  min-width: 50px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  text-align: center !important;
   white-space: nowrap;
 }
 
-/* ACTIONS column: reduce min-width and right padding */
-#membersTable th:last-child, #membersTable td:last-child,
-#certificatesTable th:last-child, #certificatesTable td:last-child {
-  min-width: 140px !important;   /* was ~180px */
-  padding-right: 8px;            /* was 16px */
+/* CERT # column (2) — tighter */
+#certificatesTable th:nth-child(2), #certificatesTable td:nth-child(2),
+#certificateTable th:nth-child(2),  #certificateTable td:nth-child(2) {
+  min-width: 110px !important;
+  padding-left: 6px !important;
+  padding-right: 8px !important;
+  text-align: left !important;
+  white-space: nowrap;
 }
 
-/* More compact button spacing inside ACTIONS */
-#membersTable td:last-child button,
-#membersTable td:last-child .btn,
-#membersTable td:last-child a.button,
-#certificatesTable td:last-child button,
-#certificatesTable td:last-child .btn,
-#certificatesTable td:last-child a.button {
-  margin-right: 4px;             /* was 6px */
-}
-
+/* ---- END neww.fixed.css ---- */
