@@ -9526,7 +9526,7 @@ function updateCertificatesSelectionUI() {
               maintainAspectRatio: false,
               scales: {
                 x: { beginAtZero: true },
-                y: { ticks: { autoSkip: false, font: { size: 7 } } }
+                y: { ticks: { autoSkip: false, font: { size: 2 } } }
               },
               plugins: {
                 legend: { display: false },
