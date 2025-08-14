@@ -2034,28 +2034,33 @@ function getActivityColor(type) {
 // ==================== ANALYTICS FUNCTIONS ====================
 
 async function loadAnalytics() {
-    try {
-        
-        
-        // Show loading state
-        showAnalyticsLoading();
-        
-        // Get analytics data
-        const analyticsData = await getAnalyticsData();
-        
-        
-        const normalizedData = normalizeAnalytics(analyticsData);
-// Render charts and statistics
-        renderAnalyticsCharts(normalizedData);
-        renderAnalyticsStats(normalizedData);
-        
-        
-        
-    } catch (error) {
-        
-        showAnalyticsError();
+  try {
+    // Show loading state (if available)
+    if (typeof showAnalyticsLoading === 'function') showAnalyticsLoading();
+
+    // Get analytics (can be null/empty)
+    const analyticsData = await getAnalyticsData();
+
+    // Normalize / fallback so charts always have membersByState, etc.
+    const normalizedData = (typeof normalizeAnalytics === 'function')
+      ? normalizeAnalytics(analyticsData)
+      : analyticsData;
+
+    // Render charts and stats
+    renderAnalyticsCharts(normalizedData);
+    renderAnalyticsStats(normalizedData);
+  } catch (error) {
+    // Optional: log for diagnostics
+    if (typeof console !== 'undefined' && console.error) {
+      console.error('loadAnalytics failed:', error);
     }
+    if (typeof showAnalyticsError === 'function') showAnalyticsError();
+  } finally {
+    // Hide loading spinner if your app provides a helper
+    if (typeof hideAnalyticsLoading === 'function') hideAnalyticsLoading();
+  }
 }
+
 
 async function getAnalyticsData() {
     try {
@@ -2269,36 +2274,71 @@ function showAnalyticsError() {
 
 // Ensure analytics object has membersByState array; derive from local if missing
 function normalizeAnalytics(data) {
-    try {
-        if (!data || !Array.isArray(data.membersByState)) {
-            const localMembers = (typeof getLocalMembers === 'function') ? getLocalMembers() : [];
-            const map = {};
-            (localMembers || []).forEach(m => {
-                const st = (m && m.state) ? m.state : 'Unknown';
-                map[st] = (map[st] || 0) + 1;
-            });
-            const arr = Object.entries(map).map(([st, count]) => ({ _id: st, count }));
-            // Sort descending by count
-            arr.sort((a, b) => b.count - a.count);
-            data = Object.assign({}, data, { membersByState: arr });
-        } else {
-            // Ensure it's sorted descending for top-5 slice
-            data.membersByState = data.membersByState.slice().sort((a, b) => (b.count || 0) - (a.count || 0));
-        }
-    } catch (e) {
-        // fall back to local
-        const localMembers = (typeof getLocalMembers === 'function') ? getLocalMembers() : [];
-        const map = {};
-        (localMembers || []).forEach(m => {
-            const st = (m && m.state) ? m.state : 'Unknown';
-            map[st] = (map[st] || 0) + 1;
-        });
-        const arr = Object.entries(map).map(([st, count]) => ({ _id: st, count }));
-        arr.sort((a, b) => b.count - a.count);
-        data = Object.assign({}, data, { membersByState: arr });
+  try {
+    // Use existing normalizer if present; else a safe default.
+    const normalize =
+      (typeof _normalizeStateName === 'function')
+        ? _normalizeStateName
+        : (raw => {
+            let s = (raw || 'Unknown').toString().trim().replace(/\s+/g, ' ');
+            s = s.replace(/\s*state\s*$/i, '');                 // drop trailing "State"
+            if (/^(fct|abuja|fct abuja|abuja fct)$/i.test(s)) s = 'FCT Abuja';
+            return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+          });
+
+    // Prefer backend if valid; otherwise build from the full local list.
+    let arr = Array.isArray(data && data.membersByState) ? data.membersByState.slice() : null;
+
+    if (!arr || !arr.length) {
+      const fullList =
+        (typeof getAllMembers === 'function') ? getAllMembers()
+        : (typeof allMembers !== 'undefined') ? allMembers
+        : (typeof getLocalMembers === 'function') ? getLocalMembers()
+        : [];
+
+      const counts = {};
+      (fullList || []).forEach(m => {
+        const st = normalize(m && (m.state || m.State || m.STATE));
+        counts[st] = (counts[st] || 0) + 1;
+      });
+
+      arr = Object.entries(counts).map(([st, count]) => ({ _id: st, count: Number(count) || 0 }));
+    } else {
+      // Clean backend keys and numbers too
+      arr = arr.map(it => ({
+        _id: normalize(it._id || it.state || it.name),
+        count: Number(it.count || it.total || it.value || 0)
+      }));
     }
-    return data;
+
+    // Sort by count (desc), then alphabetically
+    arr.sort((a, b) => (b.count - a.count) || a._id.localeCompare(b._id));
+
+    return Object.assign({}, data, { membersByState: arr });
+  } catch (e) {
+    // Hard fallback from local members if anything goes wrong
+    const local = (typeof getLocalMembers === 'function') ? getLocalMembers() : [];
+    const counts = {};
+    (local || []).forEach(m => {
+      const st = (typeof _normalizeStateName === 'function')
+        ? _normalizeStateName(m && (m.state || m.State || m.STATE))
+        : ((raw) => {
+            let s = (raw || 'Unknown').toString().trim().replace(/\s+/g, ' ');
+            s = s.replace(/\s*state\s*$/i, '');
+            if (/^(fct|abuja|fct abuja|abuja fct)$/i.test(s)) s = 'FCT Abuja';
+            return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+          })(m && (m.state || m.State || m.STATE));
+      counts[st] = (counts[st] || 0) + 1;
+    });
+
+    const arr = Object.entries(counts)
+      .map(([st, count]) => ({ _id: st, count: Number(count) || 0 }))
+      .sort((a, b) => (b.count - a.count) || a._id.localeCompare(b._id));
+
+    return Object.assign({}, data, { membersByState: arr });
+  }
 }
+
 
 function renderAnalyticsCharts(data) {
     renderMemberChart(data);
@@ -2591,6 +2631,22 @@ function renderRecentRevocationsList(recentRevocations) {
     `;
 }
 
+
+
+// Canonicalize state names so counts aren't split by tiny differences
+function _normalizeStateName(raw) {
+    let s = (raw || 'Unknown').toString().trim();
+    // collapse internal whitespace
+    s = s.replace(/\s+/g, ' ');
+    // strip trailing "State" (case-insensitive)
+    s = s.replace(/\s*state\s*$/i, '');
+    // unify common FCT variants
+    if (/^(fct|abuja|fct abuja|abuja fct)$/i.test(s)) s = 'FCT Abuja';
+    // Title Case basic
+    s = s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    return s;
+}
+
 function renderStateChart(data) {
     const canvas = document.getElementById('stateChart');
     if (!canvas) return;
@@ -2611,7 +2667,7 @@ function renderStateChart(data) {
     }
     
     // Top 5 states by member count
-    const topStates = data.membersByState.slice(0, 5);
+    const topStates = data.membersByState;
     const labels = topStates.map(state => state._id);
     const values = topStates.map(state => state.count);
     
