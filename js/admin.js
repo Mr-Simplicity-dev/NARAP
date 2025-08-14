@@ -6991,6 +6991,47 @@ function setupAutoSync() {
 
 // ==================== IMPORT/EXPORT FUNCTIONS ====================
 
+// ===== Import Progress UI (members & certificates) =====
+function ensureImportProgressUI() {
+  var status = document.getElementById('importStatus');
+  if (!status) {
+    var modalBody = document.querySelector('#importModal .modal-body') || document.body;
+    status = document.createElement('div');
+    status.id = 'importStatus';
+    modalBody.appendChild(status);
+  }
+  if (!document.getElementById('importProgress')) {
+    var barWrap = document.createElement('div');
+    barWrap.id = 'importProgress';
+    barWrap.style.cssText = 'width:100%;background:#eee;border-radius:6px;overflow:hidden;height:12px;margin-top:8px;';
+    var inner = document.createElement('div');
+    inner.id = 'importProgressInner';
+    inner.style.cssText = 'width:0%;height:100%;background:#17a2b8;transition:width .2s;';
+    barWrap.appendChild(inner);
+    status.appendChild(barWrap);
+    var text = document.createElement('small');
+    text.id = 'importProgressText';
+    text.textContent = '0%';
+    text.style.cssText = 'display:inline-block;margin-top:6px;';
+    status.appendChild(text);
+  }
+}
+function updateImportProgress(done, total, label) {
+  var inner = document.getElementById('importProgressInner');
+  var txt = document.getElementById('importProgressText');
+  if (!inner || !txt) return;
+  var pct = total ? Math.floor((done/total)*100) : 0;
+  inner.style.width = pct + '%';
+  txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')';
+}
+function resetImportProgress() {
+  var inner = document.getElementById('importProgressInner');
+  var txt = document.getElementById('importProgressText');
+  if (inner) inner.style.width = '0%';
+  if (txt) txt.textContent = '0%';
+}
+
+
 async function importData() {
     const fileInput = document.getElementById('importFile');
     const importType = document.getElementById('importType')?.value || 'members';
@@ -7022,13 +7063,14 @@ async function importData() {
 
             console.log('📊 Parsed CSV data:', parsedData);
 
+            const normalized = normalizeRows(parsedData, importType);
             if (importType === 'members') {
-                await importMembersData(parsedData);
+                await importMembersData(normalized, true);
             } else if (importType === 'certificates') {
-                await importCertificateData(parsedData);
+                await importCertificateData(normalized, true);
             }
 
-            showMessage(`${importType} imported successfully!`, 'success');
+            updateImportProgress(1,1,'Done'); showMessage(`${importType} imported successfully!`, 'success');
             closeImportModal();
         } catch (error) {
             showMessage('Failed to import CSV: ' + error.message, 'error');
@@ -7039,11 +7081,13 @@ async function importData() {
     reader.readAsText(file);
 }
 
-async function importMembersData(parsedData) {
+async function importMembersData(parsedData, withProgress=false) {
     console.log('🔄 Importing members data...');
     
     const newMembers = [];
     const errors = [];
+    const total = parsedData.length;
+    if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Importing members'); }
     
     for (let i = 0; i < parsedData.length; i++) {
         const row = parsedData[i];
@@ -7087,20 +7131,25 @@ async function importMembersData(parsedData) {
                 });
                 
                 if (response.ok) {
-                    const result = await response.json();
-                    newMembers.push(result.data);
-                    console.log(`✅ Member imported: ${member.name} (${member.code})`);
-                } else {
-                    const errorData = await response.json();
-                    errors.push(`Row ${rowNumber}: ${errorData.message || 'Failed to add member'}`);
-                }
-            } catch (error) {
-                errors.push(`Row ${rowNumber}: Network error - ${error.message}`);
+                      const result = await response.json();
+                      newMembers.push(result.data);
+                      console.log(`✅ Member imported: ${member.name} (${member.code})`);
+                    } else {
+                      // Fallback: keep it locally so table updates; will sync later
+                      try { 
+                        const errorData = await response.json(); 
+                        errors.push(`Row ${rowNumber}: ${errorData.message || 'Failed to add member (kept locally)'}`);
+                      } catch(_) {
+                        errors.push(`Row ${rowNumber}: Failed to add member (kept locally)`);
+                      }
+                      newMembers.push(member);
+                    }
             }
-            
-        } catch (error) {
-            errors.push(`Row ${rowNumber}: ${error.message}`);
-        }
+    catch (error) { errors.push(`Row ${rowNumber}: ${error.message}`); }
+    if (withProgress) { updateImportProgress(i+1, total, 'Importing certificates'); await new Promise(r=>setTimeout(r,0)); }
+  }
+        catch (error) { errors.push(`Row ${rowNumber}: ${error.message}`); }
+        if (withProgress) { updateImportProgress(i+1, total, 'Importing members'); await new Promise(r=>setTimeout(r,0)); }
     }
     
     // Update local members array
@@ -7155,6 +7204,46 @@ function parseCSV(csvString) {
     return result;
 }
 
+// Normalize parsed rows headers to expected keys (case-insensitive, common variants)
+function normalizeRows(rows, type) {
+  const canon = (s)=> (s||'').toString().trim().toLowerCase();
+  const keyMapMembers = {
+    'Name': ['name','full name','member name'],
+    'Email': ['email','e-mail','mail'],
+    'Code': ['code','member code','membership code','reg no','regno','reg no.'],
+    'Position': ['position','role'],
+    'State': ['state','state name','st'],
+    'Zone': ['zone','region','zonal'],
+    'Password': ['password','pass']
+  };
+  const keyMapCerts = {
+    'Certificate Number': ['certificate number','cert #','cert number','number','no','certificate no','certificate no.'],
+    'Recipient': ['recipient','name','full name','member name'],
+    'Email': ['email','e-mail','mail'],
+    'Title': ['title','certificate title','course title'],
+    'Type': ['type','category'],
+    'Status': ['status','state'],
+    'Issue Date': ['issue date','date issued','issued on','date'],
+    'Issued By': ['issued by','issuer','authorized by']
+  };
+  const remap = (row, map) => {
+    const out = {}; 
+    const entries = Object.entries(row||{});
+    for (const [k,v] of entries) {
+      const lk = canon(k);
+      let matched = false;
+      for (const target in map) {
+        const aliases = map[target];
+        if (aliases.some(a=>lk===canon(a))) { out[target] = v; matched = true; break; }
+      }
+      if (!matched) out[k] = v;
+    }
+    return out;
+  };
+  const map = (type==='certificates') ? keyMapCerts : keyMapMembers;
+  return (rows||[]).map(r=>remap(r,map));
+}
+
 // Helper function to parse CSV line with proper quote handling
 function parseCSVLine(line) {
     const result = [];
@@ -7188,11 +7277,13 @@ function parseCSVLine(line) {
     return result;
 }
 
-async function importCertificateData(parsedData) {
+async function importCertificateData(parsedData, withProgress=false) {
   console.log('🔄 Importing certificate data...');
 
   const created = [];
   const errors = [];
+  const total = parsedData.length;
+  if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Importing certificates'); }
 
   for (let i = 0; i < parsedData.length; i++) {
     const row = parsedData[i];
@@ -7373,7 +7464,7 @@ function updateCsvFormat() {
     }
 }
 
-async function importCertificateData(parsedData) {
+async function importCertificateData(parsedData, withProgress=false) {
   console.log('🔄 Importing certificate data...');
 
   const created = [];
