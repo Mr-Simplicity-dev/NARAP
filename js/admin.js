@@ -7024,6 +7024,14 @@ window.__importProgress = { done:0, total:0, label:'' };
 window.__importCancel = false;
 window.__importAbortController = null;
 
+function microYield(){
+  return new Promise(function(resolve){
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function(){ resolve(); });
+    else setTimeout(resolve,0);
+  });
+}
+
+
 function ensureImportProgressUI() {
   // Prefer elements INSIDE the Import modal
   var host = document.querySelector('#importModal .modal-content') || document.getElementById('importModal') || document.body;
@@ -7085,6 +7093,9 @@ function updateImportProgress(done, total, label) {
   var pct = total ? Math.floor((done/total)*100) : 0;
   inner.style.width = pct + '%';
   txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')';
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(function(){ inner.style.width = pct + '%'; txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')'; });
+  }
 }
 
 function resetImportProgress() {
@@ -7269,6 +7280,7 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
   }
 
   for (let i = 0; i < parsedData.length; i++) {
+      if (withProgress && (i % 10 === 0)) { await microYield(); }
     if (window.__importCancel) { cancelled = true; break; }
 
     const row = parsedData[i];
@@ -7614,6 +7626,7 @@ if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Im
   if (withProgress && cancelled) { finishImportProgress('cancelled'); }
 }
   for (let i = 0; i < parsedData.length; i++) {
+      if (withProgress && (i % 10 === 0)) { await microYield(); }
       if (window.__importCancel) { cancelled = true; break; }
 const row = parsedData[i];
     const rowNumber = i + 2; // header is row 1
@@ -7676,8 +7689,10 @@ const row = parsedData[i];
       if (!resp.ok) {
         const err = await tryJson(resp).catch(() => ({}));
         errors.push(`Row ${rowNumber}: ${err.message || 'Failed to create certificate'}`);
+        if (withProgress && typeof updateImportProgress === 'function') { updateImportProgress(i + 1, total, 'Importing certificates'); }
         continue;
       }
+      if (withProgress && typeof updateImportProgress === 'function') { updateImportProgress(i + 1, total, 'Importing certificates'); }
 
       const result = await tryJson(resp);
       created.push(result.certificate || result);
@@ -7821,6 +7836,7 @@ async function importCertificateData(parsedData, withProgress=false) {
   };
 
   for (let i = 0; i < parsedData.length; i++) {
+      if (withProgress && (i % 10 === 0)) { await microYield(); }
     const row = parsedData[i];
     const rowNumber = i + 2; // header is row 1
 
