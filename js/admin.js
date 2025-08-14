@@ -9606,3 +9606,77 @@ function updateCertificatesSelectionUI() {
     };
   })();
 })();
+
+
+/* ================== NARAP: System Load Normalization (Analytics) ==================
+   Converts backend metrics into a correct 0–100% value:
+   - UNIX load averages (load1/load5/load15) → percent of total CPU capacity based on core count
+   - Summed CPU% across cores (e.g., 730 on 8 cores) → normalized to 0–100%
+   The wrapper updates common UI selectors if present and leaves originals intact.
+============================================================================= */
+(function fixSystemLoadDisplay(){
+  if (window.__systemLoadFixBound) return;
+
+  function coreCount() {
+    return (Number(navigator.hardwareConcurrency) || 4);
+  }
+
+  // Accepts:
+  //  - { load1, load5, load15 }    // UNIX load averages
+  //  - { cpuPercent }              // may be 0–100 OR 0–(100*cores)
+  function normalizeSystemLoad(metrics) {
+    const cores = coreCount();
+
+    if (metrics && typeof metrics.load1 === 'number') {
+      let pct = (metrics.load1 / Math.max(1, cores)) * 100;
+      pct = Math.max(0, Math.min(100, pct));
+      return {
+        percent: pct,
+        label: `Load(1m): ${metrics.load1.toFixed(2)}`,
+        detail: `${Math.round(pct)}% of ${cores} cores`
+      };
+    }
+
+    if (metrics && typeof metrics.cpuPercent === 'number') {
+      const raw = Number(metrics.cpuPercent);
+      let pct = raw;
+      if (raw > 100) pct = raw / Math.max(1, cores); // normalize summed cores
+      pct = Math.max(0, Math.min(100, pct));
+      return {
+        percent: pct,
+        label: `CPU: ${pct.toFixed(0)}%`,
+        detail: (raw > 100 ? `normalized from ${raw.toFixed(0)}% across ${cores} cores` : `direct`)
+      };
+    }
+
+    return { percent: 0, label: 'N/A', detail: 'no metrics' };
+  }
+
+  // Wrap analytics stats renderer
+  const prev = window.renderAnalyticsStats;
+  window.renderAnalyticsStats = function(data){
+    try {
+      // compute normalized load
+      const m = (data && data.system) || (data && data.metrics) || data || {};
+      const norm = normalizeSystemLoad(m);
+
+      // call original first (so default UI renders)
+      if (typeof prev === 'function') prev(data);
+
+      // then adjust UI if targets exist
+      const elText = document.querySelector('#systemLoadPercentText, .system-load-percent, [data-metric="system-load"] .value');
+      if (elText) elText.textContent = `${Math.round(norm.percent)}%`;
+
+      const elNote = document.querySelector('#systemLoadNote, .system-load-note, [data-metric="system-load"] .note');
+      if (elNote) elNote.textContent = norm.label;
+
+      const gauge = document.querySelector('#systemLoadGauge .fill, .system-load .fill');
+      if (gauge) gauge.style.width = `${norm.percent}%`;
+    } catch (e) {
+      if (typeof prev === 'function') prev(data);
+    }
+  };
+
+  window.__systemLoadFixBound = true;
+})();
+
