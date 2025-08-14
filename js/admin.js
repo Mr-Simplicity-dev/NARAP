@@ -9404,3 +9404,173 @@ function updateCertificatesSelectionUI() {
   window.__stateChartAlphaFullWrapped = true;
 })();
 
+
+
+
+/* ================== NARAP ADMIN FULL FIX (analytics + pagination) ==================
+   - Prevents pagination flash on Certificates & Analytics
+   - Members by State uses FULL names (alphabetical) with tiny labels to avoid overlap
+   - Uses Chart.js if available; otherwise draws a clean fallback on the canvas
+   - Safe to keep: this runs LAST and overrides previous wrappers
+============================================================================= */
+
+(function(){
+  // ---------- Utilities ----------
+  function $(id){ return document.getElementById(id); }
+  function normalizeState(raw){
+    let s = (raw || 'Unknown').toString().trim().replace(/\s+/g, ' ');
+    s = s.replace(/\s*state\s*$/i, '');
+    if (/^(fct|abuja|fct abuja|abuja fct)$/i.test(s)) s = 'FCT Abuja';
+    return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+  function computeMembersByStateFull(data){
+    try {
+      let arr = Array.isArray(data && data.membersByState) ? data.membersByState.slice() : null;
+      if (!arr || !arr.length){
+        const full =
+          (typeof getAllMembers === 'function') ? getAllMembers() :
+          (typeof allMembers !== 'undefined') ? allMembers :
+          (typeof getLocalMembers === 'function') ? getLocalMembers() : [];
+        const map = Object.create(null);
+        (full || []).forEach(m => {
+          const st = normalizeState(m && (m.state || m.State || m.STATE));
+          map[st] = (map[st] || 0) + 1;
+        });
+        arr = Object.entries(map).map(([name, count]) => ({ name, count: Number(count)||0 }));
+      } else {
+        arr = arr.map(it => ({
+          name: normalizeState(it && (it._id || it.state || it.name)),
+          count: Number(it && (it.count || it.total || it.value || 0)) || 0
+        }));
+      }
+      arr.sort((a, b) => a.name.localeCompare(b.name));
+      return arr;
+    } catch(e){ return []; }
+  }
+
+  // ---------- 1) No-flash pagination (certificates + analytics) ----------
+  (function setupNoFlashPagination(){
+    if (window.__noFlashPagBound) return;
+
+    function hide(el){ if (el) el.style.display = 'none'; }
+    function show(el){ if (el) el.style.display = ''; }
+
+    // Hide ASAP on DOM ready
+    document.addEventListener('DOMContentLoaded', function(){
+      hide($('certificatesPagination'));
+      hide($('analyticsPagination'));
+    });
+
+    // Public togglers for your existing renderers
+    window.setCertificatesPaginationVisible = function(visible){
+      (visible ? show : hide)($('certificatesPagination'));
+    };
+    window.setAnalyticsPaginationVisible = function(visible){
+      (visible ? show : hide)($('analyticsPagination'));
+    };
+
+    // Reveal automatically only after items exist
+    const cert = $('certificatesPagination');
+    if (cert && typeof MutationObserver !== 'undefined'){
+      new MutationObserver(function(){
+        const has = cert.querySelectorAll('li, a, button').length > 0;
+        if (has) show(cert);
+      }).observe(cert, { childList: true, subtree: true });
+    }
+    const ana = $('analyticsPagination');
+    if (ana && typeof MutationObserver !== 'undefined'){
+      new MutationObserver(function(){
+        const has = ana.querySelectorAll('li, a, button').length > 0;
+        if (has) show(ana);
+      }).observe(ana, { childList: true, subtree: true });
+    }
+    window.__noFlashPagBound = true;
+  })();
+
+  // ---------- 2) Definitive "Members by State" renderer (full names, A→Z, tiny labels) ----------
+  (function overrideRenderStateChart(){
+    // Replace any previous wrapper with a final renderer
+    window.renderStateChart = function(data){
+      try {
+        var canvas = $('stateChart');
+        if (!canvas) return;
+        var rows = computeMembersByStateFull(data);
+        var labels = rows.map(x => x.name);
+        var values = rows.map(x => x.count);
+
+        // Grow canvas height so all labels fit for horizontal bars
+        var perRow = 20;
+        var minH = 240;
+        var maxH = Math.floor(window.innerHeight * 0.85);
+        var desired = Math.min(Math.max(minH, labels.length * perRow + 80), Math.max(maxH, minH));
+        canvas.style.height = desired + 'px';
+
+        if (typeof Chart !== 'undefined' && Chart !== null) {
+          // Destroy any old chart instance (Chart.js v3+ API)
+          try {
+            if (Chart.getChart) {
+              var old = Chart.getChart(canvas);
+              if (old) old.destroy();
+            }
+          } catch(e){}
+
+          var ctx = canvas.getContext('2d');
+          var chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [{ label: 'Members', data: values, backgroundColor: '#ffc107' }]
+            },
+            options: {
+              indexAxis: 'y',
+              maintainAspectRatio: false,
+              scales: {
+                x: { beginAtZero: true },
+                y: { ticks: { autoSkip: false, font: { size: 9 } } }
+              },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    title: items => (items && items[0]) ? items[0].label : '',
+                    label: item => 'Count: ' + ((item && item.parsed && (item.parsed.x ?? item.parsed.y)) || 0)
+                  }
+                }
+              }
+            }
+          });
+          window.__stateChartInstance = chart;
+          return chart;
+        } else {
+          // Minimal fallback renderer (no Chart.js)
+          var ctx2 = canvas.getContext('2d');
+          ctx2.clearRect(0, 0, canvas.width, canvas.height);
+          const W = canvas.width, H = canvas.height;
+          const leftPad = 80, rightPad = 12, topPad = 20, bottomPad = 16;
+          const innerW = W - leftPad - rightPad;
+          const innerH = H - topPad - bottomPad;
+          const maxV = Math.max(1, Math.max.apply(null, values.map(v=>+v||0)));
+          const gap = 4;
+          const barH = Math.max(2, Math.floor((innerH - gap*(labels.length-1)) / Math.max(1, labels.length)));
+          ctx2.save(); ctx2.translate(leftPad, topPad);
+
+          for (let i=0;i<labels.length;i++){
+            const v = +values[i] || 0;
+            const w = Math.round((v / maxV) * innerW);
+            const y = i * (barH + gap);
+            ctx2.fillStyle = '#ffc107';
+            ctx2.fillRect(0, y, w, barH);
+            ctx2.font = '9px Arial'; ctx2.fillStyle = '#333'; ctx2.textBaseline = 'middle';
+            ctx2.textAlign = 'right'; ctx2.fillText(labels[i], -6, y + barH/2);
+            ctx2.textAlign = 'left';  ctx2.fillText(String(v), w + 6, y + barH/2);
+          }
+          ctx2.restore();
+          return true;
+        }
+      } catch(e){
+        // swallow
+      }
+    };
+  })();
+})();
+

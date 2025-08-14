@@ -5570,3 +5570,14 @@ html, body { height: 100%; overflow-y: auto; }
 /* Give the state chart canvas room and prevent flicker */
 #stateChart { max-height: 85vh; }
 
+
+
+/* ===== NARAP FULL FIX: pagination flash + chart sizing ===== */
+#certificatesPagination,
+#analyticsPagination { display: none; }
+
+.tab-pane:not(.active) .pagination { display: none; }
+
+/* Give state chart canvas enough room for many labels */
+#stateChart { min-height: 240px; max-height: 85vh; }
+
