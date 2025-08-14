@@ -9382,7 +9382,7 @@ function updateCertificatesSelectionUI() {
             chart.options.scales.y = chart.options.scales.y || {};
             chart.options.scales.y.ticks = Object.assign({}, chart.options.scales.y.ticks, {
               autoSkip: false,
-              font: { size: 30 }  // small so labels don't overlap
+              font: { size: 9 }  // small so labels don't overlap
             });
             chart.update('none');
           }
@@ -9415,6 +9415,14 @@ function updateCertificatesSelectionUI() {
 ============================================================================= */
 
 (function(){
+  // ---------- Tunables (easy to tweak) ----------
+  const STATE_LABEL_FONT_PX = 9;   // y-axis state labels (smaller = less overlap)
+  const VALUE_FONT_PX       = 9;   // value text size
+  const BAR_THICKNESS_PX    = 10;  // bar thickness for Chart.js and fallback (try 8–12)
+  const BAR_CATEGORY_PCT    = 0.60; // squeeze category slot (Chart.js)
+  const BAR_PCT             = 0.80; // squeeze bar within slot (Chart.js)
+  const PER_ROW_PX          = 20;  // canvas height per state row (raise if labels feel tight)
+
   // ---------- Utilities ----------
   function $(id){ return document.getElementById(id); }
   function normalizeState(raw){
@@ -9487,7 +9495,7 @@ function updateCertificatesSelectionUI() {
     window.__noFlashPagBound = true;
   })();
 
-  // ---------- 2) Definitive "Members by State" renderer (full names, A→Z, tiny labels) ----------
+  // ---------- 2) Definitive "Members by State" renderer (full names, A→Z, thin bars) ----------
   (function overrideRenderStateChart(){
     // Replace any previous wrapper with a final renderer
     window.renderStateChart = function(data){
@@ -9499,10 +9507,9 @@ function updateCertificatesSelectionUI() {
         var values = rows.map(x => x.count);
 
         // Grow canvas height so all labels fit for horizontal bars
-        var perRow = 20;
         var minH = 240;
         var maxH = Math.floor(window.innerHeight * 0.85);
-        var desired = Math.min(Math.max(minH, labels.length * perRow + 80), Math.max(maxH, minH));
+        var desired = Math.min(Math.max(minH, labels.length * PER_ROW_PX + 80), Math.max(maxH, minH));
         canvas.style.height = desired + 'px';
 
         if (typeof Chart !== 'undefined' && Chart !== null) {
@@ -9519,14 +9526,24 @@ function updateCertificatesSelectionUI() {
             type: 'bar',
             data: {
               labels: labels,
-              datasets: [{ label: 'Members', data: values, backgroundColor: '#ffc107' }]
+              datasets: [{
+                label: 'Members',
+                data: values,
+                backgroundColor: '#ffc107',
+
+                // ↓↓↓ make bars thinner ↓↓↓
+                barThickness: BAR_THICKNESS_PX,
+                maxBarThickness: BAR_THICKNESS_PX,
+                categoryPercentage: BAR_CATEGORY_PCT,
+                barPercentage: BAR_PCT
+              }]
             },
             options: {
               indexAxis: 'y',
               maintainAspectRatio: false,
               scales: {
                 x: { beginAtZero: true },
-                y: { ticks: { autoSkip: false, font: { size: 11 } } }
+                y: { ticks: { autoSkip: false, font: { size: STATE_LABEL_FONT_PX } } }
               },
               plugins: {
                 legend: { display: false },
@@ -9550,8 +9567,14 @@ function updateCertificatesSelectionUI() {
           const innerW = W - leftPad - rightPad;
           const innerH = H - topPad - bottomPad;
           const maxV = Math.max(1, Math.max.apply(null, values.map(v=>+v||0)));
-          const gap = 4;
-          const barH = Math.max(2, Math.floor((innerH - gap*(labels.length-1)) / Math.max(1, labels.length)));
+
+          // Fixed thin bars with graceful scaling if height is tight
+          const GAP_BASE = 4;
+          const totalBarsH = labels.length * BAR_THICKNESS_PX + (labels.length - 1) * GAP_BASE;
+          const scale = Math.min(1, innerH / Math.max(1, totalBarsH));
+          const barH = Math.max(2, Math.floor(BAR_THICKNESS_PX * scale));
+          const gap  = Math.max(2, Math.floor(GAP_BASE * scale));
+
           ctx2.save(); ctx2.translate(leftPad, topPad);
 
           for (let i=0;i<labels.length;i++){
@@ -9560,9 +9583,19 @@ function updateCertificatesSelectionUI() {
             const y = i * (barH + gap);
             ctx2.fillStyle = '#ffc107';
             ctx2.fillRect(0, y, w, barH);
-            ctx2.font = '9px Arial'; ctx2.fillStyle = '#333'; ctx2.textBaseline = 'middle';
-            ctx2.textAlign = 'right'; ctx2.fillText(labels[i], -6, y + barH/2);
-            ctx2.textAlign = 'left';  ctx2.fillText(String(v), w + 6, y + barH/2);
+
+            ctx2.font = STATE_LABEL_FONT_PX + 'px Arial';
+            ctx2.fillStyle = '#333';
+            ctx2.textBaseline = 'middle';
+
+            // label (state name) on the left
+            ctx2.textAlign = 'right';
+            ctx2.fillText(labels[i], -6, y + barH/2);
+
+            // value at end of bar
+            ctx2.font = VALUE_FONT_PX + 'px Arial';
+            ctx2.textAlign = 'left';
+            ctx2.fillText(String(v), w + 6, y + barH/2);
           }
           ctx2.restore();
           return true;
@@ -9573,4 +9606,3 @@ function updateCertificatesSelectionUI() {
     };
   })();
 })();
-
