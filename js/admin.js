@@ -7564,7 +7564,28 @@ async function importCertificateData(parsedData, withProgress=false) {
                   const v = cells[colIndex[key]];
                   return (v == null) ? '' : String(v).trim();
                 }
-              } catch (_) {}
+
+    
+    // Helper to read from an object row (parsedData) with header alias support
+    // Looks up any matching alias (case-insensitive) among the row's keys.
+    function __getFieldObj(row, key) {
+      if (!row) return '';
+      const aliases = [key].concat(headerAliases[key] || []);
+      // Build a lowercase map of row keys for one-time fast lookup
+      const lowerMap = {};
+      for (const k in row) {
+        if (!Object.prototype.hasOwnProperty.call(row, k)) continue;
+        lowerMap[String(k).trim().toLowerCase()] = row[k];
+      }
+      for (const a of aliases) {
+        const lk = String(a).trim().toLowerCase();
+        if (lowerMap.hasOwnProperty(lk)) {
+          const v = lowerMap[lk];
+          return (v == null) ? '' : String(v).trim();
+        }
+      }
+      return '';
+    }              } catch (_) {}
               return '';
             }
 
@@ -7587,13 +7608,30 @@ const row = parsedData[i];
       // Expected headers (case-sensitive to what your parser builds):
       // Certificate Number, Recipient, Email, Title, Type, Status, Issue Date, Issued By
 
-      const number = (row['Certificate Number'] || '').toUpperCase().trim();
-      const recipient = (row['Recipient'] || '').trim();
-      const email = (row['Email'] || '').trim();
-      const title = (row['Title'] || '').trim();
-      const type = (row['Type'] || 'membership').trim().toLowerCase();
-      const status = (row['Status'] || 'active').trim().toLowerCase();
-      const issueDate = row['Issue Date'] ? new Date(row['Issue Date']).toISOString() : '';
+      // --- Read fields using header aliases (object-based) ---
+    const number = (__getFieldObj(row, 'certificateNumber') || __getFieldObj(row, 'number') || '').toUpperCase().trim();
+    const recipient = __getFieldObj(row, 'recipient');
+    const email = __getFieldObj(row, 'email');
+    const position = __getFieldObj(row, 'position');      // optional
+    const code = __getFieldObj(row, 'code');              // may be required by backend; leaving as-is
+    const state = __getFieldObj(row, 'state');            // optional
+    const title = position || __getFieldObj(row, 'title') || '';
+    const type = (__getFieldObj(row, 'type') || 'membership').toLowerCase().trim();
+    const status = (__getFieldObj(row, 'status') || 'active').toLowerCase().trim();
+    const issueDate = __getFieldObj(row, 'issueDate');    // REQUIRED
+    const expiryDate = __getFieldObj(row, 'expiryDate');  // OPTIONAL
+
+    // --- Required checks (position/state optional; expiryDate optional) ---
+    const rowIssues = [];
+    if (!recipient) rowIssues.push('Missing value for recipient');
+    if (!email) rowIssues.push('Missing value for email');
+    if (!number) rowIssues.push('Missing value for certificateNumber');
+    if (!issueDate) rowIssues.push('Missing value for issueDate');
+
+    if (rowIssues.length) {
+      errors.push({ row: rowNumber, issues: rowIssues });
+      continue;
+    }
       const issuedBy = (row['Issued By'] || '').trim();
 
       // Basic validation
@@ -10064,3 +10102,4 @@ function updateCertificatesSelectionUI() {
 
   window.__systemLoadFixBound = true;
 })();
+
