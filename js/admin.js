@@ -7044,7 +7044,7 @@ function ensureImportProgressUI() {
     host.appendChild(status);
   }
 
-  // If a progress element exists elsewhere, move it into the host
+  // Move any stray existing progress bar into the modal
   var existing = document.getElementById('importProgress');
   if (existing && !host.contains(existing)) {
     status.appendChild(existing);
@@ -7093,8 +7093,12 @@ function updateImportProgress(done, total, label) {
   var pct = total ? Math.floor((done/total)*100) : 0;
   inner.style.width = pct + '%';
   txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')';
+  // rAF repaint guard
   if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(function(){ inner.style.width = pct + '%'; txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')'; });
+    requestAnimationFrame(function(){
+      inner.style.width = pct + '%';
+      txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')';
+    });
   }
 }
 
@@ -7280,6 +7284,9 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
   }
 
   for (let i = 0; i < parsedData.length; i++) {
+    if (withProgress && (i % 10 === 0)) { try { await microYield(); } catch(e){} }
+    if (withProgress && (i % 10 === 0)) { try { await microYield(); } catch(e){} }
+
       if (withProgress && (i % 10 === 0)) { await microYield(); }
     if (window.__importCancel) { cancelled = true; break; }
 
