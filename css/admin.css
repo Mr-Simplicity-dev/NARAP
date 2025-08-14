@@ -5308,3 +5308,23 @@ html, body { height: 100%; overflow-y: auto; }
 }
 
 /* ---- END neww.fixed.css ---- */
+
+
+/* ==== FINAL OVERRIDE: tighten gap between CERT # and RECIPIENT (certificates table) ==== */
+#certificatesTable th:nth-child(2), #certificatesTable td:nth-child(2),
+#certificateTable  th:nth-child(2), #certificateTable  td:nth-child(2) {
+  min-width: 96px !important;   /* narrower certificate number column */
+  padding-right: 6px !important;
+  white-space: nowrap;
+}
+#certificatesTable th:nth-child(3), #certificatesTable td:nth-child(3),
+#certificateTable  th:nth-child(3), #certificateTable  td:nth-child(3) {
+  padding-left: 6px !important; /* pull recipient closer to cert # */
+}
+
+/* Ensure no extra spacing from table model */
+#certificatesTable, #certificateTable {
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+}
+
