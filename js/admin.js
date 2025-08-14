@@ -7091,6 +7091,12 @@ function updateImportProgress(done, total, label) {
   var txt   = host.querySelector('#importProgressText') || document.getElementById('importProgressText');
   if (!inner || !txt) return;
   var pct = total ? Math.floor((done/total)*100) : 0;
+  try {
+    if (typeof window.__lastPctLogged !== 'number' || window.__lastPctLogged !== pct) {
+      window.__lastPctLogged = pct;
+      if (typeof console !== 'undefined' && console.debug) console.debug('[Import]', label || '', done + '/' + total, pct + '%');
+    }
+  } catch(e){}
   inner.style.width = pct + '%';
   txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')';
   // rAF repaint guard
