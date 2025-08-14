@@ -7025,9 +7025,11 @@ window.__importCancel = false;
 window.__importAbortController = null;
 
 function ensureImportProgressUI() {
+  try { __ensureImportContainers(); } catch(e) {}
+
   var status = document.getElementById('importStatus');
   if (!status) {
-    var modalBody = document.querySelector('#importModal .modal-body') || document.body;
+    var modalBody = document.querySelector('#importModal .modal-content') || document.getElementById('importModal') || document.body;
     status = document.createElement('div');
     status.id = 'importStatus';
     modalBody.appendChild(status);
@@ -7890,6 +7892,8 @@ async function importCertificateData(parsedData, withProgress=false) {
 
 // Optional: show detailed errors inside the import modal
 function showImportErrors(errors) {
+  try { __ensureImportContainers(); } catch(e) {}
+
   let box = document.getElementById('importErrorsBox');
   if (!box) {
     box = document.createElement('div');
@@ -7901,7 +7905,7 @@ function showImportErrors(errors) {
     box.style.border = '1px solid #f5c2c7';
     box.style.background = '#f8d7da';
     box.style.color = '#842029';
-    const modalBody = document.querySelector('#importModal .modal-body') || document.body;
+    const modalBody = document.querySelector('#importModal .modal-content') || document.getElementById('importModal') || document.body;
     modalBody.appendChild(box);
   }
   box.innerHTML = `<strong>Import Errors (${errors.length}):</strong><br>` +
@@ -10099,3 +10103,23 @@ function updateCertificatesSelectionUI() {
   window.__systemLoadFixBound = true;
 })();
 
+
+
+// ---- (DROP-IN) Ensure Import containers exist inside the modal ----
+function __ensureImportContainers() {
+  var host = document.querySelector('#importModal .modal-content') || document.getElementById('importModal') || document.body;
+  if (!host) return null;
+  var status = document.getElementById('importStatus');
+  if (!status) {
+    status = document.createElement('div');
+    status.id = 'importStatus';
+    host.appendChild(status);
+  }
+  var box = document.getElementById('importErrorsBox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'importErrorsBox';
+    host.appendChild(box);
+  }
+  return { host, status, box };
+}
