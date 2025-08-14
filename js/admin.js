@@ -274,7 +274,7 @@ const backendUrl = getBackendUrl();
 
 // ---- Safe JSON helper: never throws on empty/invalid JSON bodies ----
 async function tryJson(res){
-  try { return await tryJson(res); } catch (_) { return null; }
+  try { return await res.json(); } catch (_) { return null; }
 }
 window.backendUrl = backendUrl;
 
@@ -714,7 +714,7 @@ async function exportAllData(format = 'json') {
         showMessage('Preparing complete data export...', 'info');
         
         const [members, certificates] = await Promise.all([
-            fetch(`${backendUrl}/api/users/getUsers`).then(res => res.json()).catch(() => []),
+            fetch(`${backendUrl}/api/users/getUsers`).then(async res => (await tryJson(res))).catch(() => []),
             getCertificates()
         ]);
         
@@ -1222,7 +1222,7 @@ async function createBackup() {
         showMessage('Creating backup...', 'info');
         
         const [members, certificates] = await Promise.all([
-            fetch(`${backendUrl}/api/users/getUsers`).then(res => res.json()).catch(() => []),
+            fetch(`${backendUrl}/api/users/getUsers`).then(async res => (await tryJson(res))).catch(() => []),
             getCertificates()
         ]);
         
@@ -3148,7 +3148,7 @@ async function createBackup() {
         showMessage('Creating backup...', 'info');
         
         const [members, certificates] = await Promise.all([
-            fetch(`${backendUrl}/api/users/getUsers`).then(res => res.json()).catch(() => []),
+            fetch(`${backendUrl}/api/users/getUsers`).then(async res => (await tryJson(res))).catch(() => []),
             getCertificates()
         ]);
         
@@ -3225,7 +3225,7 @@ async function exportAllData() {
         
         // Get all data
         const [members, certificates] = await Promise.all([
-            fetch(`${backendUrl}/api/users/getUsers`).then(res => res.json()).catch(() => getLocalMembers()),
+            fetch(`${backendUrl}/api/users/getUsers`).then(async res => (await tryJson(res))).catch(() => getLocalMembers()),
             getCertificates()
         ]);
         
