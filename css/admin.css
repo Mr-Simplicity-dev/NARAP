@@ -5451,3 +5451,34 @@ html, body { height: 100%; overflow-y: auto; }
   }
 }
 
+
+
+/* ==== DESKTOP ULTRA-TIGHT: CERT # ↔ RECIPIENT ==== */
+@media (min-width: 1025px) {
+  #certificatesTable { table-layout: fixed !important; border-collapse: collapse !important; border-spacing: 0 !important; }
+
+  /* CERT # (col 2) — even narrower */
+  #certificatesTable th:nth-child(2), #certificatesTable td:nth-child(2) {
+    width: 72px !important;
+    min-width: 72px !important;
+    max-width: 72px !important;
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* RECIPIENT (col 3) — pull tight against cert # */
+  #certificatesTable th:nth-child(3), #certificatesTable td:nth-child(3) {
+    padding-left: 2px !important;
+  }
+
+  /* Remove any inner margins that create phantom gaps */
+  #certificatesTable td:nth-child(2) > *,
+  #certificatesTable td:nth-child(3) > * {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+
