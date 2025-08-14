@@ -7635,8 +7635,8 @@ const row = parsedData[i];
       const issuedBy = (row['Issued By'] || '').trim();
 
       // Basic validation
-      if (!number || !recipient || !title) {
-        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Title)`);
+      if (!number || !recipient || !issueDate) {
+        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Issue Date)`);
         continue;
       }
 
@@ -7836,8 +7836,8 @@ async function importCertificateData(parsedData, withProgress=false) {
         pick(row, 'Issued By') || 'NARAP Authority';
 
       // Basic validation (backend requires number, recipient, title)
-      if (!number || !recipient || !title) {
-        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Title)`);
+      if (!number || !recipient || !issueDate) {
+        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Issue Date)`);
         continue;
       }
 
