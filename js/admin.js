@@ -7009,7 +7009,12 @@ function buildExistingMemberIndex(){
 }
 
 
-// ===== Import Progress UI (members & certificates) =====
+
+// ===== Import Progress UI (members & certificates) + Cancel Support =====
+window.__importProgress = { done:0, total:0, label:'' };
+window.__importCancel = false;
+window.__importAbortController = null;
+
 function ensureImportProgressUI() {
   var status = document.getElementById('importStatus');
   if (!status) {
@@ -7027,14 +7032,32 @@ function ensureImportProgressUI() {
     inner.style.cssText = 'width:0%;height:100%;background:#17a2b8;transition:width .2s;';
     barWrap.appendChild(inner);
     status.appendChild(barWrap);
+
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between;margin-top:6px;';
+
     var text = document.createElement('small');
     text.id = 'importProgressText';
     text.textContent = '0%';
-    text.style.cssText = 'display:inline-block;margin-top:6px;';
-    status.appendChild(text);
+    text.style.cssText = 'display:inline-block;';
+    row.appendChild(text);
+
+    var btn = document.createElement('button');
+    btn.id = 'importCancelBtn';
+    btn.type = 'button';
+    btn.textContent = 'Cancel';
+    btn.style.cssText = 'padding:4px 10px;border:1px solid #dc3545;background:#dc3545;color:#fff;border-radius:4px;cursor:pointer;';
+    btn.onclick = function(){
+      if (typeof window.cancelImport === 'function') window.cancelImport();
+    };
+    row.appendChild(btn);
+
+    status.appendChild(row);
   }
 }
+
 function updateImportProgress(done, total, label) {
+  window.__importProgress = { done: done||0, total: total||0, label: label||'' };
   var inner = document.getElementById('importProgressInner');
   var txt = document.getElementById('importProgressText');
   if (!inner || !txt) return;
@@ -7042,15 +7065,41 @@ function updateImportProgress(done, total, label) {
   inner.style.width = pct + '%';
   txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')';
 }
+
 function resetImportProgress() {
+  window.__importProgress = { done:0, total:0, label:'' };
+  window.__importCancel = false;
   var inner = document.getElementById('importProgressInner');
   var txt = document.getElementById('importProgressText');
+  var btn = document.getElementById('importCancelBtn');
   if (inner) inner.style.width = '0%';
   if (txt) txt.textContent = '0%';
+  if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; btn.style.opacity = '1'; }
 }
 
+window.cancelImport = function(){
+  window.__importCancel = true;
+  var btn = document.getElementById('importCancelBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; btn.style.opacity = '0.6'; }
+  try { if (window.__importAbortController) window.__importAbortController.abort(); } catch(e){}
+  // keep progress percentage as-is, just change the label
+  var p = window.__importProgress || {done:0,total:1};
+  updateImportProgress(p.done, p.total, 'Cancelling');
+};
 
-async function importData() {
+function finishImportProgress(state) {
+  var btn = document.getElementById('importCancelBtn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+  var p = window.__importProgress || {done:0,total:1};
+  var label = (state === 'cancelled') ? 'Cancelled' : 'Done';
+  updateImportProgress(p.total, p.total, label);
+}
+async function importData(){
+        ensureImportProgressUI();
+        resetImportProgress();
+        window.__importAbortController = ('AbortController' in window) ? new AbortController() : null;
+        window.__importCancel = false;
+
     const fileInput = document.getElementById('importFile');
     const importType = document.getElementById('importType')?.value || 'members';
     
@@ -7106,113 +7155,179 @@ async function importData() {
     reader.readAsText(file);
 }
 
-async function importMembersData(parsedData, withProgress=false) {
-    console.log('🔄 Importing members data...');
-    
-    const newMembers = [];
-    const errors = [];
-    const total = parsedData.length;
-    const idx = buildExistingMemberIndex();
-    let updatedLocal = 0, skippedDup = 0;
-    if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Importing members'); }
-    
-    for (let i = 0; i < parsedData.length; i++) {
-        const row = parsedData[i];
-        const rowNumber = i + 2; // +2 because CSV has header and arrays are 0-indexed
-        
-        try {
-            // Validate required fields
-            if (!row.Name || !row.Code || !row.State || !row.Zone) {
-                errors.push(`Row ${rowNumber}: Missing required fields (Name, Code, State, Zone)`);
-                continue;
-            }
-            
-            // Check for duplicate codes
-            const existingMember = window.members?.find(m => m.code === row.Code.toUpperCase());
-            if (existingMember) {
-                errors.push(`Row ${rowNumber}: Code '${row.Code}' already exists`);
-                continue;
-            }
-            
-            // Create member object
-            const member = {
-                name: row.Name.trim(),
-                email: row.Email ? row.Email.trim() : '',
-                code: row.Code.toUpperCase().trim(),
-                position: (row.Position || 'MEMBER').toUpperCase(),
-                state: row.State.trim(),
-                zone: row.Zone.trim(),
-                password: row.Password || generateDefaultPassword(),
-                dateAdded: new Date().toISOString(),
-                cardGenerated: false
-            };
-            
-            
-        // ---- Duplicate detection (local) ----
-        (function(){
-          const keyCode  = (member.code  ? String(member.code).toLowerCase()  : '');
-          const keyEmail = (member.email ? String(member.email).toLowerCase() : '');
-          const dup = (keyCode && idx.byCode[keyCode]) || (keyEmail && idx.byEmail[keyEmail]);
-          if (dup){
-            try {
-              const fields = ['name','email','code','position','state','zone','password'];
-              for (const f of fields){ if (member[f]) dup[f] = member[f]; }
-              updatedLocal++;
-              skippedDup++;
-              if (withProgress) { updateImportProgress(i+1, total, 'Updating duplicates'); }
-              return; // skip network call
-            } catch(_) { /* ignore; let network run */ }
-          }
-        })();
-    // Add to backend
-            try {
-                const response = await fetch(`${backendUrl}/api/users/addUser`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(member)
-                });
-                
-                if (response.ok) {
-                      const result = await response.json();
-                      newMembers.push(result.data);
-                      console.log(`✅ Member imported: ${member.name} (${member.code})`);
-                    } else {
-                      // Fallback: keep it locally so table updates; will sync later
-                      try { 
-                        const errorData = await response.json(); 
-                        errors.push(`Row ${rowNumber}: ${errorData.message || 'Failed to add member (kept locally)'}`);
-                      } catch(_) {
-                        errors.push(`Row ${rowNumber}: Failed to add member (kept locally)`);
-                      }
-                      newMembers.push(member);
-                    }
-            }
-    catch (error) { errors.push(`Row ${rowNumber}: ${error.message}`); }
-    if (withProgress) { updateImportProgress(i+1, total, 'Importing certificates'); await new Promise(r=>setTimeout(r,0)); }
+
+async function importMembersData(parsedData, withProgress = false) {
+  console.log('🔄 Importing members data...');
+
+  // Ensure the local list exists
+  window.members = Array.isArray(window.members) ? window.members : [];
+
+  const newMembers = [];
+  const errors = [];
+  const total = parsedData.length;
+
+  // Abort support (for the Cancel button)
+  const controller = window.__importAbortController && 'signal' in (window.__importAbortController || {})
+    ? window.__importAbortController
+    : (('AbortController' in window) ? new AbortController() : null);
+  let cancelled = false;
+
+  // Local duplicate index (by code/email)
+  const idx = (typeof buildExistingMemberIndex === 'function')
+    ? buildExistingMemberIndex()
+    : (() => {
+        const byCode = Object.create(null), byEmail = Object.create(null);
+        for (const m of window.members) {
+          const c = (m.code || m.Code || '').toString().trim().toLowerCase();
+          const e = (m.email || m.Email || '').toString().trim().toLowerCase();
+          if (c) byCode[c] = m;
+          if (e) byEmail[e] = m;
+        }
+        return { byCode, byEmail, base: window.members };
+      })();
+
+  let updatedLocal = 0, skippedDup = 0;
+
+  if (withProgress) {
+    if (typeof ensureImportProgressUI === 'function') ensureImportProgressUI();
+    if (typeof updateImportProgress === 'function') updateImportProgress(0, total, 'Importing members');
   }
-        catch (error) { errors.push(`Row ${rowNumber}: ${error.message}`); }
-        if (withProgress) { updateImportProgress(i+1, total, 'Importing members'); await new Promise(r=>setTimeout(r,0)); }
+
+  for (let i = 0; i < parsedData.length; i++) {
+    if (window.__importCancel) { cancelled = true; break; }
+
+    const row = parsedData[i];
+    const rowNumber = i + 2; // +2: CSV header + 0-indexed array
+
+    try {
+      // Validate required fields
+      if (!row.Name || !row.Code || !row.State || !row.Zone) {
+        errors.push(`Row ${rowNumber}: Missing required fields (Name, Code, State, Zone)`);
+        if (withProgress && typeof updateImportProgress === 'function') {
+          updateImportProgress(i + 1, total, 'Importing members');
+        }
+        continue;
+      }
+
+      const codeUpper = String(row.Code).trim().toUpperCase();
+      const codeKey   = codeUpper.toLowerCase();
+      const emailTrim = row.Email ? String(row.Email).trim() : '';
+      const emailKey  = emailTrim.toLowerCase();
+
+      // Local duplicate check (by code or email)
+      const dup = (codeKey && idx.byCode[codeKey]) || (emailKey && idx.byEmail[emailKey]);
+      if (dup) {
+        // Upsert locally so the table reflects new data
+        dup.name     = String(row.Name).trim() || dup.name;
+        dup.email    = emailTrim || dup.email;
+        dup.code     = codeUpper || dup.code;
+        dup.position = (row.Position ? String(row.Position) : (dup.position || 'MEMBER')).toUpperCase();
+        dup.state    = String(row.State).trim() || dup.state;
+        dup.zone     = String(row.Zone).trim() || dup.zone;
+        if (row.Password) dup.password = row.Password;
+
+        updatedLocal++;
+        skippedDup++;
+
+        if (withProgress && typeof updateImportProgress === 'function') {
+          updateImportProgress(i + 1, total, 'Updating duplicates');
+        }
+        continue;
+      }
+
+      // Build the member object to send/store
+      const member = {
+        name: String(row.Name).trim(),
+        email: emailTrim,
+        code: codeUpper,
+        position: (row.Position || 'MEMBER').toString().toUpperCase(),
+        state: String(row.State).trim(),
+        zone: String(row.Zone).trim(),
+        password: row.Password || (typeof generateDefaultPassword === 'function' ? generateDefaultPassword() : 'Password@123'),
+        dateAdded: new Date().toISOString(),
+        cardGenerated: false
+      };
+
+      // Try network create; fall back to keeping it locally if it fails
+      let created = null;
+      try {
+        const url = 'https://narap-backend.onrender.com/api/users/addUser';
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(member),
+          signal: controller ? controller.signal : undefined
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          created = (json && (json.data || json.user || json.result)) || member;
+        } else {
+          let msg = '';
+          try { const err = await res.json(); msg = err.message || ''; } catch (_) {}
+          if (/exists/i.test(msg)) {
+            // Server says duplicate → keep locally so user still sees it
+            created = member;
+            errors.push(`Row ${rowNumber}: ${msg}`);
+          } else {
+            errors.push(`Row ${rowNumber}: ${msg || ('HTTP ' + res.status)}`);
+          }
+        }
+      } catch (e) {
+        if (window.__importCancel || (e && (e.name === 'AbortError' || /aborted/i.test(String(e))))) {
+          cancelled = true;
+          break;
+        }
+        errors.push(`Row ${rowNumber}: Network error - ${e.message}`);
+        created = member; // keep locally
+      }
+
+      if (created) {
+        newMembers.push(created);
+        // Update indices so later rows see the new addition
+        idx.byCode[codeKey] = created;
+        if (emailKey) idx.byEmail[emailKey] = created;
+      }
+
+      if (withProgress && typeof updateImportProgress === 'function') {
+        updateImportProgress(i + 1, total, 'Importing members');
+      }
+
+    } catch (err) {
+      errors.push(`Row ${rowNumber}: ${err.message || 'Unknown error'}`);
+      if (withProgress && typeof updateImportProgress === 'function') {
+        updateImportProgress(i + 1, total, 'Importing members');
+      }
     }
-    
-    // Update local members array
-    if (newMembers.length > 0) {
-        if (!window.members) window.members = [];
-        window.members = [...window.members, ...newMembers];
-        
-        // Refresh the members table
-        await loadMembers();
+  }
+
+  // Merge newly created/kept members into the main list
+  if (newMembers.length) {
+    window.members = Array.isArray(window.members)
+      ? [...window.members, ...newMembers]
+      : [...newMembers];
+  }
+
+  if (withProgress && typeof finishImportProgress === 'function') {
+    finishImportProgress(cancelled ? 'cancelled' : 'done');
+  }
+
+  if (errors.length) {
+    console.error('❌ Import errors:', errors);
+    if (typeof showMessage === 'function') {
+      showMessage(`Import completed with ${errors.length} issue(s). Check console.`, 'warning');
     }
-    
-    // Show results
-    if (errors.length > 0) {
-        showMessage(`Import completed with ${errors.length} errors. Check console for details.`, 'warning');
-        console.error('❌ Import errors:', errors);
-    } else {
-        showMessage(`Successfully imported ${newMembers.length} members!`, 'success');
-    }
+  } else {
+    if (typeof showMessage === 'function') showMessage('Members imported successfully!', 'success');
+  }
+
+  // Optional summary log
+  try {
+    const msg = `New: ${newMembers.length} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup}`;
+    console.log('Import summary:', msg);
+  } catch (_) {}
 }
+
 
 // Helper function to parse CSV into an array of objects (assuming first row is headers)
 function parseCSV(csvString) {
@@ -7327,10 +7442,14 @@ async function importCertificateData(parsedData, withProgress=false) {
   const created = [];
   const errors = [];
   const total = parsedData.length;
-  if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Importing certificates'); }
-
+  const controller = window.__importAbortController || (('AbortController' in window) ? new AbortController() : null);
+  let cancelled = false;
+if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Importing certificates'); 
+  if (withProgress && cancelled) { finishImportProgress('cancelled'); }
+}
   for (let i = 0; i < parsedData.length; i++) {
-    const row = parsedData[i];
+      if (window.__importCancel) { cancelled = true; break; }
+const row = parsedData[i];
     const rowNumber = i + 2; // header is row 1
 
     try {
