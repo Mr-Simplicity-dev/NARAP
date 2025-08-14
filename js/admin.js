@@ -7788,11 +7788,7 @@ function updateCsvFormat() {
             <strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password
         `;
     } else if (importType === 'certificates') {
-        helpDiv.innerHTML = `
-            <strong>Required columns:</strong> CertificateID, MemberID, Type<br/>
-            <strong>Optional columns:</strong> IssueDate, ExpiryDate, Status<br/>
-            <strong>Example:</strong> CertificateID,MemberID,Type,IssueDate,ExpiryDate,Status
-        `;
+        helpDiv.innerHTML = `Certificate Number,Recipient,Email,Position,Code,State,Issue Date,Valid Until,Type,Status\nN/001/KWA/001,John Doe,john@example.com,Engineer,NARAP001,Kwara,2025-01-15,2026-01-15,membership,active`;
     }
 }
 
