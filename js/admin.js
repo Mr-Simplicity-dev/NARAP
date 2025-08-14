@@ -9328,3 +9328,79 @@ function updateCertificatesSelectionUI() {
   })();
 })();
 
+
+
+// === State Chart: Full names + Alphabetical + Small labels (desktop & mobile) ===
+(function wrapStateChartAlphaFull(){
+  if (window.__stateChartAlphaFullWrapped) return;
+
+  function _normalizeStateName(raw) {
+    let s = (raw || 'Unknown').toString().trim().replace(/\s+/g, ' ');
+    s = s.replace(/\s*state\s*$/i, '');
+    if (/^(fct|abuja|fct abuja|abuja fct)$/i.test(s)) s = 'FCT Abuja';
+    return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function ensureCanvasHeightFor(count){
+    var cv = document.getElementById('stateChart');
+    if (!cv) return;
+    // about 20px per row + padding, capped so page stays usable
+    var px = Math.min(20 * Math.max(count, 5) + 80, Math.max(window.innerHeight * 0.85, 360));
+    cv.style.height = px + 'px';
+  }
+
+  const hook = function(){
+    if (typeof window.renderStateChart !== 'function') return false;
+
+    const original = window.renderStateChart;
+    window.renderStateChart = function(data){
+      try {
+        const src = Array.isArray(data && data.membersByState) ? data.membersByState.slice() : [];
+        // Convert to full, normalized names + numeric counts
+        const full = src.map(it => ({
+          _id: _normalizeStateName(it && (it._id || it.state || it.name)),
+          count: Number(it && (it.count || it.total || it.value || 0)) || 0
+        }));
+        // Sort ALPHABETICALLY by state name
+        full.sort((a, b) => a._id.localeCompare(b._id));
+
+        // Adjust canvas height for all labels to be readable
+        ensureCanvasHeightFor(full.length);
+
+        // Build patched data object
+        const patched = Object.assign({}, data, { membersByState: full });
+
+        // Create chart through original
+        const chart = original(patched);
+
+        // Enforce tiny label font + no autoskip + horizontal bars
+        try {
+          if (chart && chart.options) {
+            chart.options.indexAxis = 'y';
+            chart.options.maintainAspectRatio = false;
+            chart.options.scales = chart.options.scales || {};
+            chart.options.scales.y = chart.options.scales.y || {};
+            chart.options.scales.y.ticks = Object.assign({}, chart.options.scales.y.ticks, {
+              autoSkip: false,
+              font: { size: 9 }  // small so labels don't overlap
+            });
+            chart.update('none');
+          }
+        } catch(e){ /* best effort */ }
+
+        return chart;
+      } catch (e) {
+        return original(data);
+      }
+    };
+    return true;
+  };
+
+  if (!hook()){
+    const iv = setInterval(() => { if (hook()) clearInterval(iv); }, 100);
+    setTimeout(() => clearInterval(iv), 6000);
+  }
+
+  window.__stateChartAlphaFullWrapped = true;
+})();
+

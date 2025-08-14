@@ -1,4 +1,3 @@
-/* ---- BEGIN admin.scrollfix.v3.bundle.css ---- */
 /* ===== BASE STYLES ===== */
 * {
     margin: 0;
@@ -5488,6 +5487,7 @@ html, body { height: 100%; overflow-y: auto; }
    1 = checkbox, 2 = CERT #, 3 = RECIPIENT, 4 = TITLE, 5 = ISSUE DATE, 6 = STATUS, 7 = ACTIONS
 */
 
+/* Apply only on desktop so mobile remains relaxed */
 /* Desktop only: pull RECIPIENT closer to CERT # and keep TITLE normal */
 @media (min-width: 1025px) {
   /* Make sure widths apply predictably */
@@ -5564,4 +5564,9 @@ html, body { height: 100%; overflow-y: auto; }
 #stateChart {
   max-height: 80vh; /* room for many rows */
 }
+
+
+
+/* Give the state chart canvas room and prevent flicker */
+#stateChart { max-height: 85vh; }
 
