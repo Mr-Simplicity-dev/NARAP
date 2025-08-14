@@ -7025,16 +7025,25 @@ window.__importCancel = false;
 window.__importAbortController = null;
 
 function ensureImportProgressUI() {
-  try { __ensureImportContainers(); } catch(e) {}
+  // Prefer elements INSIDE the Import modal
+  var host = document.querySelector('#importModal .modal-content') || document.getElementById('importModal') || document.body;
 
-  var status = document.getElementById('importStatus');
+  // Ensure status container exists inside host
+  var status = host.querySelector('#importStatus');
   if (!status) {
-    var modalBody = document.querySelector('#importModal .modal-content') || document.getElementById('importModal') || document.body;
     status = document.createElement('div');
     status.id = 'importStatus';
-    modalBody.appendChild(status);
+    host.appendChild(status);
   }
-  if (!document.getElementById('importProgress')) {
+
+  // If a progress element exists elsewhere, move it into the host
+  var existing = document.getElementById('importProgress');
+  if (existing && !host.contains(existing)) {
+    status.appendChild(existing);
+  }
+
+  // Create progress bar inside host if missing
+  if (!host.querySelector('#importProgress')) {
     var barWrap = document.createElement('div');
     barWrap.id = 'importProgress';
     barWrap.style.cssText = 'width:100%;background:#eee;border-radius:6px;overflow:hidden;height:12px;margin-top:8px;';
@@ -7045,12 +7054,12 @@ function ensureImportProgressUI() {
     status.appendChild(barWrap);
 
     var row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between;margin-top:6px;';
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-top:6px;';
 
-    var text = document.createElement('small');
+    var text = document.createElement('div');
     text.id = 'importProgressText';
+    text.style.cssText = 'font-size:12px;color:#333;';
     text.textContent = '0%';
-    text.style.cssText = 'display:inline-block;';
     row.appendChild(text);
 
     var btn = document.createElement('button');
@@ -7069,8 +7078,9 @@ function ensureImportProgressUI() {
 
 function updateImportProgress(done, total, label) {
   window.__importProgress = { done: done||0, total: total||0, label: label||'' };
-  var inner = document.getElementById('importProgressInner');
-  var txt = document.getElementById('importProgressText');
+  var host = document.querySelector('#importModal') || document;
+  var inner = host.querySelector('#importProgressInner') || document.getElementById('importProgressInner');
+  var txt   = host.querySelector('#importProgressText') || document.getElementById('importProgressText');
   if (!inner || !txt) return;
   var pct = total ? Math.floor((done/total)*100) : 0;
   inner.style.width = pct + '%';
@@ -7080,9 +7090,10 @@ function updateImportProgress(done, total, label) {
 function resetImportProgress() {
   window.__importProgress = { done:0, total:0, label:'' };
   window.__importCancel = false;
-  var inner = document.getElementById('importProgressInner');
-  var txt = document.getElementById('importProgressText');
-  var btn = document.getElementById('importCancelBtn');
+  var host = document.querySelector('#importModal') || document;
+  var inner = host.querySelector('#importProgressInner') || document.getElementById('importProgressInner');
+  var txt   = host.querySelector('#importProgressText') || document.getElementById('importProgressText');
+  var btn   = host.querySelector('#importCancelBtn') || document.getElementById('importCancelBtn');
   if (inner) inner.style.width = '0%';
   if (txt) txt.textContent = '0%';
   if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; btn.style.opacity = '1'; }
@@ -7099,7 +7110,8 @@ window.cancelImport = function(){
 };
 
 function finishImportProgress(state) {
-  var btn = document.getElementById('importCancelBtn');
+  var host = document.querySelector('#importModal') || document;
+  var btn   = host.querySelector('#importCancelBtn') || document.getElementById('importCancelBtn');
   if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
   var p = window.__importProgress || {done:0,total:1};
   var label = (state === 'cancelled') ? 'Cancelled' : 'Done';
@@ -7892,8 +7904,6 @@ async function importCertificateData(parsedData, withProgress=false) {
 
 // Optional: show detailed errors inside the import modal
 function showImportErrors(errors) {
-  try { __ensureImportContainers(); } catch(e) {}
-
   let box = document.getElementById('importErrorsBox');
   if (!box) {
     box = document.createElement('div');
@@ -7905,7 +7915,7 @@ function showImportErrors(errors) {
     box.style.border = '1px solid #f5c2c7';
     box.style.background = '#f8d7da';
     box.style.color = '#842029';
-    const modalBody = document.querySelector('#importModal .modal-content') || document.getElementById('importModal') || document.body;
+    const modalBody = document.querySelector('#importModal .modal-body') || document.body;
     modalBody.appendChild(box);
   }
   box.innerHTML = `<strong>Import Errors (${errors.length}):</strong><br>` +
@@ -10103,23 +10113,3 @@ function updateCertificatesSelectionUI() {
   window.__systemLoadFixBound = true;
 })();
 
-
-
-// ---- (DROP-IN) Ensure Import containers exist inside the modal ----
-function __ensureImportContainers() {
-  var host = document.querySelector('#importModal .modal-content') || document.getElementById('importModal') || document.body;
-  if (!host) return null;
-  var status = document.getElementById('importStatus');
-  if (!status) {
-    status = document.createElement('div');
-    status.id = 'importStatus';
-    host.appendChild(status);
-  }
-  var box = document.getElementById('importErrorsBox');
-  if (!box) {
-    box = document.createElement('div');
-    box.id = 'importErrorsBox';
-    host.appendChild(box);
-  }
-  return { host, status, box };
-}
