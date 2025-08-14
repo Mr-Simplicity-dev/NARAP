@@ -6991,6 +6991,24 @@ function setupAutoSync() {
 
 // ==================== IMPORT/EXPORT FUNCTIONS ====================
 
+// ---- Existing members helpers (dedupe / upsert locally) ----
+function getLocalMembersArray(){
+  try { return Array.isArray(window.members) ? window.members : []; } catch(_) { return []; }
+}
+function buildExistingMemberIndex(){
+  const byCode = Object.create(null);
+  const byEmail = Object.create(null);
+  const arr = getLocalMembersArray();
+  for (const m of arr){
+    const code = (m && (m.code || m.Code || m.regNo || m.RegNo || m['Reg No'])) || '';
+    const email = (m && (m.email || m.Email)) || '';
+    if (code) byCode[String(code).toLowerCase()] = m;
+    if (email) byEmail[String(email).toLowerCase()] = m;
+  }
+  return { byCode, byEmail, base: arr };
+}
+
+
 // ===== Import Progress UI (members & certificates) =====
 function ensureImportProgressUI() {
   var status = document.getElementById('importStatus');
@@ -7070,7 +7088,14 @@ async function importData() {
                 await importCertificateData(normalized, true);
             }
 
-            updateImportProgress(1,1,'Done'); showMessage(`${importType} imported successfully!`, 'success');
+            $1
+            try {
+              if (typeof updatedLocal !== 'undefined') {
+                const msg = `New: ${newMembers.length || 0} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup}`;
+                showMessage(msg, 'info');
+                console.log('Import summary:', msg);
+              }
+            } catch(_) {}
             closeImportModal();
         } catch (error) {
             showMessage('Failed to import CSV: ' + error.message, 'error');
@@ -7087,6 +7112,8 @@ async function importMembersData(parsedData, withProgress=false) {
     const newMembers = [];
     const errors = [];
     const total = parsedData.length;
+    const idx = buildExistingMemberIndex();
+    let updatedLocal = 0, skippedDup = 0;
     if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Importing members'); }
     
     for (let i = 0; i < parsedData.length; i++) {
@@ -7120,7 +7147,24 @@ async function importMembersData(parsedData, withProgress=false) {
                 cardGenerated: false
             };
             
-            // Add to backend
+            
+        // ---- Duplicate detection (local) ----
+        (function(){
+          const keyCode  = (member.code  ? String(member.code).toLowerCase()  : '');
+          const keyEmail = (member.email ? String(member.email).toLowerCase() : '');
+          const dup = (keyCode && idx.byCode[keyCode]) || (keyEmail && idx.byEmail[keyEmail]);
+          if (dup){
+            try {
+              const fields = ['name','email','code','position','state','zone','password'];
+              for (const f of fields){ if (member[f]) dup[f] = member[f]; }
+              updatedLocal++;
+              skippedDup++;
+              if (withProgress) { updateImportProgress(i+1, total, 'Updating duplicates'); }
+              return; // skip network call
+            } catch(_) { /* ignore; let network run */ }
+          }
+        })();
+    // Add to backend
             try {
                 const response = await fetch(`${backendUrl}/api/users/addUser`, {
                     method: 'POST',
