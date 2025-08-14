@@ -2273,6 +2273,7 @@ function showAnalyticsError() {
 
 
 // Ensure analytics object has membersByState array; derive from local if missing
+
 function normalizeAnalytics(data) {
   try {
     // Use existing normalizer if present; else a safe default.
@@ -9163,53 +9164,69 @@ function updateCertificatesSelectionUI() {
 })();
 
 
-// ===== NARAP: pagination flash fix + state initials (desktop) ==================
+// ==== NO-FLASH PAGINATION + STATE INITIALS (compact labels + full-name tooltips) ====
 
-// --- 1) Prevent certificates pagination from flashing on initial page load
-(function preventCertificatesPaginationFlash(){
-  if (window.__certPagFlashFixed) return;
+// 1) Hide paginations by default; show only when ready
+(function setupNoFlashPagination(){
+  if (window.__noFlashPagBound) return;
+
   function hide(el){
     if (!el) return;
-    el.style.visibility = 'hidden';
-    el.style.height = '0px';
-    el.style.overflow = 'hidden';
+    el.style.display = 'none';
   }
   function show(el){
     if (!el) return;
-    el.style.visibility = '';
-    el.style.height = '';
-    el.style.overflow = '';
+    el.style.display = '';
   }
-  const certPag = document.getElementById('certificatesPagination');
-  if (certPag) hide(certPag);
 
-  // Expose toggler for renderers to use
+  // Initial hide on DOM ready
+  document.addEventListener('DOMContentLoaded', function(){
+    ['certificatesPagination', 'analyticsPagination'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) hide(el);
+    });
+  });
+
+  // Public togglers your renderers can call
   window.setCertificatesPaginationVisible = function(visible){
     const el = document.getElementById('certificatesPagination');
     if (!el) return;
-    if (visible) show(el); else hide(el);
+    (visible ? show : hide)(el);
+  };
+  window.setAnalyticsPaginationVisible = function(visible){
+    const el = document.getElementById('analyticsPagination');
+    if (!el) return;
+    (visible ? show : hide)(el);
   };
 
-  // Observe changes: when items are injected (after render), reveal
+  // As a safety net: reveal cert pagination only when it actually has items
+  const certPag = document.getElementById('certificatesPagination');
   if (certPag && typeof MutationObserver !== 'undefined'){
     const obs = new MutationObserver(function(){
-      // Show only if there are actual page items and the tab is active OR table is visible
-      const hasContent = certPag.querySelectorAll('li, a, button').length > 0;
-      const isVisible = !!(certPag.offsetParent || document.querySelector('#certificatesTable'));
-      if (hasContent && isVisible){
-        show(certPag);
-      }
+      const hasItems = certPag.querySelectorAll('li, a, button').length > 0;
+      if (hasItems) show(certPag);
     });
     obs.observe(certPag, { childList: true, subtree: true });
   }
 
-  window.__certPagFlashFixed = true;
+  // Same for analytics
+  const anaPag = document.getElementById('analyticsPagination');
+  if (anaPag && typeof MutationObserver !== 'undefined'){
+    const obs2 = new MutationObserver(function(){
+      const hasItems = anaPag.querySelectorAll('li, a, button').length > 0;
+      if (hasItems) show(anaPag);
+    });
+    obs2.observe(anaPag, { childList: true, subtree: true });
+  }
+
+  window.__noFlashPagBound = true;
 })();
 
-// --- 2) Members-by-State initials (short labels)
-(function setupStateInitials(){
-  if (window.__stateInitialsSetup) return;
+// 2) Very small initials on chart axis; full names in tooltips.
+(function tightenStateChartLabels(){
+  if (window.__tightStateLabelsBound) return;
 
+  // Reuse a robust normalizer
   function _normalizeStateName(raw) {
     let s = (raw || 'Unknown').toString().trim();
     s = s.replace(/\s+/g, ' ');
@@ -9219,80 +9236,95 @@ function updateCertificatesSelectionUI() {
     return s;
   }
 
-  // Create the shortest unique prefix (1→2→3) per state set.
+  // Build shortest-unique initials map
   function buildShortLabelMap(stateNames){
     const clean = Array.from(new Set((stateNames || []).map(_normalizeStateName)));
     const map = Object.create(null);
-    // Try 1-letter first
-    const buckets1 = {};
-    clean.forEach(s => {
-      const key = s[0];
-      buckets1[key] = buckets1[key] || [];
-      buckets1[key].push(s);
-    });
-    clean.forEach(s => {
-      const b = buckets1[s[0]] || [];
-      if (b.length === 1) {
-        map[s] = s[0].toUpperCase();
-      }
-    });
-    // For collisions, try 2 letters
+
+    // 1-letter pass
+    const b1 = {};
+    clean.forEach(s => { const k = s[0]; (b1[k] ||= []).push(s); });
+    clean.forEach(s => { if ((b1[s[0]]||[]).length === 1) map[s] = s[0].toUpperCase(); });
+
+    // 2-letter pass for collisions
     const unresolved = clean.filter(s => !map[s]);
-    const buckets2 = {};
-    unresolved.forEach(s => {
-      const key = s.slice(0,2);
-      buckets2[key] = buckets2[key] || [];
-      buckets2[key].push(s);
-    });
-    unresolved.forEach(s => {
-      const b = buckets2[s.slice(0,2)] || [];
-      if (b.length === 1) {
-        map[s] = s.slice(0,2).toUpperCase();
-      }
-    });
-    // Still collisions? go to 3 letters
+    const b2 = {};
+    unresolved.forEach(s => { const k = s.slice(0,2); (b2[k] ||= []).push(s); });
+    unresolved.forEach(s => { if ((b2[s.slice(0,2)]||[]).length === 1) map[s] = s.slice(0,2).toUpperCase(); });
+
+    // 3-letter fallback
     const unresolved3 = clean.filter(s => !map[s]);
-    unresolved3.forEach(s => {
-      map[s] = s.slice(0,3).toUpperCase();
-    });
+    unresolved3.forEach(s => { map[s] = s.slice(0,3).toUpperCase(); });
+
     return map;
   }
 
-  // Wrap renderStateChart so labels use initials; fall back gracefully
-  (function wrapRenderStateChart(){
-    if (window.__stateChartWrapped) return;
+  // Wrap renderStateChart to adjust labels + options
+  (function wrap(){
+    if (typeof window.renderStateChart !== 'function') return;
 
-    function wrap(){
-      if (typeof window.renderStateChart !== 'function') return false;
+    const original = window.renderStateChart;
+    window.renderStateChart = function(data){
+      try {
+        const arr = Array.isArray(data && data.membersByState) ? data.membersByState.slice() : [];
+        const fullNames = arr.map(it => it && (it._id || it.state || it.name));
+        const labelMap = buildShortLabelMap(fullNames);
 
-      const original = window.renderStateChart;
-      window.renderStateChart = function(data){
+        // Build mapped data, but keep a reverse map for tooltips
+        const reverse = Object.create(null);
+        fullNames.forEach(fn => { const key = _normalizeStateName(fn); reverse[labelMap[key]] = _normalizeStateName(fn); });
+
+        const patched = Object.assign({}, data, {
+          membersByState: arr.map(it => {
+            const full = _normalizeStateName(it._id || it.state || it.name);
+            const short = labelMap[full] || full;
+            return { _id: short, count: Number(it.count || it.total || it.value || 0), __full: full };
+          })
+        });
+
+        // Call original to create Chart.js instance
+        const chart = original(patched);
+
+        // Try to adjust Chart.js options post-creation (v3+ pattern)
         try {
-          const arr = Array.isArray(data && data.membersByState) ? data.membersByState.slice() : [];
-          const fullNames = arr.map(it => it && (it._id || it.state || it.name));
-          const labelMap = buildShortLabelMap(fullNames);
-          // Mutate _id to initials so existing chart code uses them as labels
-          const patched = Object.assign({}, data, {
-            membersByState: arr.map(it => ({
-              _id: labelMap[_normalizeStateName(it._id || it.state || it.name)] || (it._id || it.state || it.name),
-              count: Number(it.count || it.total || it.value || 0)
-            }))
-          });
-          return original(patched);
-        } catch (err) {
-          return original(data);
-        }
-      };
-      window.__stateChartWrapped = true;
-      return true;
-    }
+          if (chart && chart.options) {
+            // Horizontal bars with tiny y-axis tick font; don't overlap
+            chart.options.indexAxis = 'y';
+            chart.options.maintainAspectRatio = false;
+            chart.options.scales = chart.options.scales || {};
+            chart.options.scales.y = chart.options.scales.y || {};
+            chart.options.scales.y.ticks = Object.assign({}, chart.options.scales.y.ticks, {
+              autoSkip: false,
+              maxTicksLimit: 100,
+              font: { size: 8 }  // tiny initials
+            });
+            chart.options.scales.x = Object.assign({ beginAtZero: true }, chart.options.scales.x);
 
-    if (!wrap()){
-      const iv = setInterval(() => { if (wrap()) clearInterval(iv); }, 100);
-      setTimeout(() => clearInterval(iv), 6000);
-    }
+            // Tooltips: show full state name + count
+            chart.options.plugins = chart.options.plugins || {};
+            chart.options.plugins.tooltip = chart.options.plugins.tooltip || {};
+            chart.options.plugins.tooltip.callbacks = chart.options.plugins.tooltip.callbacks || {};
+            chart.options.plugins.tooltip.callbacks.title = function(items){
+              const label = items && items[0] && items[0].label;
+              // label is the short code; map to full
+              return reverse[label] || label;
+            };
+            chart.options.plugins.tooltip.callbacks.label = function(item){
+              const v = (item && item.parsed && (item.parsed.x ?? item.parsed.y)) || 0;
+              return 'Count: ' + v;
+            };
+
+            chart.update('none');
+          }
+        } catch(e){ /* best effort */ }
+
+        return chart;
+      } catch (e) {
+        return original(data);
+      }
+    };
+
+    window.__tightStateLabelsBound = true;
   })();
-
-  window.__stateInitialsSetup = true;
 })();
 

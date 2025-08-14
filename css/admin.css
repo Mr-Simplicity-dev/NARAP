@@ -5488,41 +5488,7 @@ html, body { height: 100%; overflow-y: auto; }
    1 = checkbox, 2 = CERT #, 3 = RECIPIENT, 4 = TITLE, 5 = ISSUE DATE, 6 = STATUS, 7 = ACTIONS
 */
 
-/* Apply only on desktop so mobile remains relaxed */
-@media (min-width: 1025px) {
-  /* Ensure widths apply */
-  #certificatesTable {
-    table-layout: fixed !important;
-    border-collapse: collapse !important;
-    border-spacing: 0 !important;
-  }
-
-  /* (1) Header checkbox column — very narrow */
-  #certificatesTable th:nth-child(1),
-  #certificatesTable td:nth-child(1) {
-    width: 36px !important;
-    min-width: 36px !important;
-    max-width: 40px !important;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
-    text-align: center !important;
-    white-space: nowrap !important;
-  }
-
-  /* (2) CERT # — compact */
-  #certificatesTable th:nth-child(2),
-  #certificatesTable td:nth-child(2) {
-    width: 76px !important;
-    min-width: 76px !important;
-    max-width: 90px !important;
-    padding-left: 4px !important;
-    padding-right: 2px !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-  }
-
- /* Desktop only: pull RECIPIENT closer to CERT # and keep TITLE normal */
+/* Desktop only: pull RECIPIENT closer to CERT # and keep TITLE normal */
 @media (min-width: 1025px) {
   /* Make sure widths apply predictably */
   #certificatesTable,
@@ -5583,4 +5549,19 @@ html, body { height: 100%; overflow-y: auto; }
   }
 }
 
+
+
+/* No-flash pagination: keep hidden until JS reveals */
+#certificatesPagination,
+#analyticsPagination {
+  display: none;
 }
+/* Also hide pagination inside inactive tab panes */
+.tab-pane:not(.active) .pagination {
+  display: none;
+}
+/* Extra small tick labels won't wrap into each other */
+#stateChart {
+  max-height: 80vh; /* room for many rows */
+}
+
