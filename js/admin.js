@@ -7391,6 +7391,35 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
     const msg = `New: ${newMembers.length} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup}`;
     console.log('Import summary:', msg);
   } catch (_) {}
+
+
+                // ✅ Persist imported MEMBERS locally, queue for sync, and refresh UI
+                try {
+                  // Merge into the existing local list and persist
+                  const existingLocal = getLocalMembers();           // reads from localStorage
+                  const merged = sortMembersAlpha([                  // keep your enforced alpha order
+                    ...existingLocal,
+                    ...newMembers
+                  ]);
+                  saveLocalMembers(merged);                          // <-- write to localStorage
+                  window.members = merged;                           // keep runtime cache in sync
+                  window.currentMembers = merged;
+
+                  // Queue offline sync so backend can be updated later
+                  if (newMembers.length) {
+                    const pending = getPendingSync();
+                    // Mark as pendingSync to make intent explicit
+                    pending.memberCreations.push(...newMembers.map(m => ({ ...m, pendingSync: true })));
+                    savePendingSync(pending);
+                  }
+
+                  // Refresh table now (uses LocalStorage + backend merge)
+                  if (typeof loadMembers === 'function') {
+                    await loadMembers(1, membersPerPage || 10);
+                  }
+                } catch (persistErr) {
+                  console.warn('Persistence after import failed:', persistErr);
+                }
 }
 
 function parseCSV(csvString) {
