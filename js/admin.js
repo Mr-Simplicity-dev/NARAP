@@ -7125,7 +7125,7 @@ function resolveImportType() {
     return 'members';
   }
 }
-async async function importData(){
+async function importData(){
   try {
     // Determine import type robustly (radios, select, data-attr, or global string)
     var type = resolveImportType();
