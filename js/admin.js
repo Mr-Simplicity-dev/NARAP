@@ -7480,6 +7480,25 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
                   saveLocalMembers(merged);            // write to localStorage
                   window.members = merged;             // keep runtime cache in sync
                   window.currentMembers = merged;
+                  // Immediately show the merged results so user sees updates right away
+                  try {
+                    const perPage = (typeof membersPerPage !== 'undefined' && membersPerPage) ? membersPerPage : 10;
+                    const totalItemsNow = merged.length;
+                    const totalPagesNow = Math.max(1, Math.ceil(totalItemsNow / perPage));
+                    if (typeof displayMembers === 'function') {
+                      displayMembers(
+                        merged.slice(0, perPage),
+                        totalItemsNow,
+                        1,
+                        totalPagesNow,
+                        perPage
+                      );
+                    }
+                    if (typeof renderPagination === 'function') {
+                      renderPagination(1, totalPagesNow, totalItemsNow, perPage, 'members');
+                    }
+                  } catch(_) {}
+
 
                   // Queue offline sync so backend can be updated later
                   if (newMembers.length) {
