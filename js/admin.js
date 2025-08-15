@@ -546,6 +546,43 @@ function saveLocalMembers(members) {
 
 
 // --- UI refresh helper for members (safe) ---
+
+// --- Commit members to localStorage + refresh the UI ---
+function hardenCommitMembers(list) {
+  try {
+    const arr = Array.isArray(list) ? list.slice() : [];
+    const keyOf = (m) => {
+      const id = m && (m._id || m.id);
+      if (id) return 'id:' + id;
+      const c = String(m?.code || '').trim().toLowerCase();
+      if (c) return 'c:' + c;
+      const e = String(m?.email || '').trim().toLowerCase();
+      if (e) return 'e:' + e;
+      return null;
+    };
+    const byKey = new Map();
+    arr.forEach(m => { const k = keyOf(m); if (!k) return; const prev = byKey.get(k); byKey.set(k, prev ? { ...prev, ...m } : m); });
+    const merged = Array.from(byKey.values());
+    if (typeof saveLocalMembers === 'function') saveLocalMembers(merged);
+    window.members = merged;
+    window.currentMembers = merged;
+
+    if (typeof refreshMembersUI === 'function') refreshMembersUI();
+    else if (typeof loadMembers === 'function') {
+      const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
+      loadMembers(1, per);
+    }
+
+    const count = merged.length;
+    ['totalMembers','membersCount'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(count);
+    });
+  } catch (e) {
+    console.error('hardenCommitMembers failed:', e);
+  }
+}
+
 function refreshMembersUI() {
   try {
     const per =
@@ -612,11 +649,33 @@ function getPendingSync() {
     };
 }
 
+
+// --- Dedup pending sync by id/code/email ---
+function dedupePendingSyncObject(pending) {
+  try {
+    pending = pending || {};
+    const list = Array.isArray(pending.memberUpdates) ? pending.memberUpdates : [];
+    const map = new Map();
+    for (const m of list) {
+      if (!m) continue;
+      const id = m && (m._id || m.id);
+      const c = String(m?.code || '').trim().toLowerCase();
+      const e = String(m?.email || '').trim().toLowerCase();
+      const key = id ? ('id:'+id) : (c ? ('c:'+c) : (e ? ('e:'+e) : null));
+      if (!key) continue;
+      map.set(key, { ...(map.get(key)||{}), ...m });
+    }
+    pending.memberUpdates = Array.from(map.values());
+  } catch (e) { console.warn('dedupePendingSyncObject failed:', e); }
+  return pending;
+}
+
 function savePendingSync(pendingSync) {
   try {
+    pendingSync = dedupePendingSyncObject(pendingSync || {});
     localStorage.setItem('narap_pending_sync', JSON.stringify(pendingSync));
   } catch (e) {
-    // ignore write errors (quota, privacy mode, etc.)
+    // ignore write errors
   }
 }
 
@@ -1045,7 +1104,21 @@ async function syncPendingChanges() {
         if (member.passportFile) formData.append('passportPhoto', member.passportFile);
         if (member.signatureFile) formData.append('signature', member.signatureFile);
 
-        const resp = /* queued update instead of direct PUT during import */ (queueMemberUpdate(row), { ok: true });
+        let resp = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, { method: 'PUT', body: formData });
+        if (resp && resp.status === 404) {
+          // Upsert fallback: create if missing
+          const fd = new FormData();
+          fd.append('name', member.name || '');
+          if (member.email && member.email.trim()) fd.append('email', member.email.trim());
+          fd.append('password', member.password || 'defaultPassword123');
+          fd.append('code', member.code || '');
+          fd.append('position', member.position || '');
+          fd.append('state', member.state || '');
+          fd.append('zone', member.zone || '');
+          if (member.passportFile) fd.append('passportPhoto', member.passportFile);
+          if (member.signatureFile) fd.append('signature', member.signatureFile);
+          resp = await fetch(`${backendUrl}/api/users/addUser`, { method: 'POST', body: fd });
+        }
 
         if (resp.ok) {
           // Merge into local list by id or code/email
@@ -7087,15 +7160,13 @@ async function importData(){
 
 
 async function importMembersData(parsedData, withProgress = false) {
-  // ensure a local placeholder for existingMember to avoid ReferenceError in legacy code
-  let existingMember = undefined;
+  let existingMember = undefined; // placeholder to avoid ReferenceError
 
   console.log('🔄 Importing members data...');
 
   // Ensure the local list exists
   window.members = Array.isArray(window.members) ? window.members : [];
-if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
-
+  if (typeof enforceMembersAlpha === 'function') enforceMembersAlpha();
 
   const newMembers = [];
   const errors = [];
@@ -7121,9 +7192,8 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
         return { byCode, byEmail, base: window.members };
       })();
 
-  let updatedLocal = 0, skippedDup = 0;
+  let updatedLocal = 0, skippedDup = 0, updatedBackend = 0;
 
-  let updatedBackend = 0;
   // Build a quick index of known member IDs for backend updates
   const idByCode = Object.create(null);
   const idByEmail = Object.create(null);
@@ -7155,10 +7225,9 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
             }
           }
         }
-      } catch(_) {}
+      } catch (_) {}
     }
-  } catch(_) {}
-
+  } catch (_) {}
 
   if (withProgress) {
     if (typeof ensureImportProgressUI === 'function') ensureImportProgressUI();
@@ -7197,36 +7266,22 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
         dup.state    = String(row.State).trim() || dup.state;
         dup.zone     = String(row.Zone).trim() || dup.zone;
         if (row.Password) dup.password = row.Password;
-        // Try backend update if we have an ID
+
+        // Queue backend update (avoid 404 on missing _id during import)
         try {
-          let memberId = dup._id || dup.id || idByCode[codeTrim.toLowerCase()] || idByEmail[emailTrim];
+          let memberId = dup._id || dup.id || idByCode[codeKey] || idByEmail[emailKey];
           if (!memberId && typeof dup.code === 'string') memberId = idByCode[String(dup.code).trim().toLowerCase()];
           if (!memberId && typeof dup.email === 'string') memberId = idByEmail[String(dup.email).trim().toLowerCase()];
-
-          if (memberId && navigator.onLine) {
-            const updatePayload = {
-              name: dup.name,
-              email: dup.email,
-              code: dup.code,
-              position: dup.position,
-              state: dup.state,
-              zone: dup.zone
-            };
-            if (row.Password) updatePayload.password = row.Password;
-
-            const uRes = /* queued update instead of direct PUT during import */ (queueMemberUpdate(row), { ok: true });
-
-            if (uRes.ok) {
-              updatedBackend++;
-            } else {
-              const uErr = await tryJson(uRes).catch(() => ({}));
-              errors.push(`Row ${i + 2}: Failed to update existing member (${uErr.message || uRes.status})`);
-            }
-          }
+          // Regardless of having an id or not, queue for upsert in sync
+          queueMemberUpdate({
+            _id: memberId,
+            name: dup.name, email: dup.email, code: dup.code,
+            position: dup.position, state: dup.state, zone: dup.zone
+          });
+          updatedBackend++; // counts as queued backend update
         } catch (e) {
-          errors.push(`Row ${i + 2}: Update error - ${e.message}`);
+          errors.push(`Row ${rowNumber}: Update error - ${e.message}`);
         }
-
 
         updatedLocal++;
         skippedDup++;
@@ -7310,8 +7365,6 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
       : [...newMembers];
   }
 
-  
-  
   // If 'updatedMembers' array exists from import, merge it too (by id/code/email)
   try {
     if (typeof updatedMembers !== "undefined" && Array.isArray(updatedMembers) && updatedMembers.length) {
@@ -7340,8 +7393,11 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
       window.currentMembers = window.members;
       if (typeof saveLocalMembers === 'function') saveLocalMembers(window.members);
     }
-  } catch (e) { console.warn('Post-import merge updatedMembers failed:', e); }
-// ---- Persist + refresh UI so user immediately sees imported/updated rows ----
+  } catch (e) {
+    console.warn('Post-import merge updatedMembers failed:', e);
+  }
+
+  // ---- Persist + refresh UI so user immediately sees imported/updated rows ----
   try {
     // De-duplicate by stable key (id, code, email) in case newMembers overlapped
     const keyOf = (m) => {
@@ -7374,7 +7430,8 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
   } catch (e) {
     console.error('Post-import commit error:', e);
   }
-if (withProgress && typeof finishImportProgress === 'function') {
+
+  if (withProgress && typeof finishImportProgress === 'function') {
     finishImportProgress(cancelled ? 'cancelled' : 'done');
   }
 
@@ -7388,7 +7445,9 @@ if (withProgress && typeof finishImportProgress === 'function') {
       showMessage(`Import completed with ${errors.length} issue(s). Check console.`, 'warning');
     }
   } else {
-    if (typeof showMessage === 'function') showMessage(`Import finished — Created: ${newMembers.length} • Updated (backend): ${updatedBackend} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup} • Errors: ${errors.length}`, errors.length ? 'warning' : 'success');
+    if (typeof showMessage === 'function') {
+      showMessage(`Import finished — Created: ${newMembers.length} • Updated (backend): ${updatedBackend} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup} • Errors: ${errors.length}`, 'success');
+    }
   }
 
   // Optional summary log
@@ -7396,36 +7455,8 @@ if (withProgress && typeof finishImportProgress === 'function') {
     const msg = `New: ${newMembers.length} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup}`;
     console.log('Import summary:', msg);
   } catch (_) {}
-
-
-                // ✅ Persist imported MEMBERS locally, queue for sync, and refresh UI
-                try {
-                  // Start from the live in-memory list (which already has duplicate edits)
-                  const current = Array.isArray(window.members) ? window.members.slice() : getLocalMembers();
-                  const merged = sortMembersAlpha([
-                    ...current,
-                    ...newMembers
-                  ]);
-                  saveLocalMembers(merged);            // write to localStorage
-                  window.members = merged;             // keep runtime cache in sync
-                  window.currentMembers = merged;
-
-                  // Queue offline sync so backend can be updated later
-                  if (newMembers.length) {
-                    const pending = getPendingSync();
-                    // Mark as pendingSync to make intent explicit
-                    pending.memberCreations.push(...newMembers.map(m => ({ ...m, pendingSync: true })));
-                    savePendingSync(pending);
-                  }
-
-                  // Refresh table now (uses LocalStorage + backend merge)
-                  if (typeof loadMembers === 'function') {
-                    await loadMembers(1, membersPerPage || 10);
-                  }
-                } catch (persistErr) {
-                  console.warn('Persistence after import failed:', persistErr);
-                }
 }
+
 
 function parseCSV(csvString) {
     const lines = csvString.split('\n');
@@ -10101,3 +10132,8 @@ function updateCertificatesSelectionUI() {
   window.__systemLoadFixBound = true;
 })();
 
+
+// Global error logger to pinpoint dynamic syntax issues
+window.addEventListener('error', function(e){
+  try { console.error('GLOBAL ERROR:', e.message, 'at', e.filename + ':' + e.lineno + ':' + e.colno); } catch (_) {}
+});
