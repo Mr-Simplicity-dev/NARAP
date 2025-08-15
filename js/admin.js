@@ -7309,15 +7309,15 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
 
       const codeUpper = String(row.Code).trim().toUpperCase();
       const codeKey   = codeUpper.toLowerCase();
-      const emailTrim = row.Email ? String(row.Email).trim() : '';
-      const emailKey  = emailTrim.toLowerCase();
+      const normEmail = row.Email ? String(row.Email).trim() : '';
+      const emailKey  = normEmail.toLowerCase();
 
       // Local duplicate check (by code or email)
       const dup = (codeKey && idx.byCode[codeKey]) || (emailKey && idx.byEmail[emailKey]);
       if (dup) {
         // Upsert locally so the table reflects new data
         dup.name     = String(row.Name).trim() || dup.name;
-        dup.email    = emailTrim || dup.email;
+        dup.email    = normEmail || dup.email;
         dup.code     = codeUpper || dup.code;
         dup.position = (row.Position ? String(row.Position) : (dup.position || 'MEMBER')).toUpperCase();
         dup.state    = String(row.State).trim() || dup.state;
@@ -7325,7 +7325,11 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
         if (row.Password) dup.password = row.Password;
         // Try backend update if we have an ID
         try {
-          let memberId = dup._id || dup.id || idByCode[codeTrim.toLowerCase()] || idByEmail[emailTrim];
+            // Normalize code/email from current row or dup object
+  const normCode  = String((row.Code ?? dup.code ?? '')).trim().toLowerCase();
+  const normEmail = String((row.Email ?? dup.email ?? '')).trim().toLowerCase();
+  let memberId = dup._id || dup.id || idByCode[normCode] || idByEmail[normEmail];
+
           if (!memberId && typeof dup.code === 'string') memberId = idByCode[String(dup.code).trim().toLowerCase()];
           if (!memberId && typeof dup.email === 'string') memberId = idByEmail[String(dup.email).trim().toLowerCase()];
 
@@ -7371,7 +7375,7 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
       // Build the member object to send/store
       const member = {
         name: String(row.Name).trim(),
-        email: emailTrim,
+        email: normEmail,
         code: codeUpper,
         position: (row.Position || 'MEMBER').toString().toUpperCase(),
         state: String(row.State).trim(),
