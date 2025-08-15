@@ -927,10 +927,14 @@ function __droppedRetry(arr){
 }
 if (typeof window.forceClearPendingChanges !== 'function') {
   window.forceClearPendingChanges = function(){
-    try { localStorage.removeItem('pendingChanges'); } catch(_){}
+    try {
+      localStorage.removeItem('narap_pending_sync'); // correct key
+      localStorage.removeItem('pendingChanges');     // legacy key
+    } catch(_) {}
     if (typeof updateSyncIndicators === 'function') updateSyncIndicators({pending:0, synced:0});
-    if (typeof showMessage === 'function') showMessage('Cleared stuck pending changes locally.', 'info');
-    console.info('forceClearPendingChanges: local pendingChanges removed');
+    if (typeof updateSyncStatus === 'function') updateSyncStatus();
+    if (typeof showMessage === 'function') showMessage('Cleared pending sync queue.', 'success');
+    console.info('forceClearPendingChanges: cleared narap_pending_sync and pendingChanges');
   };
 }
 
@@ -1155,6 +1159,7 @@ async function syncPendingChanges() {
     console.error('Failed to sync pending changes:', err);
     if (typeof showMessage === 'function') showMessage('Failed to sync pending changes', 'error');
   }
+  
   // === Finalize pending queue ===
   try {
     // Drop items that exceeded retry threshold
@@ -1178,19 +1183,24 @@ async function syncPendingChanges() {
       (remain.memberDeletes?.length || 0);
 
     if (totalRemain === 0) {
-      localStorage.removeItem('pendingChanges');
+      localStorage.removeItem('narap_pending_sync'); // correct key
+      localStorage.removeItem('pendingChanges');     // legacy key
     } else {
-      localStorage.setItem('pendingChanges', JSON.stringify(remain));
+      if (typeof savePendingSync === 'function') {
+        savePendingSync(remain); // uses narap_pending_sync internally
+      } else {
+        localStorage.setItem('narap_pending_sync', JSON.stringify(remain));
+      }
     }
 
     if (typeof updateSyncIndicators === 'function') {
       const syncedCount = (counts?.updated || 0) + (counts?.createdOrUpdated || 0);
       updateSyncIndicators({ pending: totalRemain, synced: syncedCount });
     }
+    if (typeof updateSyncStatus === 'function') updateSyncStatus();
   } catch (e) {
     console.error('Finalize pending queue failed:', e);
   }
-
 }
 
 
