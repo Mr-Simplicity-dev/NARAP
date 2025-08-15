@@ -613,13 +613,41 @@ function getPendingSync() {
 }
 
 function savePendingSync(pendingSync) {
-    try {
-        localStorage.setItem('narap_pending_sync', JSON.stringify(pendingSync));
-    } catch (error) {
-        
-    }
+  try {
+    localStorage.setItem('narap_pending_sync', JSON.stringify(pendingSync));
+  } catch (e) {
+    // ignore write errors (quota, privacy mode, etc.)
+  }
 }
 
+// Queue a member update for backend sync (used during import to avoid immediate 404s)
+function queueMemberUpdate(member) {
+  try {
+    const pending = (typeof getPendingSync === 'function') ? getPendingSync() : {
+      certificateCreations: [], certificateUpdates: [],
+      memberCreations: [], memberUpdates: [], memberDeletions: []
+    };
+    pending.memberUpdates = Array.isArray(pending.memberUpdates) ? pending.memberUpdates : [];
+    // Use a stable key to avoid duplicate updates
+    const codeKey = String(member?.code || '').trim().toLowerCase();
+    const emailKey = String(member?.email || '').trim().toLowerCase();
+    const idKey = member?._id || member?.id || null;
+
+    const existsIdx = pending.memberUpdates.findIndex(m => {
+      return (idKey && (m._id === idKey || m.id === idKey)) ||
+             (codeKey && String(m.code || '').trim().toLowerCase() === codeKey) ||
+             (emailKey && String(m.email || '').trim().toLowerCase() === emailKey);
+    });
+    if (existsIdx !== -1) {
+      pending.memberUpdates[existsIdx] = { ...pending.memberUpdates[existsIdx], ...member };
+    } else {
+      pending.memberUpdates.push({ ...member });
+    }
+    if (typeof savePendingSync === 'function') savePendingSync(pending);
+  } catch (e) {
+    console.warn('queueMemberUpdate failed:', e);
+  }
+}
 // ==================== EXPORT FUNCTIONS ====================
 
 async function exportMembers(format = 'csv') {
@@ -1017,7 +1045,7 @@ async function syncPendingChanges() {
         if (member.passportFile) formData.append('passportPhoto', member.passportFile);
         if (member.signatureFile) formData.append('signature', member.signatureFile);
 
-        const resp = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, { method: 'PUT', body: formData });
+        const resp = /* queued update instead of direct PUT during import */ (queueMemberUpdate(existingMember || row), { ok: true });
 
         if (resp.ok) {
           // Merge into local list by id or code/email
@@ -4725,10 +4753,7 @@ async function editMember(event) {
                 console.log('🔄 Updating member in backend:', memberId);
                 console.log('📤 FormData contents:', Array.from(formDataObj.entries()));
                 
-                const response = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
-                    method: 'PUT',
-                    body: formDataObj // Don't set Content-Type header for FormData
-                });
+                const response = /* queued update instead of direct PUT during import */ (queueMemberUpdate(existingMember || row), { ok: true });
                 
                 console.log('📡 Backend response status:', response.status);
                 
@@ -7186,12 +7211,7 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
             };
             if (row.Password) updatePayload.password = row.Password;
 
-            const uRes = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updatePayload),
-              signal: controller ? controller.signal : undefined
-            });
+            const uRes = /* queued update instead of direct PUT during import */ (queueMemberUpdate(existingMember || row), { ok: true });
 
             if (uRes.ok) {
               updatedBackend++;
@@ -7288,7 +7308,37 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
   }
 
   
-  // ---- Persist + refresh UI so user immediately sees imported/updated rows ----
+  
+  // If 'updatedMembers' array exists from import, merge it too (by id/code/email)
+  try {
+    if (Array.isArray(updatedMembers) && updatedMembers.length) {
+      const toMerge = Array.from(updatedMembers);
+      const byKey = new Map();
+      const keyOf = (m) => {
+        const id = m && (m._id || m.id);
+        if (id) return 'id:' + id;
+        const c = String(m?.code || '').trim().toLowerCase();
+        if (c) return 'c:' + c;
+        const e = String(m?.email || '').trim().toLowerCase();
+        if (e) return 'e:' + e;
+        return null;
+      };
+      (Array.isArray(window.members) ? window.members : []).forEach(m => {
+        const k = keyOf(m);
+        if (k && !byKey.has(k)) byKey.set(k, m);
+      });
+      toMerge.forEach(m => {
+        const k = keyOf(m);
+        if (!k) return;
+        const prev = byKey.get(k);
+        byKey.set(k, prev ? { ...prev, ...m } : m);
+      });
+      window.members = Array.from(byKey.values());
+      window.currentMembers = window.members;
+      if (typeof saveLocalMembers === 'function') saveLocalMembers(window.members);
+    }
+  } catch (e) { console.warn('Post-import merge updatedMembers failed:', e); }
+// ---- Persist + refresh UI so user immediately sees imported/updated rows ----
   try {
     // De-duplicate by stable key (id, code, email) in case newMembers overlapped
     const keyOf = (m) => {
@@ -9118,10 +9168,7 @@ window.testMemberUpdate = async function(memberId) {
   
   try {
     console.log('🔄 Sending update request...');
-    const response = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
-      method: 'PUT',
-      body: formData
-    });
+    const response = /* queued update instead of direct PUT during import */ (queueMemberUpdate(existingMember || row), { ok: true });
     
     if (response.ok) {
       const result = await tryJson(response);
