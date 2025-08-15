@@ -279,80 +279,9 @@ function getBackendUrl() {
 const backendUrl = getBackendUrl();
 
 // ---- Safe JSON helper: never throws on empty/invalid JSON bodies ----
-async function tryJson(res){
-  try { return await res.json(); } catch (_) { return null; }
+async function tryJson(res) { try { return await res.json(); } catch (_) { return null; } }
 
-// Safer JSON/text parsers for error bodies (non-throwing)
-async function safeJson(res) { try { return await res.json(); } catch { return null; } }
-async function safeText(res) { try { return await res.text(); } catch { return ''; } }
-
-// Find a member's backend id by code/email (used for upsert fallback)
-async function findMemberIdByCodeOrEmail(code, email) {
-  try {
-    const r = await fetch(`${backendUrl}/api/users/getUsers`);
-    if (!r.ok) return null;
-    const arr = await safeJson(r);
-    if (!Array.isArray(arr)) return null;
-    const c = String(code || '').trim().toLowerCase();
-    const e = String(email || '').trim().toLowerCase();
-    const hit = arr.find(m =>
-      String(m?.code || '').trim().toLowerCase() === c ||
-      (e && String(m?.email || '').trim().toLowerCase() === e)
-    );
-    return hit ? (hit._id || hit.id) : null;
-  } catch { return null; }
-}
-
-// Upsert using FormData: POST addUser; if 400, fallback to PUT updateUser/:id
-async function upsertMemberFormData(formData, member, controller) {
-  let res;
-  try {
-    res = await fetch(`${backendUrl}/api/users/addUser`, {
-      method: 'POST',
-      body: formData,
-      signal: controller ? controller.signal : undefined
-    });
-  } catch (e) {
-    return { ok: false, status: 0, message: e?.message || 'Network error' };
-  }
-
-  if (res.ok) {
-    const body = await safeJson(res);
-    const id = body?.data?._id || body?._id || body?.id || null;
-    return { ok: true, mode: 'created', id, status: res.status };
-  }
-
-  // If it's a validation/duplicate case, try updating instead of failing
-  if (res.status === 400) {
-    const id = await findMemberIdByCodeOrEmail(member?.code, member?.email);
-    if (id) {
-      try {
-        const u = await fetch(`${backendUrl}/api/users/updateUser/${id}`, {
-          method: 'PUT',
-          body: formData,
-          signal: controller ? controller.signal : undefined
-        });
-        if (u.ok) {
-          const uBody = await safeJson(u);
-          const finalId = uBody?._id || uBody?.id || id;
-          return { ok: true, mode: 'updated', id: finalId, status: u.status };
-        }
-        const uErr = (await safeJson(u)) || { message: await safeText(u) };
-        return { ok: false, status: u.status, message: uErr?.message || `Update failed (${u.status})` };
-      } catch (e) {
-        return { ok: false, status: 0, message: e?.message || 'Update network error' };
-      }
-    }
-  }
-
-  const err = (await safeJson(res)) || { message: await safeText(res) };
-  return { ok: false, status: res.status, message: err?.message || `Create failed (${res.status})` };
-}
-}
 window.backendUrl = backendUrl;
-
-
-
 function updateBackendUrl(newUrl) {
     if (!newUrl || typeof newUrl !== 'string') {
         
@@ -610,8 +539,58 @@ function saveLocalMembers(members) {
     const arr = Array.isArray(members) ? members : [];
     const sorted = sortMembersAlpha(arr);
     localStorage.setItem('narap_members', JSON.stringify(sorted));
-  } catch (_) { /* no-op */ }
+  } catch (error) {
+    // ignore write errors (quota, privacy mode, etc.)
+  }
 }
+
+
+// --- UI refresh helper for members (safe) ---
+function refreshMembersUI() {
+  try {
+    const per =
+      Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
+    const page =
+      (typeof window.membersCurrentPage === 'number' && window.membersCurrentPage > 0)
+        ? window.membersCurrentPage
+        : 1;
+
+    if (typeof window.applyMemberFilters === 'function') {
+      // Often re-renders internally
+      window.applyMemberFilters();
+    } else if (typeof window.loadMembers === 'function') {
+      // Loader path
+      window.loadMembers(page, per);
+    } else if (typeof window.displayMembers === 'function' && Array.isArray(window.currentMembers)) {
+      // Direct render fallback
+      const total = window.currentMembers.length;
+      const totalPages = Math.max(1, Math.ceil(total / per));
+      const safePage = Math.min(page, totalPages);
+      const start = (safePage - 1) * per;
+      const slice = window.currentMembers.slice(start, start + per);
+
+      window.displayMembers(slice, total, safePage, totalPages, per);
+      if (typeof window.renderPagination === 'function') {
+        window.renderPagination(safePage, totalPages, total, per, 'members');
+      }
+    }
+  } catch (e) {
+    console.error('refreshMembersUI render error:', e);
+  }
+
+  // Update counters
+  try {
+    const count = Array.isArray(window.currentMembers) ? window.currentMembers.length : 0;
+    const ids = ['totalMembers', 'membersCount'];
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(count);
+    }
+  } catch (e) {
+    console.error('refreshMembersUI counter error:', e);
+  }
+}
+
 
 function getPendingSync() {
     try {
@@ -846,7 +825,6 @@ ${certificateCSV}`;
 }
 
 // ==================== SYNC FUNCTIONS ====================
-
 async function syncPendingChanges() {
   // Small helpers (safe fallbacks if your globals don't exist)
   const _safeJson = typeof safeJson === 'function' ? safeJson : async (res) => {
@@ -914,9 +892,11 @@ async function syncPendingChanges() {
     for (const cert of pending.certificateCreations || []) {
       try {
         const c = { ...cert };
-        if (!c.number || !String(c.number).trim()) c.number = (typeof generateUniqueCertificateNumber === 'function')
-          ? generateUniqueCertificateNumber()
-          : `N/${Date.now()}`;
+        if (!c.number || !String(c.number).trim()) {
+          c.number = (typeof generateUniqueCertificateNumber === 'function')
+            ? generateUniqueCertificateNumber()
+            : `N/${Date.now()}`;
+        }
         if (!c.certificateNumber || !String(c.certificateNumber).trim()) c.certificateNumber = c.number;
 
         const resp = await fetch(`${backendUrl}/api/certificates`, {
@@ -927,7 +907,6 @@ async function syncPendingChanges() {
         if (resp.ok) {
           syncedCount++;
         } else {
-          // keep for retry
           remain.certificateCreations.push(cert);
         }
       } catch {
@@ -983,20 +962,37 @@ async function syncPendingChanges() {
         }
 
         if (upsertResult.ok) {
-          // Update local cache
-          const list = Array.isArray(window.currentMembers) ? window.currentMembers : (window.members || []);
-          const idx = list.findIndex(m => (m._id || m.id) === (member._id || member.id) || String(m.code).trim().toLowerCase() === String(member.code).trim().toLowerCase());
-          if (idx !== -1) {
-            if (upsertResult.id) list[idx]._id = upsertResult.id;
-            list[idx].isFromBackend = true;
-            list[idx].pendingSync = false;
-            if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
-            window.members = list;
-            window.currentMembers = list;
-          }
+          // Update/insert into local cache by id or code/email
+          let list = Array.isArray(window.currentMembers) ? window.currentMembers.slice() : (getLocalMembers() || []);
+          const keyCode = String(member.code || '').trim().toLowerCase();
+          const keyEmail = String(member.email || '').trim().toLowerCase();
+          const keyId = (upsertResult.id || member._id || member.id) || null;
+
+          let idx = -1;
+          if (keyId) idx = list.findIndex(m => (m._id || m.id) === keyId);
+          if (idx === -1 && keyCode) idx = list.findIndex(m => String(m.code || '').trim().toLowerCase() === keyCode);
+          if (idx === -1 && keyEmail) idx = list.findIndex(m => String(m.email || '').trim().toLowerCase() === keyEmail);
+
+          const merged = {
+            ...(idx !== -1 ? list[idx] : {}),
+            ...member,
+            _id: keyId || (idx !== -1 ? (list[idx]._id || list[idx].id) : undefined),
+            isFromBackend: true,
+            pendingSync: false,
+            updatedAt: new Date().toISOString()
+          };
+
+          if (idx !== -1) list[idx] = merged;
+          else list.push(merged);
+
+          if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+          window.members = list;
+          window.currentMembers = list;
+
+          if (typeof refreshMembersUI === 'function') refreshMembersUI();
           syncedCount++;
         } else {
-          console.error('AddUser/UpdateUser error:', upsertResult.message || '(no message)', upsertResult, member);
+          console.error('AddUser/UpdateUser error:', upsertResult.message || '(no message)', upsertResult);
           remain.memberCreations.push(member); // keep for retry
         }
       } catch (error) {
@@ -1008,8 +1004,8 @@ async function syncPendingChanges() {
     // ---- Members: UPDATE ----
     for (const member of pending.memberUpdates || []) {
       try {
-        const id = member._id || member.id;
-        if (!id) { remain.memberUpdates.push(member); continue; }
+        const memberId = member._id || member.id;
+        if (!memberId) { remain.memberUpdates.push(member); continue; }
 
         const formData = new FormData();
         formData.append('name', member.name || '');
@@ -1021,17 +1017,34 @@ async function syncPendingChanges() {
         if (member.passportFile) formData.append('passportPhoto', member.passportFile);
         if (member.signatureFile) formData.append('signature', member.signatureFile);
 
-        const resp = await fetch(`${backendUrl}/api/users/updateUser/${id}`, { method: 'PUT', body: formData });
+        const resp = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, { method: 'PUT', body: formData });
+
         if (resp.ok) {
-          // clear pending flag locally
-          const list = Array.isArray(window.currentMembers) ? window.currentMembers : (window.members || []);
-          const idx = list.findIndex(m => (m._id || m.id) === id);
-          if (idx !== -1) {
-            list[idx].pendingSync = false;
-            if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
-            window.members = list;
-            window.currentMembers = list;
-          }
+          // Merge into local list by id or code/email
+          let list = Array.isArray(window.currentMembers) ? window.currentMembers.slice() : (getLocalMembers() || []);
+          const keyCode = String(member.code || '').trim().toLowerCase();
+          const keyEmail = String(member.email || '').trim().toLowerCase();
+
+          let idx = list.findIndex(m => (m._id || m.id) === memberId);
+          if (idx === -1 && keyCode) idx = list.findIndex(m => String(m.code || '').trim().toLowerCase() === keyCode);
+          if (idx === -1 && keyEmail) idx = list.findIndex(m => String(m.email || '').trim().toLowerCase() === keyEmail);
+
+          const merged = {
+            ...(idx !== -1 ? list[idx] : {}),
+            ...member,
+            _id: memberId,
+            pendingSync: false,
+            updatedAt: new Date().toISOString()
+          };
+
+          if (idx !== -1) list[idx] = merged;
+          else list.push(merged);
+
+          if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+          window.members = list;
+          window.currentMembers = list;
+
+          if (typeof refreshMembersUI === 'function') refreshMembersUI();
           syncedCount++;
         } else {
           const err = (await _tryJson(resp)) || {};
@@ -1074,9 +1087,8 @@ async function syncPendingChanges() {
       remain.certificateCreations.length +
       remain.certificateUpdates.length;
 
-    if (typeof savePendingSync === 'function') {
-      savePendingSync(remain);
-    }
+    if (typeof savePendingSync === 'function') { savePendingSync(remain); }
+    try { if (typeof refreshMembersUI === 'function') refreshMembersUI(); } catch (_) {}
 
     // ---- Feedback + status
     if (syncedCount > 0) {
