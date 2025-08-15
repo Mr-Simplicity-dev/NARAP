@@ -7024,34 +7024,15 @@ window.__importProgress = { done:0, total:0, label:'' };
 window.__importCancel = false;
 window.__importAbortController = null;
 
-function microYield(){
-  return new Promise(function(resolve){
-    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function(){ resolve(); });
-    else setTimeout(resolve,0);
-  });
-}
-
-
 function ensureImportProgressUI() {
-  // Prefer elements INSIDE the Import modal
-  var host = document.querySelector('#importModal .modal-content') || document.getElementById('importModal') || document.body;
-
-  // Ensure status container exists inside host
-  var status = host.querySelector('#importStatus');
+  var status = document.getElementById('importStatus');
   if (!status) {
+    var modalBody = document.querySelector('#importModal .modal-body') || document.body;
     status = document.createElement('div');
     status.id = 'importStatus';
-    host.appendChild(status);
+    modalBody.appendChild(status);
   }
-
-  // Move any stray existing progress bar into the modal
-  var existing = document.getElementById('importProgress');
-  if (existing && !host.contains(existing)) {
-    status.appendChild(existing);
-  }
-
-  // Create progress bar inside host if missing
-  if (!host.querySelector('#importProgress')) {
+  if (!document.getElementById('importProgress')) {
     var barWrap = document.createElement('div');
     barWrap.id = 'importProgress';
     barWrap.style.cssText = 'width:100%;background:#eee;border-radius:6px;overflow:hidden;height:12px;margin-top:8px;';
@@ -7062,12 +7043,12 @@ function ensureImportProgressUI() {
     status.appendChild(barWrap);
 
     var row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-top:6px;';
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between;margin-top:6px;';
 
-    var text = document.createElement('div');
+    var text = document.createElement('small');
     text.id = 'importProgressText';
-    text.style.cssText = 'font-size:12px;color:#333;';
     text.textContent = '0%';
+    text.style.cssText = 'display:inline-block;';
     row.appendChild(text);
 
     var btn = document.createElement('button');
@@ -7086,35 +7067,20 @@ function ensureImportProgressUI() {
 
 function updateImportProgress(done, total, label) {
   window.__importProgress = { done: done||0, total: total||0, label: label||'' };
-  var host = document.querySelector('#importModal') || document;
-  var inner = host.querySelector('#importProgressInner') || document.getElementById('importProgressInner');
-  var txt   = host.querySelector('#importProgressText') || document.getElementById('importProgressText');
+  var inner = document.getElementById('importProgressInner');
+  var txt = document.getElementById('importProgressText');
   if (!inner || !txt) return;
   var pct = total ? Math.floor((done/total)*100) : 0;
-  try {
-    if (typeof window.__lastPctLogged !== 'number' || window.__lastPctLogged !== pct) {
-      window.__lastPctLogged = pct;
-      if (typeof console !== 'undefined' && console.debug) console.debug('[Import]', label || '', done + '/' + total, pct + '%');
-    }
-  } catch(e){}
   inner.style.width = pct + '%';
   txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')';
-  // rAF repaint guard
-  if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(function(){
-      inner.style.width = pct + '%';
-      txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')';
-    });
-  }
 }
 
 function resetImportProgress() {
   window.__importProgress = { done:0, total:0, label:'' };
   window.__importCancel = false;
-  var host = document.querySelector('#importModal') || document;
-  var inner = host.querySelector('#importProgressInner') || document.getElementById('importProgressInner');
-  var txt   = host.querySelector('#importProgressText') || document.getElementById('importProgressText');
-  var btn   = host.querySelector('#importCancelBtn') || document.getElementById('importCancelBtn');
+  var inner = document.getElementById('importProgressInner');
+  var txt = document.getElementById('importProgressText');
+  var btn = document.getElementById('importCancelBtn');
   if (inner) inner.style.width = '0%';
   if (txt) txt.textContent = '0%';
   if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; btn.style.opacity = '1'; }
@@ -7131,8 +7097,7 @@ window.cancelImport = function(){
 };
 
 function finishImportProgress(state) {
-  var host = document.querySelector('#importModal') || document;
-  var btn   = host.querySelector('#importCancelBtn') || document.getElementById('importCancelBtn');
+  var btn = document.getElementById('importCancelBtn');
   if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
   var p = window.__importProgress || {done:0,total:1};
   var label = (state === 'cancelled') ? 'Cancelled' : 'Done';
@@ -7284,16 +7249,49 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
 
   let updatedLocal = 0, skippedDup = 0;
 
+  let updatedBackend = 0;
+  // Build a quick index of known member IDs for backend updates
+  const idByCode = Object.create(null);
+  const idByEmail = Object.create(null);
+  try {
+    for (const m of idx.base) {
+      const code = (m.code || m.Code || '').toString().trim().toLowerCase();
+      const email = (m.email || m.Email || '').toString().trim().toLowerCase();
+      const id = m._id || m.id;
+      if (id) {
+        if (code) idByCode[code] = id;
+        if (email) idByEmail[email] = id;
+      }
+    }
+    // If we have no IDs, try to fetch once from backend to enrich map
+    if (navigator.onLine && Object.keys(idByCode).length === 0 && Object.keys(idByEmail).length === 0) {
+      try {
+        const r = await fetch(`${backendUrl}/api/users/getUsers`);
+        if (r.ok) {
+          const arr = await tryJson(r);
+          if (Array.isArray(arr)) {
+            for (const m of arr) {
+              const code = (m.code || '').toString().trim().toLowerCase();
+              const email = (m.email || '').toString().trim().toLowerCase();
+              const id = m._id || m.id;
+              if (id) {
+                if (code) idByCode[code] = id;
+                if (email) idByEmail[email] = id;
+              }
+            }
+          }
+        }
+      } catch(_) {}
+    }
+  } catch(_) {}
+
+
   if (withProgress) {
     if (typeof ensureImportProgressUI === 'function') ensureImportProgressUI();
     if (typeof updateImportProgress === 'function') updateImportProgress(0, total, 'Importing members');
   }
 
   for (let i = 0; i < parsedData.length; i++) {
-    if (withProgress && (i % 10 === 0)) { try { await microYield(); } catch(e){} }
-    if (withProgress && (i % 10 === 0)) { try { await microYield(); } catch(e){} }
-
-      if (withProgress && (i % 10 === 0)) { await microYield(); }
     if (window.__importCancel) { cancelled = true; break; }
 
     const row = parsedData[i];
@@ -7325,6 +7323,41 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
         dup.state    = String(row.State).trim() || dup.state;
         dup.zone     = String(row.Zone).trim() || dup.zone;
         if (row.Password) dup.password = row.Password;
+        // Try backend update if we have an ID
+        try {
+          let memberId = dup._id || dup.id || idByCode[codeTrim.toLowerCase()] || idByEmail[emailTrim];
+          if (!memberId && typeof dup.code === 'string') memberId = idByCode[String(dup.code).trim().toLowerCase()];
+          if (!memberId && typeof dup.email === 'string') memberId = idByEmail[String(dup.email).trim().toLowerCase()];
+
+          if (memberId && navigator.onLine) {
+            const updatePayload = {
+              name: dup.name,
+              email: dup.email,
+              code: dup.code,
+              position: dup.position,
+              state: dup.state,
+              zone: dup.zone
+            };
+            if (row.Password) updatePayload.password = row.Password;
+
+            const uRes = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatePayload),
+              signal: controller ? controller.signal : undefined
+            });
+
+            if (uRes.ok) {
+              updatedBackend++;
+            } else {
+              const uErr = await tryJson(uRes).catch(() => ({}));
+              errors.push(`Row ${i + 2}: Failed to update existing member (${uErr.message || uRes.status})`);
+            }
+          }
+        } catch (e) {
+          errors.push(`Row ${i + 2}: Update error - ${e.message}`);
+        }
+
 
         updatedLocal++;
         skippedDup++;
@@ -7422,7 +7455,7 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
       showMessage(`Import completed with ${errors.length} issue(s). Check console.`, 'warning');
     }
   } else {
-    if (typeof showMessage === 'function') showMessage('Members imported successfully!', 'success');
+    if (typeof showMessage === 'function') showMessage(`Import finished — Created: ${newMembers.length} • Updated (backend): ${updatedBackend} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup} • Errors: ${errors.length}`, errors.length ? 'warning' : 'success');
   }
 
   // Optional summary log
@@ -7639,7 +7672,6 @@ if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Im
   if (withProgress && cancelled) { finishImportProgress('cancelled'); }
 }
   for (let i = 0; i < parsedData.length; i++) {
-      if (withProgress && (i % 10 === 0)) { await microYield(); }
       if (window.__importCancel) { cancelled = true; break; }
 const row = parsedData[i];
     const rowNumber = i + 2; // header is row 1
@@ -7702,10 +7734,8 @@ const row = parsedData[i];
       if (!resp.ok) {
         const err = await tryJson(resp).catch(() => ({}));
         errors.push(`Row ${rowNumber}: ${err.message || 'Failed to create certificate'}`);
-        if (withProgress && typeof updateImportProgress === 'function') { updateImportProgress(i + 1, total, 'Importing certificates'); }
         continue;
       }
-      if (withProgress && typeof updateImportProgress === 'function') { updateImportProgress(i + 1, total, 'Importing certificates'); }
 
       const result = await tryJson(resp);
       created.push(result.certificate || result);
@@ -7849,7 +7879,6 @@ async function importCertificateData(parsedData, withProgress=false) {
   };
 
   for (let i = 0; i < parsedData.length; i++) {
-      if (withProgress && (i % 10 === 0)) { await microYield(); }
     const row = parsedData[i];
     const rowNumber = i + 2; // header is row 1
 
