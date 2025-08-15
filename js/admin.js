@@ -1045,7 +1045,7 @@ async function syncPendingChanges() {
         if (member.passportFile) formData.append('passportPhoto', member.passportFile);
         if (member.signatureFile) formData.append('signature', member.signatureFile);
 
-        const resp = /* queued update instead of direct PUT during import */ (queueMemberUpdate(existingMember || row), { ok: true });
+        const resp = /* queued update instead of direct PUT during import */ (queueMemberUpdate(row), { ok: true });
 
         if (resp.ok) {
           // Merge into local list by id or code/email
@@ -4753,7 +4753,7 @@ async function editMember(event) {
                 console.log('🔄 Updating member in backend:', memberId);
                 console.log('📤 FormData contents:', Array.from(formDataObj.entries()));
                 
-                const response = /* queued update instead of direct PUT during import */ (queueMemberUpdate(existingMember || row), { ok: true });
+                const response = /* queued update instead of direct PUT during import */ (queueMemberUpdate(row), { ok: true });
                 
                 console.log('📡 Backend response status:', response.status);
                 
@@ -7087,6 +7087,9 @@ async function importData(){
 
 
 async function importMembersData(parsedData, withProgress = false) {
+  // ensure a local placeholder for existingMember to avoid ReferenceError in legacy code
+  let existingMember = undefined;
+
   console.log('🔄 Importing members data...');
 
   // Ensure the local list exists
@@ -7211,7 +7214,7 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
             };
             if (row.Password) updatePayload.password = row.Password;
 
-            const uRes = /* queued update instead of direct PUT during import */ (queueMemberUpdate(existingMember || row), { ok: true });
+            const uRes = /* queued update instead of direct PUT during import */ (queueMemberUpdate(row), { ok: true });
 
             if (uRes.ok) {
               updatedBackend++;
@@ -7311,7 +7314,7 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
   
   // If 'updatedMembers' array exists from import, merge it too (by id/code/email)
   try {
-    if (Array.isArray(updatedMembers) && updatedMembers.length) {
+    if (typeof updatedMembers !== "undefined" && Array.isArray(updatedMembers) && updatedMembers.length) {
       const toMerge = Array.from(updatedMembers);
       const byKey = new Map();
       const keyOf = (m) => {
@@ -9168,7 +9171,7 @@ window.testMemberUpdate = async function(memberId) {
   
   try {
     console.log('🔄 Sending update request...');
-    const response = /* queued update instead of direct PUT during import */ (queueMemberUpdate(existingMember || row), { ok: true });
+    const response = /* queued update instead of direct PUT during import */ (queueMemberUpdate(row), { ok: true });
     
     if (response.ok) {
       const result = await tryJson(response);
