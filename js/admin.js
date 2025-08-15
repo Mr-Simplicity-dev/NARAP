@@ -7287,7 +7287,41 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
       : [...newMembers];
   }
 
-  if (withProgress && typeof finishImportProgress === 'function') {
+  
+  // ---- Persist + refresh UI so user immediately sees imported/updated rows ----
+  try {
+    // De-duplicate by stable key (id, code, email) in case newMembers overlapped
+    const keyOf = (m) => {
+      const id = m && (m._id || m.id);
+      if (id) return 'id:' + id;
+      const c = String(m?.code || '').trim().toLowerCase();
+      if (c) return 'c:' + c;
+      const e = String(m?.email || '').trim().toLowerCase();
+      if (e) return 'e:' + e;
+      return null;
+    };
+    const seen = new Set();
+    const list = [];
+    (Array.isArray(window.members) ? window.members : []).forEach(m => {
+      const k = keyOf(m);
+      if (!k || !seen.has(k)) { if (k) seen.add(k); list.push(m); }
+    });
+    // Persist + expose
+    if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+    window.members = list;
+    window.currentMembers = list;
+
+    // UI refresh (prefer filters → loader → direct render)
+    if (typeof refreshMembersUI === 'function') {
+      refreshMembersUI();
+    } else if (typeof loadMembers === 'function') {
+      const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
+      try { await loadMembers(1, per); } catch(_) {}
+    }
+  } catch (e) {
+    console.error('Post-import commit error:', e);
+  }
+if (withProgress && typeof finishImportProgress === 'function') {
     finishImportProgress(cancelled ? 'cancelled' : 'done');
   }
 
