@@ -3310,7 +3310,7 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
     'akwa-ibom': 'Akwa Ibom', 'akwa_ibom': 'Akwa Ibom',
     'cross-river': 'Cross River', 'cross_river': 'Cross River',
     'nassarawa': 'Nasarawa',
-    'osun state': 'Osun', 'oyo state': 'Oyo', 'kogi state': 'Kogi', 'lagos state': 'Lagos',
+    'osun state': 'Osun', 'oyo state': 'Oyo', 'kogi state': 'Kogi', 'kwara state': 'Kwara','lagos state': 'Lagos',
     'akwa ibom state': 'Akwa Ibom', 'cross river state': 'Cross River'
   };
 
