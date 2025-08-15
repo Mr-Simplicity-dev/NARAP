@@ -278,6 +278,24 @@ function getBackendUrl() {
 
 const backendUrl = getBackendUrl();
 
+// Check if user exists by code or email (uses backend /api/users/exists)
+async function lookupUserExists({ code, email }) {
+  try {
+    const params = new URLSearchParams();
+    if (code && String(code).trim()) params.append('code', String(code).trim());
+    if (email && String(email).trim()) params.append('email', String(email).trim());
+    if ([...params.keys()].length === 0) return { exists: false };
+    const resp = await fetch(`${backendUrl}/api/users/exists?${params.toString()}`, { method: 'GET' });
+    if (!resp.ok) return { exists: false };
+    const data = await tryJson(resp) || {};
+    return { exists: !!data.exists, id: data.id || null, code: data.code, email: data.email };
+  } catch (_) {
+    return { exists: false };
+  }
+}
+
+
+
 // ---- Safe JSON helper: never throws on empty/invalid JSON bodies ----
 async function tryJson(res) { try { return await res.json(); } catch (_) { return null; } }
 
@@ -1021,10 +1039,13 @@ async function syncPendingChanges() {
       }
     }
 
-    // ---- Members: CREATE (with UPSERT fallback) ----
-    for (const member of pending.memberCreations || []) {
+    // ---- Members: CREATE (with existence check to avoid duplicate code/email)
+for (const member of pending.memberCreations || []) {
       try {
         if (!navigator.onLine) { remain.memberCreations.push(member); continue; }
+
+        // Check if user already exists by code/email to avoid 400 duplicates
+        const exists = await lookupUserExists({ code: member.code, email: member.email });
 
         // Build FormData
         const formData = new FormData();
@@ -1044,7 +1065,12 @@ async function syncPendingChanges() {
           upsertResult = await upsertMemberFormData(formData, member);
         } else {
           // Fallback: naive create only
-          const r = await fetch(`${backendUrl}/api/users/addUser`, { method: 'POST', body: formData });
+          let r;
+          if (exists.exists && exists.id) {
+            r = await fetch(`${backendUrl}/api/users/updateUser/${exists.id}`,{ method:'PUT', body: formData });
+          } else {
+            r = await fetch(`${backendUrl}/api/users/addUser`, { method: 'POST', body: formData });
+          }
           upsertResult = { ok: r.ok, status: r.status, message: r.ok ? '' : ((await _safeJson(r))?.message || `${r.status}`) };
         }
 
@@ -1091,7 +1117,11 @@ async function syncPendingChanges() {
     // ---- Members: UPDATE ----
     for (const member of pending.memberUpdates || []) {
       try {
-        const memberId = member._id || member.id;
+        let memberId = member._id || member.id;
+        if (!memberId) {
+          const exists = await lookupUserExists({ code: member.code, email: member.email });
+          if (exists.exists && exists.id) { memberId = exists.id; }
+        }
         if (!memberId) { remain.memberUpdates.push(member); continue; }
 
         const formData = new FormData();
