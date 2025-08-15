@@ -10137,3 +10137,183 @@ function updateCertificatesSelectionUI() {
 window.addEventListener('error', function(e){
   try { console.error('GLOBAL ERROR:', e.message, 'at', e.filename + ':' + e.lineno + ':' + e.colno); } catch (_) {}
 });
+
+
+
+/* ====== MEMBERS EXPORT BY STATE (DROP-IN) ====== */
+
+function normalizeStateForExport(s) {
+  let t = String(s || '').trim();
+  t = t.replace(/\s+state$/i, '').trim();
+  t = t.replace(/[-_]+/g, ' ').trim();
+  const key = t.toLowerCase();
+  const ALIASES = {
+    'abuja': 'FCT', 'abuja fct': 'FCT', 'fct abuja': 'FCT',
+    'federal capital territory': 'FCT',
+    'akwa-ibom': 'Akwa Ibom', 'akwa ibom state': 'Akwa Ibom',
+    'cross-river': 'Cross River', 'cross river state': 'Cross River',
+    'nassarawa': 'Nasarawa'
+  };
+  if (ALIASES[key]) return ALIASES[key];
+  return t.replace(/\b\w/g, ch => ch.toUpperCase());
+}
+
+const NIGERIA_STATES_FOR_EXPORT = [
+  'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta',
+  'Ebonyi','Edo','Ekiti','Enugu','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi',
+  'Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba',
+  'Yobe','Zamfara','FCT'
+];
+
+if (typeof convertToCSV !== 'function') {
+  function convertToCSV(rows) {
+    const arr = Array.isArray(rows) ? rows : [];
+    const cols = ['name','email','code','position','state','zone'];
+    const esc = v => {
+      const s = (v == null ? '' : String(v));
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const header = cols.join(',');
+    const body = arr.map(m => cols.map(k => {
+      const cap = k.charAt(0).toUpperCase() + k.slice(1);
+      return esc(m[k] ?? m[cap] ?? m[k.toUpperCase()] ?? '');
+    }).join(',')).join('\n');
+    return header + (body ? '\n' + body : '');
+  }
+}
+
+if (typeof downloadFile !== 'function') {
+  function downloadFile(content, filename, contentType) {
+    try {
+      const blob = new Blob([content], { type: contentType || 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename || 'download.txt';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('downloadFile failed:', e);
+    }
+  }
+}
+
+async function getAllMembersForExport() {
+  try {
+    if (typeof backendUrl !== 'undefined') {
+      const r = await fetch(`${backendUrl}/api/users/getUsers`);
+      if (r.ok) {
+        const data = (typeof tryJson === 'function') ? await tryJson(r) : await r.json().catch(() => null);
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.data)) return data.data;
+        if (data && data.success && Array.isArray(data.success.data)) return data.success.data;
+      }
+    }
+  } catch (_) {}
+  if (typeof getLocalMembers === 'function') return getLocalMembers() || [];
+  return Array.isArray(window.members) ? window.members : [];
+}
+
+async function exportMembersFiltered(format = 'csv', stateFilter = 'ALL') {
+  const allMembers = await getAllMembersForExport();
+  if (!Array.isArray(allMembers) || allMembers.length === 0) {
+    if (typeof showMessage === 'function') showMessage('No members to export', 'warning');
+    return;
+  }
+
+  let members = allMembers.slice();
+
+  if (stateFilter && stateFilter !== 'ALL') {
+    const wanted = normalizeStateForExport(stateFilter);
+    members = members.filter(m => normalizeStateForExport(m.state || m.State) === wanted);
+  }
+
+  if (members.length === 0) {
+    const label = (stateFilter === 'ALL') ? 'all states' : stateFilter;
+    if (typeof showMessage === 'function') showMessage(`No members found for ${label}`, 'warning');
+    return;
+  }
+
+  let content, filename, contentType;
+  const stamp = new Date().toISOString().split('T')[0];
+  const slug = (stateFilter === 'ALL' ? 'all' : normalizeStateForExport(stateFilter).replace(/\s+/g, '_').toLowerCase());
+
+  if (format === 'csv') {
+    content = convertToCSV(members);
+    if (!content) { if (typeof showMessage === 'function') showMessage('Failed to convert members to CSV', 'error'); return; }
+    filename = `members_${slug}_${stamp}.csv`;
+    contentType = 'text/csv';
+  } else if (format === 'json') {
+    content = JSON.stringify(members, null, 2);
+    filename = `members_${slug}_${stamp}.json`;
+    contentType = 'application/json';
+  } else {
+    if (typeof showMessage === 'function') showMessage('Unsupported export format', 'error');
+    return;
+  }
+
+  downloadFile(content, filename, contentType);
+  if (typeof showMessage === 'function') {
+    showMessage(`Exported ${members.length} member(s) for ${stateFilter === 'ALL' ? 'all states' : normalizeStateForExport(stateFilter)}.`, 'success');
+  }
+}
+
+function exportMembersPrompt() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999';
+
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:8px;padding:16px;width:90%;max-width:420px;box-shadow:0 10px 30px rgba(0,0,0,.2);font-family:system-ui,Arial,sans-serif';
+  box.innerHTML = ''
+    + '<h3 style="margin:0 0 12px;font-size:18px;">Export Members by State</h3>'
+    + '<label style="display:block;margin-bottom:8px;font-size:14px;">Choose a state:</label>'
+    + '<select id="exportStateSelect" style="width:100%;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:6px;margin-bottom:12px;">'
+    + '  <option value="ALL">All States</option>'
+    + '</select>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+    + '  <button id="cancelExportState" style="padding:8px 12px;border:1px solid #ddd;background:#f8f9fa;border-radius:6px;cursor:pointer;">Cancel</button>'
+    + '  <button id="exportStateCSV" style="padding:8px 12px;background:#ffc107;color:#000;border:none;border-radius:6px;cursor:pointer;">Export CSV</button>'
+    + '  <button id="exportStateJSON" style="padding:8px 12px;background:#17a2b8;color:#fff;border:none;border-radius:6px;cursor:pointer;">Export JSON</button>'
+    + '</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  (async () => {
+    const sel = box.querySelector('#exportStateSelect');
+    const seen = new Set(NIGERIA_STATES_FOR_EXPORT.map(s => s.toLowerCase()));
+    try {
+      const all = await getAllMembersForExport();
+      for (const m of all) {
+        const s = normalizeStateForExport(m.state || m.State || '');
+        if (s && !seen.has(s.toLowerCase())) {
+          seen.add(s.toLowerCase());
+          NIGERIA_STATES_FOR_EXPORT.push(s);
+        }
+      }
+    } catch (_) {}
+
+    const sorted = [...new Set(NIGERIA_STATES_FOR_EXPORT)].sort((a, b) => a.localeCompare(b));
+    for (const st of sorted) {
+      const opt = document.createElement('option');
+      opt.value = st;
+      opt.textContent = st;
+      sel.appendChild(opt);
+    }
+  })();
+
+  const close = () => overlay.remove();
+  box.querySelector('#cancelExportState').onclick = close;
+  box.querySelector('#exportStateCSV').onclick = async () => {
+    const val = box.querySelector('#exportStateSelect').value || 'ALL';
+    close();
+    await exportMembersFiltered('csv', val);
+  };
+  box.querySelector('#exportStateJSON').onclick = async () => {
+    const val = box.querySelector('#exportStateSelect').value || 'ALL';
+    close();
+    await exportMembersFiltered('json', val);
+  };
+}
+
+function exportMembersButton() { exportMembersPrompt(); }
