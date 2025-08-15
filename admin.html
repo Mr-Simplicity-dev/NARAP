@@ -18,31 +18,11 @@
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js">
   </script>
- 
-<style>
-#forceSyncBtn {
-    display: inline-block;
-    padding: 8px 14px;
-    margin-left: 10px;
-    background-color: #28a745; /* Green background */
-    color: #fff; /* White text */
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s ease;
-}
-#forceSyncBtn:hover {
-    background-color: #218838; /* Darker green on hover */
-}
-</style>
-
-</head>
+ </head>
  <body>
   <!-- Messages Container -->
   <div class="messages" id="messages">
-  <button id="forceSyncBtn">Force Sync All</button>
-</div>
+  </div>
   <!-- Login Section -->
   <div class="login-container" id="loginSection">
    <div class="login-card">
@@ -1032,6 +1012,12 @@
         Clear Certificates
        </button>
 
+      
+       <button class="btn btn-dark" onclick="forceClearPendingChanges()">
+        <i class="fas fa-broom"></i>
+        Resolve Pending
+       </button>
+    
       </div>
       <!-- System Information -->
       <div class="stats-grid">
