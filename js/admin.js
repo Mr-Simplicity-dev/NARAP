@@ -10166,6 +10166,7 @@ function normalizeStateForExport(s) {
     'abuja': 'FCT',
     'abia': 'Abia',
     'lagos': 'Lagos',
+    'delta': 'Delta',
     'edo': 'Edo',
     'bauchi': 'Bauchi',
     'akwa ibom': 'Akwa Ibom',
