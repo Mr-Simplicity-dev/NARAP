@@ -1211,6 +1211,8 @@ async function syncPendingChanges() {
   }
   
   // === Finalize pending queue ===
+  // Ensure 'remain' exists
+  if (typeof remain === 'undefined' || !remain) { var remain = { memberCreations: [], memberUpdates: [], memberDeletes: [] }; }
   try {
     // Drop items that exceeded retry threshold
     const droppedList = [
@@ -1237,9 +1239,13 @@ const totalRemain =
   try {
     const qraw = localStorage.getItem('narap_pending_sync');
     const q = qraw ? JSON.parse(qraw) : remain;
-    const item = (q.memberCreations&&q.memberCreations[0]) || (q.memberUpdates&&q.memberUpdates[0]) || (q.memberDeletes&&q.memberDeletes[0]) || null;
+    const item = (q.memberCreations && q.memberCreations[0]) ||
+                 (q.memberUpdates && q.memberUpdates[0])   ||
+                 (q.memberDeletes && q.memberDeletes[0])   || null;
     console.warn('Exactly 1 pending remains. Item details:', item);
-    if (typeof showMessage === 'function' && item) showMessage('1 item still pending: ' + (item.code||item.name||'unknown'), 'warning');
+    if (typeof showMessage === 'function' && item) {
+      showMessage('1 item still pending: ' + (item.code || item.name || 'unknown'), 'warning');
+    }
   } catch(e) { console.warn('Could not log remaining pending item:', e); }
 }
 if (totalRemain === 0) {
