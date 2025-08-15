@@ -1039,152 +1039,92 @@ async function syncPendingChanges() {
       }
     }
 
-    // ---- Members: CREATE (with existence check to avoid duplicate code/email)
-for (const member of pending.memberCreations || []) {
-      try {
-        if (!navigator.onLine) { remain.memberCreations.push(member); continue; }
+    // ---- Members: CREATE (with UPSERT fallback) ----
+    for (const member of pending.memberCreations || []) {
+        try {
+          // Build FormData
+          const formData = new FormData();
+          const fields = ['name','email','code','position','state','zone','password'];
+          for (const k of fields) if (member[k] != null) formData.append(k, String(member[k]));
 
-        // Check if user already exists by code/email to avoid 400 duplicates
-        const exists = await lookupUserExists({ code: member.code, email: member.email });
+          // Attach files if present in member object (paths/blobs may vary in your codebase)
+          if (member.passport instanceof File) formData.append('passport', member.passport);
+          if (member.signature instanceof File) formData.append('signature', member.signature);
 
-        // Build FormData
-        const formData = new FormData();
-        formData.append('name', member.name || '');
-        if (member.email && member.email.trim()) formData.append('email', member.email.trim());
-        formData.append('password', member.password || 'defaultPassword123');
-        formData.append('code', member.code || '');
-        formData.append('position', member.position || '');
-        formData.append('state', member.state || '');
-        formData.append('zone', member.zone || '');
-        if (member.passportFile) formData.append('passportPhoto', member.passportFile);
-        if (member.signatureFile) formData.append('signature', member.signatureFile);
-
-        // Upsert (uses your existing helper if present)
-        let upsertResult;
-        if (typeof upsertMemberFormData === 'function') {
-          upsertResult = await upsertMemberFormData(formData, member);
-        } else {
-          // Fallback: naive create only
-          let r;
-          if (exists.exists && exists.id) {
-            r = await fetch(`${backendUrl}/api/users/updateUser/${exists.id}`,{ method:'PUT', body: formData });
+          const upsertResult = await upsertMemberFormData(member, formData);
+          if (upsertResult.ok) {
+            counts.createdOrUpdated = (counts.createdOrUpdated || 0) + 1;
           } else {
-            r = await fetch(`${backendUrl}/api/users/addUser`, { method: 'POST', body: formData });
+            remain.memberCreations.push(member);
+            errors.push({ member, error: 'Create/Update failed', details: upsertResult });
           }
-          upsertResult = { ok: r.ok, status: r.status, message: r.ok ? '' : ((await _safeJson(r))?.message || `${r.status}`) };
+        } catch (err) {
+          remain.memberCreations.push(member);
+          errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
         }
 
-        if (upsertResult.ok) {
-          // Update/insert into local cache by id or code/email
-          let list = Array.isArray(window.currentMembers) ? window.currentMembers.slice() : (getLocalMembers() || []);
-          const keyCode = String(member.code || '').trim().toLowerCase();
-          const keyEmail = String(member.email || '').trim().toLowerCase();
-          const keyId = (upsertResult.id || member._id || member.id) || null;
+        try {
+          // Build FormData
+          const formData = new FormData();
+          const fields = ['name','email','code','position','state','zone','password'];
+          for (const k of fields) if (member[k] != null) formData.append(k, String(member[k]));
 
-          let idx = -1;
-          if (keyId) idx = list.findIndex(m => (m._id || m.id) === keyId);
-          if (idx === -1 && keyCode) idx = list.findIndex(m => String(m.code || '').trim().toLowerCase() === keyCode);
-          if (idx === -1 && keyEmail) idx = list.findIndex(m => String(m.email || '').trim().toLowerCase() === keyEmail);
+          // Attach files if present in member object (paths/blobs may vary in your codebase)
+          if (member.passport instanceof File) formData.append('passport', member.passport);
+          if (member.signature instanceof File) formData.append('signature', member.signature);
 
-          const merged = {
-            ...(idx !== -1 ? list[idx] : {}),
-            ...member,
-            _id: keyId || (idx !== -1 ? (list[idx]._id || list[idx].id) : undefined),
-            isFromBackend: true,
-            pendingSync: false,
-            updatedAt: new Date().toISOString()
-          };
-
-          if (idx !== -1) list[idx] = merged;
-          else list.push(merged);
-
-          if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
-          window.members = list;
-          window.currentMembers = list;
-
-          if (typeof refreshMembersUI === 'function') refreshMembersUI();
-          syncedCount++;
-        } else {
-          console.error('AddUser/UpdateUser error:', upsertResult.message || '(no message)', upsertResult);
-          remain.memberCreations.push(member); // keep for retry
+          const upsertResult = await upsertMemberFormData(member, formData);
+          if (upsertResult.ok) {
+            counts.createdOrUpdated = (counts.createdOrUpdated || 0) + 1;
+          } else {
+            remain.memberCreations.push(member);
+            errors.push({ member, error: 'Create/Update failed', details: upsertResult });
+          }
+        } catch (err) {
+          remain.memberCreations.push(member);
+          errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
         }
-      } catch (error) {
-        console.error('AddUser sync error:', error);
-        remain.memberCreations.push(member);
-      }
     }
 
     // ---- Members: UPDATE ----
     for (const member of pending.memberUpdates || []) {
-      try {
-        let memberId = member._id || member.id;
-        if (!memberId) {
-          const exists = await lookupUserExists({ code: member.code, email: member.email });
-          if (exists.exists && exists.id) { memberId = exists.id; }
-        }
-        if (!memberId) { remain.memberUpdates.push(member); continue; }
+        try {
+          const formData = new FormData();
+          const fields = ['name','email','code','position','state','zone','password'];
+          for (const k of fields) if (member[k] != null) formData.append(k, String(member[k]));
+          if (member.passport instanceof File) formData.append('passport', member.passport);
+          if (member.signature instanceof File) formData.append('signature', member.signature);
 
-        const formData = new FormData();
-        formData.append('name', member.name || '');
-        if (member.email && member.email.trim()) formData.append('email', member.email.trim());
-        formData.append('code', member.code || '');
-        formData.append('position', member.position || '');
-        formData.append('state', member.state || '');
-        formData.append('zone', member.zone || '');
-        if (member.passportFile) formData.append('passportPhoto', member.passportFile);
-        if (member.signatureFile) formData.append('signature', member.signatureFile);
-
-        let resp = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, { method: 'PUT', body: formData });
-        if (resp && resp.status === 404) {
-          // Upsert fallback: create if missing
-          const fd = new FormData();
-          fd.append('name', member.name || '');
-          if (member.email && member.email.trim()) fd.append('email', member.email.trim());
-          fd.append('password', member.password || 'defaultPassword123');
-          fd.append('code', member.code || '');
-          fd.append('position', member.position || '');
-          fd.append('state', member.state || '');
-          fd.append('zone', member.zone || '');
-          if (member.passportFile) fd.append('passportPhoto', member.passportFile);
-          if (member.signatureFile) fd.append('signature', member.signatureFile);
-          resp = await fetch(`${backendUrl}/api/users/addUser`, { method: 'POST', body: fd });
-        }
-
-        if (resp.ok) {
-          // Merge into local list by id or code/email
-          let list = Array.isArray(window.currentMembers) ? window.currentMembers.slice() : (getLocalMembers() || []);
-          const keyCode = String(member.code || '').trim().toLowerCase();
-          const keyEmail = String(member.email || '').trim().toLowerCase();
-
-          let idx = list.findIndex(m => (m._id || m.id) === memberId);
-          if (idx === -1 && keyCode) idx = list.findIndex(m => String(m.code || '').trim().toLowerCase() === keyCode);
-          if (idx === -1 && keyEmail) idx = list.findIndex(m => String(m.email || '').trim().toLowerCase() === keyEmail);
-
-          const merged = {
-            ...(idx !== -1 ? list[idx] : {}),
-            ...member,
-            _id: memberId,
-            pendingSync: false,
-            updatedAt: new Date().toISOString()
-          };
-
-          if (idx !== -1) list[idx] = merged;
-          else list.push(merged);
-
-          if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
-          window.members = list;
-          window.currentMembers = list;
-
-          if (typeof refreshMembersUI === 'function') refreshMembersUI();
-          syncedCount++;
-        } else {
-          const err = (await _tryJson(resp)) || {};
-          console.error('UpdateUser error:', err.message || resp.status, member);
+          const upsertResult = await upsertMemberFormData(member, formData);
+          if (upsertResult.ok) {
+            counts.updated = (counts.updated || 0) + 1;
+          } else {
+            remain.memberUpdates.push(member);
+            errors.push({ member, error: 'Update failed', details: upsertResult });
+          }
+        } catch (err) {
           remain.memberUpdates.push(member);
+          errors.push({ member, error: 'Exception during update', details: err?.message || String(err) });
         }
-      } catch (e) {
-        remain.memberUpdates.push(member);
-      }
+
+        try {
+          const formData = new FormData();
+          const fields = ['name','email','code','position','state','zone','password'];
+          for (const k of fields) if (member[k] != null) formData.append(k, String(member[k]));
+          if (member.passport instanceof File) formData.append('passport', member.passport);
+          if (member.signature instanceof File) formData.append('signature', member.signature);
+
+          const upsertResult = await upsertMemberFormData(member, formData);
+          if (upsertResult.ok) {
+            counts.updated = (counts.updated || 0) + 1;
+          } else {
+            remain.memberUpdates.push(member);
+            errors.push({ member, error: 'Update failed', details: upsertResult });
+          }
+        } catch (err) {
+          remain.memberUpdates.push(member);
+          errors.push({ member, error: 'Exception during update', details: err?.message || String(err) });
+        }
     }
 
     // ---- Members: DELETE ----
@@ -10456,3 +10396,69 @@ function exportMembersPrompt() {
 }
 
 function exportMembersButton() { exportMembersPrompt(); }
+
+
+// Upsert with graceful recovery: prefers PUT (server id), falls back to POST, and recovers from 400/404
+async function upsertMemberFormData(member, formData) {
+  // 1) Resolve server ID by code/email first (avoids stale local IDs)
+  const pre = await lookupUserExists({ code: member.code, email: member.email });
+  if (pre.exists && pre.id) {
+    // Try PUT first
+    let r = await fetch(`${backendUrl}/api/users/updateUser/${pre.id}`, { method: 'PUT', body: formData });
+    if (r.ok) return { ok: true, status: r.status };
+    // If 404 (not found), re-check and try again; else try conflict-recovery
+    if (r.status === 404) {
+      const re = await lookupUserExists({ code: member.code, email: member.email });
+      if (re.exists && re.id) {
+        r = await fetch(`${backendUrl}/api/users/updateUser/${re.id}`, { method: 'PUT', body: formData });
+        if (r.ok) return { ok: true, status: r.status };
+      }
+      // couldn't resolve; try POST as new
+      r = await fetch(`${backendUrl}/api/users/addUser`, { method: 'POST', body: formData });
+      if (r.ok) return { ok: true, status: r.status };
+      // If POST 400 duplicate, resolve and PUT to resolved id
+      if (r.status === 400) {
+        const z = await lookupUserExists({ code: member.code, email: member.email });
+        if (z.exists && z.id) {
+          const r2 = await fetch(`${backendUrl}/api/users/updateUser/${z.id}`, { method: 'PUT', body: formData });
+          if (r2.ok) return { ok: true, status: r2.status };
+          return { ok: false, status: r2.status, message: (await _safeJson(r2))?.message || 'PUT after POST-400 failed' };
+        }
+      }
+      return { ok: false, status: r.status, message: (await _safeJson(r))?.message || 'PUT 404 and POST failed' };
+    }
+    // If other failure (e.g., 400 validation), attempt POST then conflict recovery
+    if (r.status === 400) {
+      let p = await fetch(`${backendUrl}/api/users/addUser`, { method: 'POST', body: formData });
+      if (p.ok) return { ok: true, status: p.status };
+      if (p.status === 400) {
+        const re = await lookupUserExists({ code: member.code, email: member.email });
+        if (re.exists && re.id) {
+          const r2 = await fetch(`${backendUrl}/api/users/updateUser/${re.id}`, { method: 'PUT', body: formData });
+          if (r2.ok) return { ok: true, status: r2.status };
+          return { ok: false, status: r2.status, message: (await _safeJson(r2))?.message || 'PUT after POST-400 failed' };
+        }
+      }
+      return { ok: false, status: p.status, message: (await _safeJson(p))?.message || 'POST after PUT-400 failed' };
+    }
+    // Unknown non-OK
+    return { ok: false, status: r.status, message: (await _safeJson(r))?.message || 'PUT failed' };
+  }
+
+  // 2) Not found: Try POST create
+  let p = await fetch(`${backendUrl}/api/users/addUser`, { method: 'POST', body: formData });
+  if (p.ok) return { ok: true, status: p.status };
+
+  // If create fails due to duplicate (400), resolve and PUT
+  if (p.status === 400) {
+    const re = await lookupUserExists({ code: member.code, email: member.email });
+    if (re.exists && re.id) {
+      const r2 = await fetch(`${backendUrl}/api/users/updateUser/${re.id}`, { method: 'PUT', body: formData });
+      if (r2.ok) return { ok: true, status: r2.status };
+      return { ok: false, status: r2.status, message: (await _safeJson(r2))?.message || 'PUT after POST-400 failed' };
+    }
+  }
+
+  return { ok: false, status: p.status, message: (await _safeJson(p))?.message || 'Create failed' };
+}
+
