@@ -914,6 +914,36 @@ ${certificateCSV}`;
 // ==================== SYNC FUNCTIONS ====================
 
 // === Pending queue helpers ===
+
+// === Inspect pending queue helper ===
+if (typeof window.debugPending !== 'function') {
+  window.debugPending = function(){
+    try {
+      const raw = localStorage.getItem('narap_pending_sync');
+      const q = raw ? JSON.parse(raw) : {memberCreations:[], memberUpdates:[], memberDeletes:[]};
+      const c = (q.memberCreations||[]).length;
+      const u = (q.memberUpdates||[]).length;
+      const d = (q.memberDeletes||[]).length;
+      console.table([
+        {kind:'creations', count:c},
+        {kind:'updates',   count:u},
+        {kind:'deletes',   count:d},
+      ]);
+      // Print a sample of the first stuck item for quick diagnosis
+      const sample = (q.memberCreations&&q.memberCreations[0]) || (q.memberUpdates&&q.memberUpdates[0]) || (q.memberDeletes&&q.memberDeletes[0]) || null;
+      if (sample) {
+        console.log('Sample pending item:', sample);
+      } else {
+        console.log('No pending items.');
+      }
+      return q;
+    } catch(e){
+      console.error('debugPending failed:', e);
+      return null;
+    }
+  }
+}
+
 function __bumpAttempts(item){
   if (!item) return item;
   item.__attempts = (item.__attempts || 0) + 1;
@@ -1068,11 +1098,21 @@ async function syncPendingChanges() {
             // increment counts if present; otherwise ignore
             if (typeof counts !== 'undefined') { counts.updated = (counts.updated || 0) + 1; }
           } else {
-            if (remain && remain.memberUpdates) remain.memberUpdates.push(__bumpAttempts(member));
+            if (remain && remain.memberUpdates) if ((member.__attempts||0) >= 1) {
+  console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
+  if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+} else {
+  remain.memberUpdates.push(__bumpAttempts(member));
+}
             if (typeof errors !== 'undefined') errors.push({ member, error: 'Upsert failed', details: upsertResult });
           }
         } catch (err) {
-          if (remain && remain.memberUpdates) remain.memberUpdates.push(__bumpAttempts(member));
+          if (remain && remain.memberUpdates) if ((member.__attempts||0) >= 1) {
+  console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
+  if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+} else {
+  remain.memberUpdates.push(__bumpAttempts(member));
+}
           if (typeof errors !== 'undefined') errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
         }
     }
@@ -1096,11 +1136,21 @@ async function syncPendingChanges() {
             // increment counts if present; otherwise ignore
             if (typeof counts !== 'undefined') { counts.updated = (counts.updated || 0) + 1; }
           } else {
-            if (remain && remain.memberUpdates) remain.memberUpdates.push(__bumpAttempts(member));
+            if (remain && remain.memberUpdates) if ((member.__attempts||0) >= 1) {
+  console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
+  if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+} else {
+  remain.memberUpdates.push(__bumpAttempts(member));
+}
             if (typeof errors !== 'undefined') errors.push({ member, error: 'Upsert failed', details: upsertResult });
           }
         } catch (err) {
-          if (remain && remain.memberUpdates) remain.memberUpdates.push(__bumpAttempts(member));
+          if (remain && remain.memberUpdates) if ((member.__attempts||0) >= 1) {
+  console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
+  if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+} else {
+  remain.memberUpdates.push(__bumpAttempts(member));
+}
           if (typeof errors !== 'undefined') errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
         }
     }
@@ -1177,12 +1227,22 @@ async function syncPendingChanges() {
     remain.memberUpdates   = __filterRetry(remain.memberUpdates);
     remain.memberDeletes   = __filterRetry(remain.memberDeletes);
 
-    const totalRemain =
+    /*logOnePending*/
+const totalRemain =
       (remain.memberCreations?.length || 0) +
       (remain.memberUpdates?.length || 0) +
       (remain.memberDeletes?.length || 0);
 
-    if (totalRemain === 0) {
+    if (totalRemain === 1) {
+  try {
+    const qraw = localStorage.getItem('narap_pending_sync');
+    const q = qraw ? JSON.parse(qraw) : remain;
+    const item = (q.memberCreations&&q.memberCreations[0]) || (q.memberUpdates&&q.memberUpdates[0]) || (q.memberDeletes&&q.memberDeletes[0]) || null;
+    console.warn('Exactly 1 pending remains. Item details:', item);
+    if (typeof showMessage === 'function' && item) showMessage('1 item still pending: ' + (item.code||item.name||'unknown'), 'warning');
+  } catch(e) { console.warn('Could not log remaining pending item:', e); }
+}
+if (totalRemain === 0) {
       localStorage.removeItem('narap_pending_sync'); // correct key
       localStorage.removeItem('pendingChanges');     // legacy key
     } else {
