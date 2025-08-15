@@ -3337,8 +3337,6 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
         }
         
         // Merge backend and local members properly
-        const mergedMembers = [...backendMembers];
-        
         // Get pending deletions to exclude them from local members
         const pendingSync = getPendingSync();
         const pendingDeletions = pendingSync.memberDeletions || [];
@@ -3504,6 +3502,14 @@ filteredMembers = sortMembersAlpha(filteredMembers);
         
         // Fallback to local storage
         const localMembers = getLocalMembers();
+
+// Merge backend and local members by code/email; local values win on conflicts
+const byKey = new Map();
+const keyOf = (m) => { const c=String(m?.code||'').trim().toLowerCase(); if (c) return 'c:'+c; const e=String(m?.email||'').trim().toLowerCase(); if (e) return 'e:'+e; return null; };
+backendMembers.forEach(m => { const k = keyOf(m); if (k) byKey.set(k, m); });
+localMembers.forEach(lm => { const k = keyOf(lm); if (!k) return; const ex = byKey.get(k); byKey.set(k, ex ? { ...ex, ...lm } : lm); });
+const mergedMembers = Array.from(byKey.values());
+
 localMembers = sortMembersAlpha(localMembers);
         if (typeof window !== 'undefined') {
             window.currentMembers = localMembers;
@@ -7309,15 +7315,15 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
 
       const codeUpper = String(row.Code).trim().toUpperCase();
       const codeKey   = codeUpper.toLowerCase();
-      const normEmail = row.Email ? String(row.Email).trim() : '';
-      const emailKey  = normEmail.toLowerCase();
+      const emailTrim = row.Email ? String(row.Email).trim() : '';
+      const emailKey  = emailTrim.toLowerCase();
 
       // Local duplicate check (by code or email)
       const dup = (codeKey && idx.byCode[codeKey]) || (emailKey && idx.byEmail[emailKey]);
       if (dup) {
         // Upsert locally so the table reflects new data
         dup.name     = String(row.Name).trim() || dup.name;
-        dup.email    = normEmail || dup.email;
+        dup.email    = emailTrim || dup.email;
         dup.code     = codeUpper || dup.code;
         dup.position = (row.Position ? String(row.Position) : (dup.position || 'MEMBER')).toUpperCase();
         dup.state    = String(row.State).trim() || dup.state;
@@ -7325,11 +7331,7 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
         if (row.Password) dup.password = row.Password;
         // Try backend update if we have an ID
         try {
-            // Normalize code/email from current row or dup object
-  const normCode  = String((row.Code ?? dup.code ?? '')).trim().toLowerCase();
-  const normEmail = String((row.Email ?? dup.email ?? '')).trim().toLowerCase();
-  let memberId = dup._id || dup.id || idByCode[normCode] || idByEmail[normEmail];
-
+          let memberId = dup._id || dup.id || idByCode[codeTrim.toLowerCase()] || idByEmail[emailTrim];
           if (!memberId && typeof dup.code === 'string') memberId = idByCode[String(dup.code).trim().toLowerCase()];
           if (!memberId && typeof dup.email === 'string') memberId = idByEmail[String(dup.email).trim().toLowerCase()];
 
@@ -7375,7 +7377,7 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
       // Build the member object to send/store
       const member = {
         name: String(row.Name).trim(),
-        email: normEmail,
+        email: emailTrim,
         code: codeUpper,
         position: (row.Position || 'MEMBER').toString().toUpperCase(),
         state: String(row.State).trim(),
@@ -7480,25 +7482,6 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
                   saveLocalMembers(merged);            // write to localStorage
                   window.members = merged;             // keep runtime cache in sync
                   window.currentMembers = merged;
-                  // Immediately show the merged results so user sees updates right away
-                  try {
-                    const perPage = (typeof membersPerPage !== 'undefined' && membersPerPage) ? membersPerPage : 10;
-                    const totalItemsNow = merged.length;
-                    const totalPagesNow = Math.max(1, Math.ceil(totalItemsNow / perPage));
-                    if (typeof displayMembers === 'function') {
-                      displayMembers(
-                        merged.slice(0, perPage),
-                        totalItemsNow,
-                        1,
-                        totalPagesNow,
-                        perPage
-                      );
-                    }
-                    if (typeof renderPagination === 'function') {
-                      renderPagination(1, totalPagesNow, totalItemsNow, perPage, 'members');
-                    }
-                  } catch(_) {}
-
 
                   // Queue offline sync so backend can be updated later
                   if (newMembers.length) {
