@@ -912,6 +912,28 @@ ${certificateCSV}`;
 }
 
 // ==================== SYNC FUNCTIONS ====================
+
+// === Pending queue helpers ===
+function __bumpAttempts(item){
+  if (!item) return item;
+  item.__attempts = (item.__attempts || 0) + 1;
+  return item;
+}
+function __filterRetry(arr){
+  return (Array.isArray(arr) ? arr : []).filter(m => (m && (m.__attempts || 0) < 3));
+}
+function __droppedRetry(arr){
+  return (Array.isArray(arr) ? arr : []).filter(m => (m && (m.__attempts || 0) >= 3));
+}
+if (typeof window.forceClearPendingChanges !== 'function') {
+  window.forceClearPendingChanges = function(){
+    try { localStorage.removeItem('pendingChanges'); } catch(_){}
+    if (typeof updateSyncIndicators === 'function') updateSyncIndicators({pending:0, synced:0});
+    if (typeof showMessage === 'function') showMessage('Cleared stuck pending changes locally.', 'info');
+    console.info('forceClearPendingChanges: local pendingChanges removed');
+  };
+}
+
 async function syncPendingChanges() {
   const errors = [];
 
@@ -1042,11 +1064,11 @@ async function syncPendingChanges() {
             // increment counts if present; otherwise ignore
             if (typeof counts !== 'undefined') { counts.updated = (counts.updated || 0) + 1; }
           } else {
-            if (remain && remain.memberUpdates) remain.memberUpdates.push(member);
+            if (remain && remain.memberUpdates) remain.memberUpdates.push(__bumpAttempts(member));
             if (typeof errors !== 'undefined') errors.push({ member, error: 'Upsert failed', details: upsertResult });
           }
         } catch (err) {
-          if (remain && remain.memberUpdates) remain.memberUpdates.push(member);
+          if (remain && remain.memberUpdates) remain.memberUpdates.push(__bumpAttempts(member));
           if (typeof errors !== 'undefined') errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
         }
     }
@@ -1070,11 +1092,11 @@ async function syncPendingChanges() {
             // increment counts if present; otherwise ignore
             if (typeof counts !== 'undefined') { counts.updated = (counts.updated || 0) + 1; }
           } else {
-            if (remain && remain.memberUpdates) remain.memberUpdates.push(member);
+            if (remain && remain.memberUpdates) remain.memberUpdates.push(__bumpAttempts(member));
             if (typeof errors !== 'undefined') errors.push({ member, error: 'Upsert failed', details: upsertResult });
           }
         } catch (err) {
-          if (remain && remain.memberUpdates) remain.memberUpdates.push(member);
+          if (remain && remain.memberUpdates) remain.memberUpdates.push(__bumpAttempts(member));
           if (typeof errors !== 'undefined') errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
         }
     }
@@ -1133,6 +1155,42 @@ async function syncPendingChanges() {
     console.error('Failed to sync pending changes:', err);
     if (typeof showMessage === 'function') showMessage('Failed to sync pending changes', 'error');
   }
+  // === Finalize pending queue ===
+  try {
+    // Drop items that exceeded retry threshold
+    const droppedList = [
+      ...__droppedRetry(remain.memberCreations),
+      ...__droppedRetry(remain.memberUpdates),
+      ...__droppedRetry(remain.memberDeletes),
+    ];
+    if (droppedList.length) {
+      console.warn('Dropping permanently failed pending items after 3 attempts:', droppedList);
+      if (typeof showMessage === 'function') showMessage('Dropped ' + droppedList.length + ' permanently failing pending item(s).', 'warning');
+    }
+
+    remain.memberCreations = __filterRetry(remain.memberCreations);
+    remain.memberUpdates   = __filterRetry(remain.memberUpdates);
+    remain.memberDeletes   = __filterRetry(remain.memberDeletes);
+
+    const totalRemain =
+      (remain.memberCreations?.length || 0) +
+      (remain.memberUpdates?.length || 0) +
+      (remain.memberDeletes?.length || 0);
+
+    if (totalRemain === 0) {
+      localStorage.removeItem('pendingChanges');
+    } else {
+      localStorage.setItem('pendingChanges', JSON.stringify(remain));
+    }
+
+    if (typeof updateSyncIndicators === 'function') {
+      const syncedCount = (counts?.updated || 0) + (counts?.createdOrUpdated || 0);
+      updateSyncIndicators({ pending: totalRemain, synced: syncedCount });
+    }
+  } catch (e) {
+    console.error('Finalize pending queue failed:', e);
+  }
+
 }
 
 
