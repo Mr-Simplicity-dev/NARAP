@@ -3272,256 +3272,115 @@ async function exportAllData() {
 
 // ==================== MEMBER FUNCTIONS ====================
 
+
 async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter = '', stateFilter = '') {
-    try {
-        
-        
-        let backendMembers = [];
-        let localMembers = getLocalMembers();
-        
-        // Try to fetch from backend if online
-        if (navigator.onLine) {
-            try {
-                const response = await fetch(`${backendUrl}/api/users/members`);
-                
-                if (response.ok) {
-                    const data = await tryJson(response);
-                    
-                    
-                    // Handle different response formats
-                    if (Array.isArray(data)) {
-                        backendMembers = data;
-                        
-                    } else if (data && Array.isArray(data.members)) {
-                        backendMembers = data.members;
-                        
-                    } else if (data && Array.isArray(data.data)) {
-                        backendMembers = data.data;
-                        
-                    } else if (data && data.success && Array.isArray(data.data)) {
-                        backendMembers = data.data;
-                        
-                    } else {
-                        
-                        backendMembers = [];
-                    }
-                    
-                    // Debug photo data from backend
-                    console.log('🔍 Backend members received:', backendMembers.length);
-                    if (backendMembers.length > 0) {
-                        console.log('🔍 Sample member photo data:', {
-                            name: backendMembers[0].name,
-                            passportPhoto: backendMembers[0].passportPhoto,
-                            passport: backendMembers[0].passport,
-                            signature: backendMembers[0].signature
-                        });
-                        
-                        // Check all members for photo data
-                        backendMembers.forEach((member, index) => {
-                            if (member.passportPhoto || member.passport) {
-                                console.log(`🔍 Member ${index + 1} (${member.name}):`, {
-                                    passportPhoto: member.passportPhoto,
-                                    passport: member.passport,
-                                    constructedUrl: getImageUrl(member.passportPhoto || member.passport)
-                                });
-                            }
-                        });
-                    }
-                    
-                    // Don't immediately save backend members to local storage
-                    // We'll merge them properly below
-                }
-            } catch (error) {
-                
-            }
-        }
-        
-        // Merge backend and local members properly
-        // Get pending deletions to exclude them from local members
-        const pendingSync = getPendingSync();
-        const pendingDeletions = pendingSync.memberDeletions || [];
-        
-        // Add local members that don't exist in backend and aren't pending deletion
-        localMembers.forEach(localMember => {
-            const existsInBackend = backendMembers.find(backendMember => 
-                backendMember._id === localMember._id || 
-                backendMember.id === localMember.id ||
-                backendMember.code === localMember.code
-            );
-            
-            const isPendingDeletion = pendingDeletions.some(deletion => 
-                deletion._id === localMember._id || 
-                deletion.id === localMember.id ||
-                deletion.code === localMember.code
-            );
-            
-            if (!existsInBackend && !isPendingDeletion) {
-                mergedMembers.push({ ...localMember, isFromBackend: false });
-            }
-        });
-        
-        // Sort by creation date (newest first)
-        mergedMembers.sort((a, b) => {
-            const dateA = new Date(a.createdAt || a.dateAdded || 0);
-            const dateB = new Date(b.createdAt || b.dateAdded || 0);
-            return dateB - dateA;
-        });
-        
-        // Store in global state
-        if (typeof window !== 'undefined') {
-            window.currentMembers = mergedMembers;
-        }
-        
-        // Save merged members to local storage
-        saveLocalMembers(mergedMembers);
-        
-        // Apply all filters
-        let filteredMembers = mergedMembers;
-filteredMembers = sortMembersAlpha(filteredMembers);
-        
-        // Apply search filter if provided
-        if (searchTerm && searchTerm.trim()) {
-            const searchLower = searchTerm.toLowerCase().trim();
-            console.log('🔍 Searching for:', searchLower);
-            
-            filteredMembers = filteredMembers.filter(member => {
-                const matches = (
-                    (member.name && member.name.toLowerCase().includes(searchLower)) ||
-                    (member.email && member.email.toLowerCase().includes(searchLower)) ||
-                    (member.code && member.code.toLowerCase().includes(searchLower)) ||
-                    (member.position && member.position.toLowerCase().includes(searchLower)) ||
-                    (member.state && member.state.toLowerCase().includes(searchLower)) ||
-                    (member.zone && member.zone.toLowerCase().includes(searchLower))
-                );
-                
-                if (matches) {
-                    console.log(`✅ Found search match: ${member.name} (${member.code})`);
-                }
-                
-                return matches;
-            });
-            
-            console.log(`🔍 Search results: ${filteredMembers.length} members found for "${searchTerm}"`);
-        }
-        
-        // Apply position filter if provided
-        if (positionFilter && positionFilter.trim()) {
-            console.log('🔍 Filtering by position:', positionFilter);
-            
-            filteredMembers = filteredMembers.filter(member => {
-                const matches = member.position && member.position === positionFilter;
-                
-                if (matches) {
-                    console.log(`✅ Found position match: ${member.name} (${member.position})`);
-                }
-                
-                return matches;
-            });
-            
-            console.log(`🔍 Position filter results: ${filteredMembers.length} members found for position "${positionFilter}"`);
-        }
-        
-        // Apply state filter if provided
-        if (stateFilter && stateFilter.trim()) {
-            console.log('🔍 Filtering by state:', stateFilter);
-            
-            // Debug: Log all member states before filtering
-            console.log('🔍 All member states before filtering:', filteredMembers.map(m => ({ name: m.name, state: m.state, stateType: typeof m.state })));
-            
-            filteredMembers = filteredMembers.filter(member => {
-                // Debug: Log member state data
-                console.log(`🔍 Checking member: ${member.name}, state: "${member.state}" (type: ${typeof member.state})`);
-                
-                // More flexible matching - handle different formats
-                let matches = false;
-                if (member.state) {
-                    // Exact match
-                    if (member.state === stateFilter) {
-                        matches = true;
-                        console.log(`  ✅ Exact match`);
-                    }
-                    // Case-insensitive match
-                    else if (member.state.toLowerCase() === stateFilter.toLowerCase()) {
-                        matches = true;
-                        console.log(`  ✅ Case-insensitive match`);
-                    }
-                    // Trimmed match
-                    else if (member.state.trim() === stateFilter.trim()) {
-                        matches = true;
-                        console.log(`  ✅ Trimmed match`);
-                    }
-                    // Handle potential extra spaces
-                    else if (member.state.replace(/\s+/g, ' ').trim() === stateFilter.replace(/\s+/g, ' ').trim()) {
-                        matches = true;
-                        console.log(`  ✅ Normalized spaces match`);
-                    }
-                }
-                
-                if (matches) {
-                    console.log(`✅ Found state match: ${member.name} (${member.state})`);
-                } else {
-                    console.log(`❌ No state match: ${member.name} (${member.state}) vs "${stateFilter}"`);
-                }
-                
-                return matches;
-            });
-            
-            console.log(`🔍 State filter results: ${filteredMembers.length} members found for state "${stateFilter}"`);
-        }
-        
-        // Calculate pagination
-        const totalItems = filteredMembers.length;
-        const totalPages = Math.ceil(totalItems / limit);
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
-        
-        // Store pagination state
-        window.membersPaginationState = {
-            currentPage: page,
-            totalPages: totalPages,
-            totalItems: totalItems,
-            itemsPerPage: limit
-        };
-        
-        if (typeof displayMembers === 'function') {
-            displayMembers(paginatedMembers, totalItems, page, totalPages, limit);
-        }
-        
-        // Render pagination
-        if (typeof renderPagination === 'function') {
-            renderPagination(page, totalPages, totalItems, limit, 'members');
-        }
-        
-        
-        return mergedMembers;
-        
-    } catch (error) {
-        
-        showMessage('Failed to load members: ' + error.message, 'error');
-        
-        // Fallback to local storage
-        const localMembers = getLocalMembers();
+  try {
+    // 1) Gather data from backend + local
+    let backendMembers = [];
+    const localMembers = Array.isArray(getLocalMembers()) ? getLocalMembers() : [];
 
-// Merge backend and local members by code/email; local values win on conflicts
-const byKey = new Map();
-const keyOf = (m) => { const c=String(m?.code||'').trim().toLowerCase(); if (c) return 'c:'+c; const e=String(m?.email||'').trim().toLowerCase(); if (e) return 'e:'+e; return null; };
-backendMembers.forEach(m => { const k = keyOf(m); if (k) byKey.set(k, m); });
-localMembers.forEach(lm => { const k = keyOf(lm); if (!k) return; const ex = byKey.get(k); byKey.set(k, ex ? { ...ex, ...lm } : lm); });
-const mergedMembers = Array.from(byKey.values());
-
-localMembers = sortMembersAlpha(localMembers);
-        if (typeof window !== 'undefined') {
-            window.currentMembers = localMembers;
+    if (navigator.onLine) {
+      try {
+        const res = await fetch(`${backendUrl}/api/users/members`);
+        if (res && res.ok) {
+          const data = await tryJson(res);
+          if (Array.isArray(data)) {
+            backendMembers = data.map(m => ({
+              ...m,
+              // Normalize common fields used in the UI
+              name: m.name || m.fullName || m.memberName || '',
+              email: m.email || '',
+              code: m.code || m.Code || '',
+              position: m.position || '',
+              state: m.state || '',
+              zone: m.zone || '',
+              isFromBackend: true
+            }));
+          }
         }
-        
-        if (typeof displayMembers === 'function') {
-            displayMembers(localMembers, localMembers.length, 1, 1, limit);
-        }
-        
-        return localMembers;
+      } catch (_) {
+        // If backend fails, proceed with local only
+      }
     }
+
+    // 2) Merge by stable key; local wins on conflicts
+    const keyOf = (m) => {
+      const c = String(m?.code || '').trim().toLowerCase();
+      if (c) return 'c:' + c;
+      const e = String(m?.email || '').trim().toLowerCase();
+      if (e) return 'e:' + e;
+      return null;
+    };
+
+    const byKey = new Map();
+    backendMembers.forEach(m => { const k = keyOf(m); if (k) byKey.set(k, m); });
+    localMembers.forEach(lm => {
+      const k = keyOf(lm);
+      if (!k) return;
+      const ex = byKey.get(k);
+      byKey.set(k, ex ? { ...ex, ...lm } : lm); // local overwrites backend
+    });
+
+    const mergedMembers = Array.from(byKey.values());
+
+    // 3) Persist + cache
+    if (typeof sortMembersAlpha === 'function') {
+      // keep your enforced alpha order helper if present
+      mergedMembers.sort((a, b) => {
+        const an = (a.name || '').toString().toLowerCase();
+        const bn = (b.name || '').toString().toLowerCase();
+        return an.localeCompare(bn);
+      });
+    }
+    saveLocalMembers(mergedMembers);
+    window.members = mergedMembers;
+    window.currentMembers = mergedMembers;
+
+    // 4) Filter
+    let filtered = mergedMembers;
+
+    // Basic search across name/code/email (case-insensitive)
+    const q = (searchTerm || '').toString().trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(m =>
+        (m.name || '').toString().toLowerCase().includes(q) ||
+        (m.code || '').toString().toLowerCase().includes(q) ||
+        (m.email || '').toString().toLowerCase().includes(q)
+      );
+    }
+
+    // Position filter (exact, case-insensitive)
+    if (positionFilter) {
+      const pf = positionFilter.toString().trim().toLowerCase();
+      filtered = filtered.filter(m => (m.position || '').toString().trim().toLowerCase() === pf);
+    }
+
+    // State filter (exact, case-insensitive)
+    if (stateFilter) {
+      const sf = stateFilter.toString().trim().toLowerCase();
+      filtered = filtered.filter(m => (m.state || '').toString().trim().toLowerCase() === sf);
+    }
+
+    // 5) Paginate + render
+    const totalItems = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / (limit || 10)));
+    const safePage = Math.min(Math.max(1, page || 1), totalPages);
+    const startIndex = (safePage - 1) * (limit || 10);
+    const endIndex = startIndex + (limit || 10);
+
+    if (typeof displayMembers === 'function') {
+      displayMembers(filtered.slice(startIndex, endIndex), totalItems, safePage, totalPages, limit || 10);
+    }
+    if (typeof renderPagination === 'function') {
+      renderPagination(safePage, totalPages, totalItems, limit || 10, 'members');
+    }
+
+  } catch (err) {
+    console.error('Failed to load members:', err);
+    if (typeof showMessage === 'function') showMessage('Failed to load members', 'error');
+  }
 }
+
 
 async function addMember(event) {
     event.preventDefault();
