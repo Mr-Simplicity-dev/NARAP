@@ -10165,6 +10165,9 @@ function normalizeStateForExport(s) {
     'fct abuja': 'FCT',
     'abuja': 'FCT',
     'abia': 'Abia',
+    'lagos': 'Lagos',
+    'edo': 'Edo',
+    'bauchi': 'Bauchi',
     'akwa ibom': 'Akwa Ibom',
     'cross river': 'Cross River',
     'nassarawa': 'Nasarawa' // common misspelling
