@@ -281,6 +281,73 @@ const backendUrl = getBackendUrl();
 // ---- Safe JSON helper: never throws on empty/invalid JSON bodies ----
 async function tryJson(res){
   try { return await res.json(); } catch (_) { return null; }
+
+// Safer JSON/text parsers for error bodies (non-throwing)
+async function safeJson(res) { try { return await res.json(); } catch { return null; } }
+async function safeText(res) { try { return await res.text(); } catch { return ''; } }
+
+// Find a member's backend id by code/email (used for upsert fallback)
+async function findMemberIdByCodeOrEmail(code, email) {
+  try {
+    const r = await fetch(`${backendUrl}/api/users/getUsers`);
+    if (!r.ok) return null;
+    const arr = await safeJson(r);
+    if (!Array.isArray(arr)) return null;
+    const c = String(code || '').trim().toLowerCase();
+    const e = String(email || '').trim().toLowerCase();
+    const hit = arr.find(m =>
+      String(m?.code || '').trim().toLowerCase() === c ||
+      (e && String(m?.email || '').trim().toLowerCase() === e)
+    );
+    return hit ? (hit._id || hit.id) : null;
+  } catch { return null; }
+}
+
+// Upsert using FormData: POST addUser; if 400, fallback to PUT updateUser/:id
+async function upsertMemberFormData(formData, member, controller) {
+  let res;
+  try {
+    res = await fetch(`${backendUrl}/api/users/addUser`, {
+      method: 'POST',
+      body: formData,
+      signal: controller ? controller.signal : undefined
+    });
+  } catch (e) {
+    return { ok: false, status: 0, message: e?.message || 'Network error' };
+  }
+
+  if (res.ok) {
+    const body = await safeJson(res);
+    const id = body?.data?._id || body?._id || body?.id || null;
+    return { ok: true, mode: 'created', id, status: res.status };
+  }
+
+  // If it's a validation/duplicate case, try updating instead of failing
+  if (res.status === 400) {
+    const id = await findMemberIdByCodeOrEmail(member?.code, member?.email);
+    if (id) {
+      try {
+        const u = await fetch(`${backendUrl}/api/users/updateUser/${id}`, {
+          method: 'PUT',
+          body: formData,
+          signal: controller ? controller.signal : undefined
+        });
+        if (u.ok) {
+          const uBody = await safeJson(u);
+          const finalId = uBody?._id || uBody?.id || id;
+          return { ok: true, mode: 'updated', id: finalId, status: u.status };
+        }
+        const uErr = (await safeJson(u)) || { message: await safeText(u) };
+        return { ok: false, status: u.status, message: uErr?.message || `Update failed (${u.status})` };
+      } catch (e) {
+        return { ok: false, status: 0, message: e?.message || 'Update network error' };
+      }
+    }
+  }
+
+  const err = (await safeJson(res)) || { message: await safeText(res) };
+  return { ok: false, status: res.status, message: err?.message || `Create failed (${res.status})` };
+}
 }
 window.backendUrl = backendUrl;
 
@@ -781,418 +848,258 @@ ${certificateCSV}`;
 // ==================== SYNC FUNCTIONS ====================
 
 async function syncPendingChanges() {
+  // Small helpers (safe fallbacks if your globals don't exist)
+  const _safeJson = typeof safeJson === 'function' ? safeJson : async (res) => {
+    try { return await res.json(); } catch { return null; }
+  };
+  const _tryJson = typeof tryJson === 'function' ? tryJson : _safeJson;
+
+  // Abortable fetch with timeout (since fetch doesn't support {timeout})
+  async function fetchWithTimeout(url, opts = {}, ms = 5000) {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), ms);
     try {
-        const pendingSync = getPendingSync();
-        let syncedCount = 0;
-        
-        // Sync certificate changes
-        for (const cert of pendingSync.certificateCreations) {
-            try {
-                // Ensure certificate has proper certificate number before syncing
-                const certificateToSync = { ...cert };
-                if (!certificateToSync.number || certificateToSync.number.trim() === '') {
-                    certificateToSync.number = generateUniqueCertificateNumber();
-                }
-                if (!certificateToSync.certificateNumber || certificateToSync.certificateNumber.trim() === '') {
-                    certificateToSync.certificateNumber = certificateToSync.number;
-                }
-                
-                const response = await fetch(`${backendUrl}/api/certificates`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(certificateToSync)
-                });
-                
-                if (response.ok) {
-                    syncedCount++;
-                }
-            } catch (error) {
-                
-            }
-        }
-        
-        for (const cert of pendingSync.certificateUpdates) {
-            try {
-                const response = await fetch(`${backendUrl}/api/certificates/${cert._id || cert.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(cert)
-                });
-                
-                if (response.ok) {
-                    syncedCount++;
-                }
-            } catch (error) {
-                
-            }
-        }
-        
-        // Check backend URL before starting sync
-        console.log('🔍 Backend URL for sync:', backendUrl);
-        
-        // Validate backend URL
-        if (!backendUrl || backendUrl === 'undefined' || backendUrl === 'null') {
-            console.error('❌ Invalid backend URL:', backendUrl);
-            showMessage('Backend URL not configured. Please check settings.', 'error');
-            return;
-        }
-        
-        // Test backend connectivity
-        try {
-            const connectivityTest = await fetch(`${backendUrl}/api/health`, {
-                method: 'GET',
-                timeout: 5000
-            });
-            
-            if (!connectivityTest.ok) {
-                console.warn('⚠️ Backend health check failed - sync may fail');
-                showMessage('Backend appears to be down. Sync will be retried when available.', 'warning');
-            } else {
-                console.log('✅ Backend connectivity confirmed');
-            }
-        } catch (connectivityError) {
-            console.warn('⚠️ Backend connectivity test failed:', connectivityError);
-            showMessage('Cannot reach backend server. Sync will be retried when connection is restored.', 'warning');
-        }
-        
-        // Sync member changes
-        for (const member of pendingSync.memberCreations) {
-            try {
-                // Create FormData for file upload
-                const formData = new FormData();
-                
-                // Add text fields
-                formData.append('name', member.name);
-                // Only add email if it has a value
-                if (member.email && member.email.trim()) {
-                    formData.append('email', member.email.trim());
-                }
-                formData.append('password', member.password || 'defaultPassword123');
-                formData.append('code', member.code);
-                formData.append('position', member.position);
-                formData.append('state', member.state);
-                formData.append('zone', member.zone);
-                
-                // Handle file data - use stored file references
-                if (member.passportFile) {
-                    formData.append('passportPhoto', member.passportFile);
-                    
-                }
-                
-                if (member.signatureFile) {
-                    formData.append('signature', member.signatureFile);
-                    
-                }
-                
-                // Check network connectivity first
-                if (!navigator.onLine) {
-                    console.log('🌐 Offline - skipping backend sync for member:', member.name);
-                    continue;
-                }
-                
-                // Test backend connectivity before attempting sync
-                try {
-                    const healthCheck = await fetch(`${backendUrl}/api/health`, {
-                        method: 'GET',
-                        timeout: 5000
-                    });
-                    
-                    if (!healthCheck.ok) {
-                        console.log('🔴 Backend health check failed - skipping sync for member:', member.name);
-                        continue;
-                    }
-                } catch (healthError) {
-                    console.log('🔴 Backend not accessible - skipping sync for member:', member.name);
-                    continue;
-                }
-                
-                console.log('🟢 Backend accessible - attempting to sync member:', member.name);
-                
-                let response;
-                try {
-                    response = await fetch(`${backendUrl}/api/users/addUser`, {
-                        method: 'POST',
-                        body: formData, // Don't set Content-Type header for FormData
-                        timeout: 10000 // 10 second timeout
-                    });
-                } catch (fetchError) {
-                    console.error('🌐 Network error during fetch:', fetchError);
-                    console.log('🔄 Will retry sync for member later:', member.name);
-                    continue; // Skip this member for now, will retry in next sync cycle
-                }
-                
-                if (response.ok) {
-                    const result = await tryJson(response);
-                    // Update local member with backend ID
-                    if (result.data && result.data._id) {
-                        const currentMembers = window.currentMembers || [];
-                        const memberIndex = currentMembers.findIndex(m => m._id === member._id);
-                        if (memberIndex !== -1) {
-                            currentMembers[memberIndex]._id = result.data._id;
-                            currentMembers[memberIndex].isFromBackend = true;
-                            currentMembers[memberIndex].pendingSync = false;
-                            saveLocalMembers(currentMembers);
-                        }
-                    }
-                    syncedCount++;
-                } else {
-                    const errorData = await tryJson(response).catch(() => ({}));
-                    console.error('AddUser sync error:', errorData);
-                    
-                    // Handle network errors specifically
-                    if (errorData.message && errorData.message.includes('Failed to fetch')) {
-                        console.log('🌐 Network error - will retry later for member:', member.name);
-                        continue; // Skip this member for now, will retry in next sync cycle
-                    }
-                    
-                    // Handle specific error cases
-                    if (errorData.message && errorData.message.includes('Email already exists')) {
-                        // Remove email from the member data and try again
-                        const memberWithoutEmail = { ...member };
-                        delete memberWithoutEmail.email;
-                        
-                        // Update the member in local storage to remove email
-                        const currentMembers = window.currentMembers || [];
-                        const memberIndex = currentMembers.findIndex(m => m._id === member._id);
-                        if (memberIndex !== -1) {
-                            currentMembers[memberIndex].email = '';
-                            saveLocalMembers(currentMembers);
-                        }
-                        
-                        // Try to sync again without email
-                        try {
-                            const retryFormData = new FormData();
-                            retryFormData.append('name', member.name);
-                            // Don't add email field at all for retry
-                            retryFormData.append('password', member.password || 'defaultPassword123');
-                            retryFormData.append('code', member.code);
-                            retryFormData.append('position', member.position);
-                            retryFormData.append('state', member.state);
-                            retryFormData.append('zone', member.zone);
-                            
-                            if (member.passportFile) {
-                                retryFormData.append('passportPhoto', member.passportFile);
-                            }
-                            if (member.signatureFile) {
-                                retryFormData.append('signature', member.signatureFile);
-                            }
-                            
-                            const retryResponse = await fetch(`${backendUrl}/api/users/addUser`, {
-                                method: 'POST',
-                                body: retryFormData
-                            });
-                            
-                            if (retryResponse.ok) {
-                                const result = await tryJson(retryResponse);
-                                if (result.data && result.data._id) {
-                                    const currentMembers = window.currentMembers || [];
-                                    const memberIndex = currentMembers.findIndex(m => m._id === member._id);
-                                    if (memberIndex !== -1) {
-                                        currentMembers[memberIndex]._id = result.data._id;
-                                        currentMembers[memberIndex].isFromBackend = true;
-                                        currentMembers[memberIndex].pendingSync = false;
-                                        saveLocalMembers(currentMembers);
-                                    }
-                                }
-                                syncedCount++;
-                                console.log('Successfully synced member without email:', member.name);
-                            } else {
-                                console.error('Retry failed for member:', member.name);
-                            }
-                        } catch (retryError) {
-                            console.error('Retry sync error:', retryError);
-                        }
-                    } else if (errorData.message && errorData.message.includes('Code already exists')) {
-                        // Generate a new unique code and try again
-                        const newCode = generateUniqueCode();
-                        
-                        // Update the member in local storage with new code
-                        const currentMembers = window.currentMembers || [];
-                        const memberIndex = currentMembers.findIndex(m => m._id === member._id);
-                        if (memberIndex !== -1) {
-                            currentMembers[memberIndex].code = newCode;
-                            saveLocalMembers(currentMembers);
-                        }
-                        
-                        // Try to sync again with new code
-                        try {
-                            const retryFormData = new FormData();
-                            retryFormData.append('name', member.name);
-                            // Only add email if it has a value
-                            if (member.email && member.email.trim()) {
-                                retryFormData.append('email', member.email.trim());
-                            }
-                            retryFormData.append('password', member.password || 'defaultPassword123');
-                            retryFormData.append('code', newCode);
-                            retryFormData.append('position', member.position);
-                            retryFormData.append('state', member.state);
-                            retryFormData.append('zone', member.zone);
-                            
-                            if (member.passportFile) {
-                                retryFormData.append('passportPhoto', member.passportFile);
-                            }
-                            if (member.signatureFile) {
-                                retryFormData.append('signature', member.signatureFile);
-                            }
-                            
-                            const retryResponse = await fetch(`${backendUrl}/api/users/addUser`, {
-                                method: 'POST',
-                                body: retryFormData
-                            });
-                            
-                            if (retryResponse.ok) {
-                                const result = await tryJson(retryResponse);
-                                if (result.data && result.data._id) {
-                                    const currentMembers = window.currentMembers || [];
-                                    const memberIndex = currentMembers.findIndex(m => m._id === member._id);
-                                    if (memberIndex !== -1) {
-                                        currentMembers[memberIndex]._id = result.data._id;
-                                        currentMembers[memberIndex].isFromBackend = true;
-                                        currentMembers[memberIndex].pendingSync = false;
-                                        saveLocalMembers(currentMembers);
-                                    }
-                                }
-                                syncedCount++;
-                                console.log('Successfully synced member with new code:', member.name, 'New code:', newCode);
-                            } else {
-                                console.error('Retry failed for member:', member.name);
-                            }
-                        } catch (retryError) {
-                            console.error('Retry sync error:', retryError);
-                        }
-                    } else {
-                        throw new Error(errorData.message || `HTTP ${response.status}`);
-                    }
-                }
-                    } catch (error) {
-            console.error('AddUser sync error:', error);
-            
-            // If it's a network error, mark for retry
-            if (error.message && error.message.includes('Failed to fetch')) {
-                console.log('🌐 Network error - member will be retried in next sync cycle:', member.name);
-                // Keep the member in pending sync for retry
-            } else {
-                console.error('❌ Non-network error - member sync failed:', member.name, error);
-            }
-        }
-        }
-        
-        for (const member of pendingSync.memberUpdates) {
-            try {
-                // Create FormData for file upload
-                const formData = new FormData();
-                
-                // Add text fields
-                formData.append('name', member.name);
-                // Only add email if it has a value
-                if (member.email && member.email.trim()) {
-                    formData.append('email', member.email.trim());
-                }
-                formData.append('code', member.code);
-                formData.append('position', member.position);
-                formData.append('state', member.state);
-                formData.append('zone', member.zone);
-                
-                // Handle file data - use stored file references
-                if (member.passportFile) {
-                    formData.append('passportPhoto', member.passportFile);
-                    
-                }
-                
-                if (member.signatureFile) {
-                    formData.append('signature', member.signatureFile);
-                    
-                }
-                
-                const response = await fetch(`${backendUrl}/api/users/updateUser/${member._id || member.id}`, {
-                    method: 'PUT',
-                    body: formData // Don't set Content-Type header for FormData
-                });
-                
-                if (response.ok) {
-                    // Update local member
-                    const currentMembers = window.currentMembers || [];
-                    const memberIndex = currentMembers.findIndex(m => m._id === member._id);
-                    if (memberIndex !== -1) {
-                        currentMembers[memberIndex].pendingSync = false;
-                        saveLocalMembers(currentMembers);
-                    }
-                    syncedCount++;
-                }
-            } catch (error) {
-                
-            }
-        }
-        
-        for (const member of pendingSync.memberDeletions) {
-            try {
-                const response = await fetch(`${backendUrl}/api/users/deleteUser/${member._id || member.id}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    // Member was successfully deleted from backend
-                    syncedCount++;
-                } else {
-                    const errorData = await tryJson(response).catch(() => ({}));
-                    const errorMessage = errorData.message || `HTTP ${response.status}`;
-                    
-                    // If the user doesn't exist in the backend, that's actually a successful sync
-                    // because the goal (user not in backend) is already achieved
-                    if (errorMessage.toLowerCase().includes('not found') || 
-                        errorMessage.toLowerCase().includes('user not found') ||
-                        response.status === 404) {
-                        
-                        syncedCount++;
-                    } else {
-                        
-                    }
-                }
-            } catch (error) {
-                
-            }
-        }
-        
-        if (syncedCount > 0) {
-            // Clear all synced items (since we process them all in one go)
-            pendingSync.certificateCreations = [];
-            pendingSync.certificateUpdates = [];
-            pendingSync.memberCreations = [];
-            pendingSync.memberUpdates = [];
-            pendingSync.memberDeletions = [];
-            savePendingSync(pendingSync);
-            
-            // Clean up successfully synced items from pending sync
-            if (syncedCount > 0) {
-                const pendingSync = getPendingSync();
-                pendingSync.memberCreations = pendingSync.memberCreations.filter(member => {
-                    const currentMembers = window.currentMembers || [];
-                    const memberIndex = currentMembers.findIndex(m => m._id === member._id);
-                    return memberIndex === -1 || currentMembers[memberIndex].pendingSync;
-                });
-                savePendingSync(pendingSync);
-            }
-            
-            showMessage(`Synced ${syncedCount} pending changes`, 'success');
-            updateSyncStatus();
-        } else {
-            // Check if there are any pending changes that couldn't be synced
-            const totalPending = 
-                pendingSync.memberCreations.length +
-                pendingSync.memberUpdates.length +
-                pendingSync.memberDeletions.length +
-                pendingSync.certificateCreations.length +
-                pendingSync.certificateUpdates.length;
-            
-            if (totalPending > 0) {
-                
-            }
-        }
-    } catch (error) {
-        
-        showMessage('Failed to sync pending changes', 'error');
+      return await fetch(url, { ...opts, signal: ctrl.signal });
+    } finally {
+      clearTimeout(id);
     }
+  }
+
+  try {
+    const pending = getPendingSync ? getPendingSync() : {
+      certificateCreations: [],
+      certificateUpdates: [],
+      memberCreations: [],
+      memberUpdates: [],
+      memberDeletions: []
+    };
+
+    let syncedCount = 0;
+
+    // Validate backend URL first
+    if (!backendUrl || backendUrl === 'undefined' || backendUrl === 'null') {
+      console.error('❌ Invalid backend URL:', backendUrl);
+      if (typeof showMessage === 'function') {
+        showMessage('Backend URL not configured. Please check settings.', 'error');
+      }
+      return;
+    }
+
+    // Health check (non-fatal; we can still try)
+    try {
+      const health = await fetchWithTimeout(`${backendUrl}/api/health`, { method: 'GET' }, 5000);
+      if (!health.ok) {
+        console.warn('⚠️ Backend health check failed - sync may fail');
+        if (typeof showMessage === 'function') {
+          showMessage('Backend appears to be down. Sync will be retried when available.', 'warning');
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Backend connectivity test failed:', e?.message || e);
+      if (typeof showMessage === 'function') {
+        showMessage('Cannot reach backend server. Sync will be retried when connection is restored.', 'warning');
+      }
+    }
+
+    // Prepare new queues with items that FAIL (we keep only unsynced)
+    const remain = {
+      certificateCreations: [],
+      certificateUpdates: [],
+      memberCreations: [],
+      memberUpdates: [],
+      memberDeletions: []
+    };
+
+    // ---- Certificates: CREATE ----
+    for (const cert of pending.certificateCreations || []) {
+      try {
+        const c = { ...cert };
+        if (!c.number || !String(c.number).trim()) c.number = (typeof generateUniqueCertificateNumber === 'function')
+          ? generateUniqueCertificateNumber()
+          : `N/${Date.now()}`;
+        if (!c.certificateNumber || !String(c.certificateNumber).trim()) c.certificateNumber = c.number;
+
+        const resp = await fetch(`${backendUrl}/api/certificates`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(c)
+        });
+        if (resp.ok) {
+          syncedCount++;
+        } else {
+          // keep for retry
+          remain.certificateCreations.push(cert);
+        }
+      } catch {
+        remain.certificateCreations.push(cert);
+      }
+    }
+
+    // ---- Certificates: UPDATE ----
+    for (const cert of pending.certificateUpdates || []) {
+      try {
+        const id = cert._id || cert.id;
+        if (!id) { remain.certificateUpdates.push(cert); continue; }
+        const resp = await fetch(`${backendUrl}/api/certificates/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cert)
+        });
+        if (resp.ok) {
+          syncedCount++;
+        } else {
+          remain.certificateUpdates.push(cert);
+        }
+      } catch {
+        remain.certificateUpdates.push(cert);
+      }
+    }
+
+    // ---- Members: CREATE (with UPSERT fallback) ----
+    for (const member of pending.memberCreations || []) {
+      try {
+        if (!navigator.onLine) { remain.memberCreations.push(member); continue; }
+
+        // Build FormData
+        const formData = new FormData();
+        formData.append('name', member.name || '');
+        if (member.email && member.email.trim()) formData.append('email', member.email.trim());
+        formData.append('password', member.password || 'defaultPassword123');
+        formData.append('code', member.code || '');
+        formData.append('position', member.position || '');
+        formData.append('state', member.state || '');
+        formData.append('zone', member.zone || '');
+        if (member.passportFile) formData.append('passportPhoto', member.passportFile);
+        if (member.signatureFile) formData.append('signature', member.signatureFile);
+
+        // Upsert (uses your existing helper if present)
+        let upsertResult;
+        if (typeof upsertMemberFormData === 'function') {
+          upsertResult = await upsertMemberFormData(formData, member);
+        } else {
+          // Fallback: naive create only
+          const r = await fetch(`${backendUrl}/api/users/addUser`, { method: 'POST', body: formData });
+          upsertResult = { ok: r.ok, status: r.status, message: r.ok ? '' : ((await _safeJson(r))?.message || `${r.status}`) };
+        }
+
+        if (upsertResult.ok) {
+          // Update local cache
+          const list = Array.isArray(window.currentMembers) ? window.currentMembers : (window.members || []);
+          const idx = list.findIndex(m => (m._id || m.id) === (member._id || member.id) || String(m.code).trim().toLowerCase() === String(member.code).trim().toLowerCase());
+          if (idx !== -1) {
+            if (upsertResult.id) list[idx]._id = upsertResult.id;
+            list[idx].isFromBackend = true;
+            list[idx].pendingSync = false;
+            if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+            window.members = list;
+            window.currentMembers = list;
+          }
+          syncedCount++;
+        } else {
+          console.error('AddUser/UpdateUser error:', upsertResult.message || '(no message)', upsertResult, member);
+          remain.memberCreations.push(member); // keep for retry
+        }
+      } catch (error) {
+        console.error('AddUser sync error:', error);
+        remain.memberCreations.push(member);
+      }
+    }
+
+    // ---- Members: UPDATE ----
+    for (const member of pending.memberUpdates || []) {
+      try {
+        const id = member._id || member.id;
+        if (!id) { remain.memberUpdates.push(member); continue; }
+
+        const formData = new FormData();
+        formData.append('name', member.name || '');
+        if (member.email && member.email.trim()) formData.append('email', member.email.trim());
+        formData.append('code', member.code || '');
+        formData.append('position', member.position || '');
+        formData.append('state', member.state || '');
+        formData.append('zone', member.zone || '');
+        if (member.passportFile) formData.append('passportPhoto', member.passportFile);
+        if (member.signatureFile) formData.append('signature', member.signatureFile);
+
+        const resp = await fetch(`${backendUrl}/api/users/updateUser/${id}`, { method: 'PUT', body: formData });
+        if (resp.ok) {
+          // clear pending flag locally
+          const list = Array.isArray(window.currentMembers) ? window.currentMembers : (window.members || []);
+          const idx = list.findIndex(m => (m._id || m.id) === id);
+          if (idx !== -1) {
+            list[idx].pendingSync = false;
+            if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+            window.members = list;
+            window.currentMembers = list;
+          }
+          syncedCount++;
+        } else {
+          const err = (await _tryJson(resp)) || {};
+          console.error('UpdateUser error:', err.message || resp.status, member);
+          remain.memberUpdates.push(member);
+        }
+      } catch (e) {
+        remain.memberUpdates.push(member);
+      }
+    }
+
+    // ---- Members: DELETE ----
+    for (const member of pending.memberDeletions || []) {
+      try {
+        const id = member._id || member.id;
+        if (!id) { /* nothing to do */ syncedCount++; continue; }
+        const resp = await fetch(`${backendUrl}/api/users/deleteUser/${id}`, { method: 'DELETE' });
+        if (resp.ok) {
+          syncedCount++;
+        } else {
+          const body = (await _tryJson(resp)) || {};
+          const msg = (body.message || '').toLowerCase();
+          if (resp.status === 404 || msg.includes('not found')) {
+            // Desired end-state already achieved
+            syncedCount++;
+          } else {
+            remain.memberDeletions.push(member);
+          }
+        }
+      } catch {
+        remain.memberDeletions.push(member);
+      }
+    }
+
+    // ---- Persist remaining unsynced items
+    const stillPendingTotal =
+      remain.memberCreations.length +
+      remain.memberUpdates.length +
+      remain.memberDeletions.length +
+      remain.certificateCreations.length +
+      remain.certificateUpdates.length;
+
+    if (typeof savePendingSync === 'function') {
+      savePendingSync(remain);
+    }
+
+    // ---- Feedback + status
+    if (syncedCount > 0) {
+      if (typeof showMessage === 'function') {
+        showMessage(`Synced ${syncedCount} pending change${syncedCount === 1 ? '' : 's'}` + (stillPendingTotal ? ` • ${stillPendingTotal} still pending` : ''), 'success');
+      }
+      if (typeof updateSyncStatus === 'function') updateSyncStatus();
+    } else if (stillPendingTotal > 0) {
+      if (typeof showMessage === 'function') {
+        showMessage(`No changes synced • ${stillPendingTotal} pending`, 'warning');
+      }
+      if (typeof updateSyncStatus === 'function') updateSyncStatus();
+    } else {
+      if (typeof showMessage === 'function') {
+        showMessage('Nothing to sync', 'info');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to sync pending changes:', err);
+    if (typeof showMessage === 'function') showMessage('Failed to sync pending changes', 'error');
+  }
 }
+
 
 // Function to clear problematic pending deletions
 function clearPendingDeletions() {
