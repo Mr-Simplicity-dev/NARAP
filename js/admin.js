@@ -3274,6 +3274,19 @@ async function exportAllData() {
 
 
 async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter = '', stateFilter = '') {
+  // Comparator: Name (A→Z), then State (A→Z), then Code
+  function __memberCmp(a, b) {
+    const an = String(a?.name || '').trim().toLowerCase();
+    const bn = String(b?.name || '').trim().toLowerCase();
+    if (an !== bn) return an.localeCompare(bn);
+    const as = String(a?.state || '').trim().toLowerCase();
+    const bs = String(b?.state || '').trim().toLowerCase();
+    if (as !== bs) return as.localeCompare(bs);
+    const ac = String(a?.code || '').trim().toLowerCase();
+    const bc = String(b?.code || '').trim().toLowerCase();
+    return ac.localeCompare(bc);
+  }
+
   try {
     // 1) Gather data from backend + local
     let backendMembers = [];
@@ -3321,7 +3334,8 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
       byKey.set(k, ex ? { ...ex, ...lm } : lm); // local overwrites backend
     });
 
-    const mergedMembers = Array.from(byKey.values());
+    let mergedMembers = Array.from(byKey.values());
+    mergedMembers = mergedMembers.slice().sort(__memberCmp);
 
     // 3) Persist + cache
     if (typeof sortMembersAlpha === 'function') {
@@ -3337,7 +3351,7 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
     window.currentMembers = mergedMembers;
 
     // 4) Filter
-    let filtered = mergedMembers;
+    let filtered = mergedMembers.slice().sort(__memberCmp);
 
     // Basic search across name/code/email (case-insensitive)
     const q = (searchTerm || '').toString().trim().toLowerCase();
