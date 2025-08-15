@@ -7467,14 +7467,14 @@ if (typeof enforceMembersAlpha==='function') enforceMembersAlpha();
 
                 // ✅ Persist imported MEMBERS locally, queue for sync, and refresh UI
                 try {
-                  // Merge into the existing local list and persist
-                  const existingLocal = getLocalMembers();           // reads from localStorage
-                  const merged = sortMembersAlpha([                  // keep your enforced alpha order
-                    ...existingLocal,
+                  // Start from the live in-memory list (which already has duplicate edits)
+                  const current = Array.isArray(window.members) ? window.members.slice() : getLocalMembers();
+                  const merged = sortMembersAlpha([
+                    ...current,
                     ...newMembers
                   ]);
-                  saveLocalMembers(merged);                          // <-- write to localStorage
-                  window.members = merged;                           // keep runtime cache in sync
+                  saveLocalMembers(merged);            // write to localStorage
+                  window.members = merged;             // keep runtime cache in sync
                   window.currentMembers = merged;
 
                   // Queue offline sync so backend can be updated later
