@@ -10143,20 +10143,30 @@ window.addEventListener('error', function(e){
 /* ====== MEMBERS EXPORT BY STATE (DROP-IN) ====== */
 
 function normalizeStateForExport(s) {
-  let t = String(s || '').trim();
+  let t = String(s || '').replace(/\s+/g, ' ').trim();
+  // remove trailing 'state'
   t = t.replace(/\s+state$/i, '').trim();
+  // unify dashes/underscores and collapse spaces
   t = t.replace(/[-_]+/g, ' ').trim();
   const key = t.toLowerCase();
   const ALIASES = {
     'abuja': 'FCT', 'abuja fct': 'FCT', 'fct abuja': 'FCT',
     'federal capital territory': 'FCT',
-    'akwa-ibom': 'Akwa Ibom', 'akwa ibom state': 'Akwa Ibom',
-    'cross-river': 'Cross River', 'cross river state': 'Cross River',
+    'akwa-ibom': 'Akwa Ibom', 'akwa ibom state': 'Akwa Ibom', 'akwa ibom': 'Akwa Ibom',
+    'cross-river': 'Cross River', 'cross river state': 'Cross River', 'cross river': 'Cross River',
     'nassarawa': 'Nasarawa'
-  };
-  if (ALIASES[key]) return ALIASES[key];
-  return t.replace(/\b\w/g, ch => ch.toUpperCase());
+  }
+
+function normalizeStateKey(s){
+  const canon = normalizeStateForExport(s);
+  return canon.toLowerCase().replace(/\s+/g, '');
 }
+;
+  if (ALIASES[key]) return ALIASES[key];
+  // Title Case
+  return t.replace(/\b\w/g, ch => ch.toUpperCase());
+};
+  
 
 const NIGERIA_STATES_FOR_EXPORT = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta',
@@ -10174,10 +10184,17 @@ if (typeof convertToCSV !== 'function') {
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
     const header = cols.join(',');
-    const body = arr.map(m => cols.map(k => {
-      const cap = k.charAt(0).toUpperCase() + k.slice(1);
-      return esc(m[k] ?? m[cap] ?? m[k.toUpperCase()] ?? '');
-    }).join(',')).join('\n');
+    const body = arr.map(m => {
+      const row = {
+        name: m.name ?? m.Name ?? '',
+        email: m.email ?? m.Email ?? '',
+        code: m.code ?? m.Code ?? '',
+        position: (m.position ?? m.Position ?? '').toString().toUpperCase(),
+        state: normalizeStateForExport(m.state ?? m.State ?? ''),
+        zone: m.zone ?? m.Zone ?? ''
+      };
+      return cols.map(k => esc(row[k])).join(',');
+    }).join('\n');
     return header + (body ? '\n' + body : '');
   }
 }
