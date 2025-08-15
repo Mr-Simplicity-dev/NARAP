@@ -3273,29 +3273,66 @@ async function exportAllData() {
 // ==================== MEMBER FUNCTIONS ====================
 
 
-async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter = '', stateFilter = '') {
 
-  // --- Customizable State priority (edit this list to change order) ---
+async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter = '', stateFilter = '') {
+  // --- Full Nigeria State priority (A→Z) with FCT, plus alias normalization ---
   const STATE_PRIORITY = [
-    'Abia',           // put your top-priority states first
-    'Akwa Ibom',
-    'Adamawa',
-    // add more here as needed...
+    'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta',
+    'Ebonyi','Edo','Ekiti','Enugu','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi',
+    'Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba',
+    'Yobe','Zamfara','FCT'
   ];
-  const __stateRank = (s) => {
-    const i = STATE_PRIORITY.findIndex(x => String(x).toLowerCase() === String(s).toLowerCase());
-    return i === -1 ? Number.POSITIVE_INFINITY : i;
+
+  // Aliases and common variations → canonical state names
+  const STATE_ALIASES = {
+    'federal capital territory': 'FCT',
+    'abuja': 'FCT', 'abuja fct': 'FCT', 'fct abuja': 'FCT',
+    'akwa-ibom': 'Akwa Ibom', 'akwa_ibom': 'Akwa Ibom',
+    'cross-river': 'Cross River', 'cross_river': 'Cross River',
+    'nassarawa': 'Nasarawa',
+    'osun state': 'Osun', 'oyo state': 'Oyo', 'kogi state': 'Kogi', 'lagos state': 'Lagos',
+    'akwa ibom state': 'Akwa Ibom', 'cross river state': 'Cross River'
   };
 
+  function normalizeStateName(s) {
+    let t = String(s || '').trim();
+    // remove trailing "State"
+    t = t.replace(/\s+state$/i, '').trim();
+    // unify dashes/underscores to spaces
+    t = t.replace(/[-_]+/g, ' ').trim();
+    const key = t.toLowerCase();
+    if (STATE_ALIASES[key]) return STATE_ALIASES[key];
+    return t;
+  }
 
-  // Comparator: Name (A→Z), then State (A→Z), then Code
+  function __stateRank(s) {
+    const canon = normalizeStateName(s);
+    const idx = STATE_PRIORITY.findIndex(x => x.toLowerCase() == canon.toLowerCase());
+    return idx === -1 ? Number.POSITIVE_INFINITY : idx;
+  }
+
+  // Comparator: Name INITIAL (A→Z) → State by PRIORITY → State (A→Z) → Full Name (A→Z) → Code
   function __memberCmp(a, b) {
-    const an = String(a?.name || '').trim().toLowerCase();
-    const bn = String(b?.name || '').trim().toLowerCase();
-    if (an !== bn) return an.localeCompare(bn);
-    const as = String(a?.state || '').trim().toLowerCase();
-    const bs = String(b?.state || '').trim().toLowerCase();
+    const rawA = String(a?.name || '').trim();
+    const rawB = String(b?.name || '').trim();
+    const initA = rawA ? rawA[0].toUpperCase() : '~';
+    const initB = rawB ? rawB[0].toUpperCase() : '~';
+    if (initA !== initB) return initA.localeCompare(initB);
+
+    const stateA = normalizeStateName(a?.state);
+    const stateB = normalizeStateName(b?.state);
+    const rankA = __stateRank(stateA);
+    const rankB = __stateRank(stateB);
+    if (rankA !== rankB) return rankA - rankB;
+
+    const as = String(stateA).toLowerCase();
+    const bs = String(stateB).toLowerCase();
     if (as !== bs) return as.localeCompare(bs);
+
+    const an = rawA.toLowerCase();
+    const bn = rawB.toLowerCase();
+    if (an !== bn) return an.localeCompare(bn);
+
     const ac = String(a?.code || '').trim().toLowerCase();
     const bc = String(b?.code || '').trim().toLowerCase();
     return ac.localeCompare(bc);
@@ -3319,7 +3356,7 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
               email: m.email || '',
               code: m.code || m.Code || '',
               position: m.position || '',
-              state: m.state || '',
+              state: normalizeStateName(m.state || ''),
               zone: m.zone || '',
               isFromBackend: true
             }));
@@ -3348,26 +3385,20 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
       byKey.set(k, ex ? { ...ex, ...lm } : lm); // local overwrites backend
     });
 
-    let mergedMembers = Array.from(byKey.values());
-    mergedMembers = mergedMembers.slice().sort(__memberCmp);
+    let mergedMembers = Array.from(byKey.values()).map(m => ({
+      ...m,
+      state: normalizeStateName(m.state) // normalize states for sorting/display
+    }));
 
-    // 3) Persist + cache
-    if (typeof sortMembersAlpha === 'function') {
-      // keep your enforced alpha order helper if present
-      mergedMembers.sort((a, b) => {
-        const an = (a.name || '').toString().toLowerCase();
-        const bn = (b.name || '').toString().toLowerCase();
-        return an.localeCompare(bn);
-      });
-    }
+    // 3) Sort + Persist + cache
+    mergedMembers = mergedMembers.slice().sort(__memberCmp);
     saveLocalMembers(mergedMembers);
     window.members = mergedMembers;
     window.currentMembers = mergedMembers;
 
-    // 4) Filter
-    let filtered = mergedMembers.slice().sort(__memberCmp);
+    // 4) Filter (and keep sorted)
+    let filtered = mergedMembers;
 
-    // Basic search across name/code/email (case-insensitive)
     const q = (searchTerm || '').toString().trim().toLowerCase();
     if (q) {
       filtered = filtered.filter(m =>
@@ -3377,30 +3408,32 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
       );
     }
 
-    // Position filter (exact, case-insensitive)
     if (positionFilter) {
       const pf = positionFilter.toString().trim().toLowerCase();
       filtered = filtered.filter(m => (m.position || '').toString().trim().toLowerCase() === pf);
     }
 
-    // State filter (exact, case-insensitive)
     if (stateFilter) {
-      const sf = stateFilter.toString().trim().toLowerCase();
-      filtered = filtered.filter(m => (m.state || '').toString().trim().toLowerCase() === sf);
+      const sf = normalizeStateName(stateFilter).toLowerCase();
+      filtered = filtered.filter(m => normalizeStateName(m.state).toLowerCase() === sf);
     }
+
+    // Keep filtered order stable
+    filtered = filtered.slice().sort(__memberCmp);
 
     // 5) Paginate + render
+    const perPage = limit || 10;
     const totalItems = filtered.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / (limit || 10)));
+    const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
     const safePage = Math.min(Math.max(1, page || 1), totalPages);
-    const startIndex = (safePage - 1) * (limit || 10);
-    const endIndex = startIndex + (limit || 10);
+    const startIndex = (safePage - 1) * perPage;
+    const endIndex = startIndex + perPage;
 
     if (typeof displayMembers === 'function') {
-      displayMembers(filtered.slice(startIndex, endIndex), totalItems, safePage, totalPages, limit || 10);
+      displayMembers(filtered.slice(startIndex, endIndex), totalItems, safePage, totalPages, perPage);
     }
     if (typeof renderPagination === 'function') {
-      renderPagination(safePage, totalPages, totalItems, limit || 10, 'members');
+      renderPagination(safePage, totalPages, totalItems, perPage, 'members');
     }
 
   } catch (err) {
@@ -3408,6 +3441,7 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
     if (typeof showMessage === 'function') showMessage('Failed to load members', 'error');
   }
 }
+
 
 
 async function addMember(event) {
@@ -10063,5 +10097,4 @@ function updateCertificatesSelectionUI() {
 
   window.__systemLoadFixBound = true;
 })();
-
 
