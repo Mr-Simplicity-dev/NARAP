@@ -3434,8 +3434,8 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
     }
 
     if (stateFilter) {
-      const sf = normalizeStateName(stateFilter).toLowerCase();
-      filtered = filtered.filter(m => normalizeStateName(m.state).toLowerCase() === sf);
+      const sf = normalizeStateForExport(stateFilter).toLowerCase();
+      filtered = filtered.filter(m => normalizeStateForExport(m.state).toLowerCase() === sf);
     }
 
     // Keep filtered order stable
@@ -10143,30 +10143,60 @@ window.addEventListener('error', function(e){
 /* ====== MEMBERS EXPORT BY STATE (DROP-IN) ====== */
 
 function normalizeStateForExport(s) {
-  let t = String(s || '').replace(/\s+/g, ' ').trim();
-  // remove trailing 'state'
-  t = t.replace(/\s+state$/i, '').trim();
-  // unify dashes/underscores and collapse spaces
-  t = t.replace(/[-_]+/g, ' ').trim();
-  const key = t.toLowerCase();
-  const ALIASES = {
-    'abuja': 'FCT', 'abuja fct': 'FCT', 'fct abuja': 'FCT',
-    'federal capital territory': 'FCT',
-    'akwa-ibom': 'Akwa Ibom', 'akwa ibom state': 'Akwa Ibom', 'akwa ibom': 'Akwa Ibom',
-    'cross-river': 'Cross River', 'cross river state': 'Cross River', 'cross river': 'Cross River',
-    'nassarawa': 'Nasarawa'
+  // Robust normalizer: strips 'state', punctuation, accents, dashes/underscores;
+  // maps aliases and returns Title Case for Nigerian states; FCT handled specially.
+  let t = (s == null ? '' : String(s));
+
+  // Normalize accents where supported
+  if (typeof t.normalize === 'function') {
+    t = t.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
   }
 
-function normalizeStateKey(s){
+  t = t.toLowerCase().trim();
+
+  // Common noise removals
+  t = t.replace(/\bstate\b/g, '');      // remove 'state'
+  t = t.replace(/[^a-z\s]/g, ' ');      // keep only letters/spaces
+  t = t.replace(/\s+/g, ' ').trim();
+
+  const ALIASES = {
+    'federal capital territory': 'FCT',
+    'abuja fct': 'FCT',
+    'fct abuja': 'FCT',
+    'abuja': 'FCT',
+    'akwa ibom': 'Akwa Ibom',
+    'cross river': 'Cross River',
+    'nassarawa': 'Nasarawa' // common misspelling
+  };
+
+  if (ALIASES[t]) return ALIASES[t];
+
+  // Canonical Nigeria states + FCT (as lowercase for comparison)
+  const CANON = new Set([
+    'abia','adamawa','akwa ibom','anambra','bauchi','bayelsa','benue','borno',
+    'cross river','delta','ebonyi','edo','ekiti','enugu','gombe','imo','jigawa',
+    'kaduna','kano','katsina','kebbi','kogi','kwara','lagos','nasarawa','niger',
+    'ogun','ondo','osun','oyo','plateau','rivers','sokoto','taraba','yobe','zamfara','fct'
+  ]);
+
+  // Helper: Title Case
+  const toTitle = (str) => str.replace(/\b\w/g, c => c.toUpperCase());
+
+  if (!t) return '';
+
+  if (CANON.has(t)) {
+    return t === 'fct' ? 'FCT' : toTitle(t);
+  }
+
+  // Fallback: Title Case cleaned string
+  return toTitle(t);
+}
+
+// Optional: handy key form for comparisons (e.g., maps/sets)
+function normalizeStateKey(s) {
   const canon = normalizeStateForExport(s);
   return canon.toLowerCase().replace(/\s+/g, '');
 }
-;
-  if (ALIASES[key]) return ALIASES[key];
-  // Title Case
-  return t.replace(/\b\w/g, ch => ch.toUpperCase());
-};
-  
 
 const NIGERIA_STATES_FOR_EXPORT = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta',
@@ -10174,6 +10204,7 @@ const NIGERIA_STATES_FOR_EXPORT = [
   'Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba',
   'Yobe','Zamfara','FCT'
 ];
+
 
 if (typeof convertToCSV !== 'function') {
   function convertToCSV(rows) {
