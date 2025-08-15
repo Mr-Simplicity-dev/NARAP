@@ -3274,6 +3274,20 @@ async function exportAllData() {
 
 
 async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter = '', stateFilter = '') {
+
+  // --- Customizable State priority (edit this list to change order) ---
+  const STATE_PRIORITY = [
+    'Abia',           // put your top-priority states first
+    'Akwa Ibom',
+    'Adamawa',
+    // add more here as needed...
+  ];
+  const __stateRank = (s) => {
+    const i = STATE_PRIORITY.findIndex(x => String(x).toLowerCase() === String(s).toLowerCase());
+    return i === -1 ? Number.POSITIVE_INFINITY : i;
+  };
+
+
   // Comparator: Name (A→Z), then State (A→Z), then Code
   function __memberCmp(a, b) {
     const an = String(a?.name || '').trim().toLowerCase();
