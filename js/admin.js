@@ -5476,6 +5476,11 @@ async function updateCertificate(event) {
         
         window.currentCertificates = certificates;
         saveLocalCertificates(certificates);
+        // Log and refresh Recent Activity immediately
+        try { if (typeof logCertificateUpdate === 'function') logCertificateUpdate(certificates[certificateIndex]); } catch (_) {}
+        try { if (typeof loadRecentActivity === 'function') setTimeout(loadRecentActivity, 0); } catch (_) {}
+        try { if (typeof updateActivityOverlayVisibility === 'function') setTimeout(updateActivityOverlayVisibility, 0); } catch (_) {}
+
         
         // Reset form and close modal
         document.getElementById('issueCertificateForm').reset();
@@ -5530,6 +5535,11 @@ async function deleteCertificate(certificateId) {
         
         // Update display immediately for better UX
         displayCertificates(updatedCertificates);
+        // Log and refresh Recent Activity immediately
+        try { if (typeof logCertificateDelete === 'function') logCertificateDelete(certificateToDelete); } catch (_) {}
+        try { if (typeof loadRecentActivity === 'function') setTimeout(loadRecentActivity, 0); } catch (_) {}
+        try { if (typeof updateActivityOverlayVisibility === 'function') setTimeout(updateActivityOverlayVisibility, 0); } catch (_) {}
+
         
         // Refresh analytics if analytics tab is active
         const analyticsPanel = document.getElementById('panel-analytics');
@@ -5633,6 +5643,12 @@ async function revokeCertificate(certificateId) {
         certificates[certificateIndex] = updatedCertificate;
         window.currentCertificates = certificates;
         saveLocalCertificates(certificates);
+
+        // Log and refresh Recent Activity immediately
+        try { if (typeof logCertificateUpdate === 'function') logCertificateUpdate(updatedCertificate); } catch (_) {}
+        try { if (typeof loadRecentActivity === 'function') setTimeout(loadRecentActivity, 0); } catch (_) {}
+        try { if (typeof updateActivityOverlayVisibility === 'function') setTimeout(updateActivityOverlayVisibility, 0); } catch (_) {}
+
         
         // Update display immediately for better UX
         displayCertificates(certificates);
@@ -6047,6 +6063,11 @@ async function issueCertificate(event) {
         const localCertificates = getLocalCertificates() || [];
         localCertificates.push(certificateData);
         saveLocalCertificates(localCertificates);
+        // Log and refresh Recent Activity immediately
+        try { if (typeof logCertificateAdd === 'function') logCertificateAdd(certificateData); } catch (_) {}
+        try { if (typeof loadRecentActivity === 'function') setTimeout(loadRecentActivity, 0); } catch (_) {}
+        try { if (typeof updateActivityOverlayVisibility === 'function') setTimeout(updateActivityOverlayVisibility, 0); } catch (_) {}
+
         
         // Add to pending sync if backend failed
         if (!backendSuccess) {
