@@ -194,10 +194,43 @@ class DataCache {
 // ==================== GLOBAL CONSTANTS AND STATE ====================
 
 
+
 // ==================== ACTIVITY LOGGING (Members & Certificates) ====================
 // Persisted in localStorage key: 'narap_activity_log'
 (function(){
   if (window.ActivityLogger) return; // don't redefine
+
+  function detectActor() {
+    try {
+      // Prefer explicit setter
+      if (window.__activityActor && (window.__activityActor.name || window.__activityActor.email)) return window.__activityActor;
+      // Common localStorage keys your app might use
+      const keys = ['narap_admin','adminUser','currentUser','admin','user','authUser'];
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        try {
+          const obj = JSON.parse(raw);
+          if (obj && (obj.name || obj.email)) return { name: obj.name, email: obj.email, id: obj.id || obj._id };
+        } catch{}
+      }
+      // Plain strings
+      const sKeys = ['adminName','adminEmail','currentAdmin','admin_username'];
+      const a = {};
+      for (const k of sKeys) {
+        const v = localStorage.getItem(k);
+        if (v) {
+          if (/mail/i.test(k)) a.email = v;
+          else a.name = v;
+        }
+      }
+      if (a.name || a.email) return a;
+      // From DOM
+      const el = document.getElementById('adminName') || document.querySelector('[data-admin-name]');
+      if (el && el.textContent) return { name: el.textContent.trim() };
+    } catch(_){}
+    return {};
+  }
 
   class ActivityLogger {
     constructor(key='narap_activity_log', max=5000){
@@ -222,10 +255,12 @@ class DataCache {
     log(entry){
       try {
         const now = new Date();
+        const actor = detectActor();
         const e = Object.assign({
           ts: now.toISOString(),
           date: now.toLocaleDateString(),
           time: now.toLocaleTimeString(),
+          actor: actor && (actor.name || actor.email) ? actor : undefined
         }, entry || {});
         const list = this._read();
         list.push(e);
@@ -244,6 +279,11 @@ class DataCache {
 
   window.ActivityLogger = ActivityLogger;
   window.activityLogger = new ActivityLogger();
+
+  // Public setter to override actor explicitly
+  window.setActivityActor = function(actor){
+    try { window.__activityActor = actor || {}; } catch(_){}
+  };
 
   // Simple utilities
   window.getActivityLog = () => activityLogger.all();
@@ -288,400 +328,7 @@ class DataCache {
       }
     } catch(_){}
   };
-
 })();
-
-
-    
-// ---- Pagination: persistent values & defaults (DROP-IN, safe) ----
-let membersPerPage = parseInt(localStorage.getItem('narap_members_per_page') || '10', 10);
-let certificatesPerPage = parseInt(localStorage.getItem('narap_certificates_per_page') || '10', 10);
-
-// Guard current page vars if not present
-if (typeof window.membersCurrentPage !== 'number') window.membersCurrentPage = 1;
-if (typeof window.certificatesCurrentPage !== 'number') window.certificatesCurrentPage = 1;
-
-// Keep per-page dropdowns in sync with current values
-function syncPerPageDropdowns() {
-  const savedM = parseInt(localStorage.getItem('narap_members_per_page') || '10', 10);
-  const savedC = parseInt(localStorage.getItem('narap_certificates_per_page') || '10', 10);
-  const mSel = document.getElementById('membersPerPage');
-  if (mSel && String(mSel.value) !== String(savedM)) mSel.value = String(savedM);
-  const cSel = document.getElementById('certificatesPerPage');
-  if (cSel && String(cSel.value) !== String(savedC)) cSel.value = String(savedC);
-}
-window.syncPerPageDropdowns = syncPerPageDropdowns;
-
-
-const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K';
-
-// ---- Alphabetical sort helpers (safe, non-breaking) ----
-function compareByStateThenName(a, b) {
-    const sa = (a && a.state ? String(a.state) : '').trim().toLowerCase();
-    const sb = (b && b.state ? String(b.state) : '').trim().toLowerCase();
-    if (sa !== sb) return sa.localeCompare(sb);
-    const na = (a && a.name ? String(a.name) : (a.fullName ? String(a.fullName) : '')).trim().toLowerCase();
-    const nb = (b && b.name ? String(b.name) : (b.fullName ? String(b.fullName) : '')).trim().toLowerCase();
-    return na.localeCompare(nb);
-}
-
-function enforceMembersAlpha() {
-  if (!Array.isArray(window.members)) window.members = [];
-  window.members = sortMembersAlpha(window.members);
-  if (typeof saveLocalMembers === 'function') saveLocalMembers(window.members);
-}
-
-function sortMembersAlpha(list) {
-    if (!Array.isArray(list)) return list;
-    // Create a shallow copy to avoid mutating external arrays unexpectedly
-    return list.slice().sort(compareByStateThenName);
-}
-
-// ---- Certificates alphabetical sort (safe) ----
-function compareCertificatesAlpha(a, b) {
-    const ra = (a && (a.recipientName || a.memberName || a.name) ? String(a.recipientName || a.memberName || a.name) : '').trim().toLowerCase();
-    const rb = (b && (b.recipientName || b.memberName || b.name) ? String(b.recipientName || b.memberName || b.name) : '').trim().toLowerCase();
-    if (ra !== rb) return ra.localeCompare(rb);
-    const ca = (a && (a.certificateNumber || a.number) ? String(a.certificateNumber || a.number) : '').trim().toLowerCase();
-    const cb = (b && (b.certificateNumber || b.number) ? String(b.certificateNumber || b.number) : '').trim().toLowerCase();
-    return ca.localeCompare(cb);
-}
-
-function sortCertificatesAlpha(list) {
-    if (!Array.isArray(list)) return list;
-    return list.slice().sort(compareCertificatesAlpha);
-}
-
-
-// Global state
-window.appState = {
-    members: [],
-    certificates: [],
-    isAuthenticated: false
-};
-
-// ==================== BACKEND URL CONFIGURATION ====================
-
-function getBackendUrl() {
-    if (window.BACKEND_URL) {
-        return window.BACKEND_URL;
-    }
-    
-    const customBackendUrl = localStorage.getItem('narap_backend_url');
-    if (customBackendUrl) {
-        return customBackendUrl;
-    }
-    
-    // Always use production backend by default
-    return 'https://narap-backend.onrender.com';
-}
-
-const backendUrl = getBackendUrl();
-
-// ---- Safe JSON helper: never throws on empty/invalid JSON bodies ----
-async function tryJson(res) { try { return await res.json(); } catch (_) { return null; } }
-
-window.backendUrl = backendUrl;
-function updateBackendUrl(newUrl) {
-    if (!newUrl || typeof newUrl !== 'string') {
-        
-        return false;
-    }
-    
-    try {
-        new URL(newUrl);
-    } catch (error) {
-        
-        return false;
-    }
-    
-    window.backendUrl = newUrl;
-    localStorage.setItem('narap_backend_url', newUrl);
-    
-    testBackendConnection(newUrl);
-    return true;
-}
-
-async function testBackendConnection(url = backendUrl) {
-    try {
-        
-        
-        const response = await fetch(`${url}/api/health`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 5000
-        });
-        
-        if (response.ok) {
-            
-            return true;
-        } else {
-            
-            return false;
-        }
-    } catch (error) {
-        
-        return false;
-    }
-}
-
-// Add after the checkServerStatus function
-async function testCorsConnectivity() {
-    console.log('🔍 Testing CORS connectivity...');
-    
-    try {
-        const response = await fetch(`${backendUrl}/api/health/cors-test`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                test: true,
-                timestamp: new Date().toISOString()
-            })
-        });
-        
-        if (response.ok) {
-            const data = await tryJson(response);
-            console.log('✅ CORS test successful:', data);
-            return { success: true, data };
-        } else {
-            console.log('❌ CORS test failed with status:', response.status);
-            return { success: false, status: response.status };
-        }
-    } catch (error) {
-        console.log('❌ CORS test error:', error.message);
-        return { success: false, error: error.message };
-    }
-}
-
-async function testBackendConnectivity() {
-    console.log('🔍 Testing backend connectivity...');
-    
-    const tests = [
-        { name: 'Health Check', url: '/api/health' },
-        { name: 'Connection Test', url: '/api/health/connection' },
-        { name: 'CORS Test', url: '/api/health/cors-test', method: 'POST' }
-    ];
-    
-    const results = {};
-    
-    for (const test of tests) {
-        try {
-            const response = await fetch(`${backendUrl}${test.url}`, {
-                method: test.method || 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                ...(test.method === 'POST' && {
-                    body: JSON.stringify({ test: true })
-                })
-            });
-            
-            if (response.ok) {
-                const data = await tryJson(response);
-                results[test.name] = { success: true, data };
-                console.log(`✅ ${test.name} successful`);
-            } else {
-                results[test.name] = { success: false, status: response.status };
-                console.log(`❌ ${test.name} failed with status:`, response.status);
-            }
-        } catch (error) {
-            results[test.name] = { success: false, error: error.message };
-            console.log(`❌ ${test.name} error:`, error.message);
-        }
-    }
-    
-    console.log('📊 Connectivity test results:', results);
-    return results;
-}
-
-// Add to window object
-window.testCorsConnectivity = testCorsConnectivity;
-window.testBackendConnectivity = testBackendConnectivity;
-
-// ==================== UTILITY FUNCTIONS ====================
-
-function showMessage(message, type = 'info') {
-    if (notificationManager) {
-        notificationManager.show(message, type);
-    } else {
-        // Fallback to alert if notification manager is not available
-        alert(`${type.toUpperCase()}: ${message}`);
-    }
-}
-
-function convertToCSV(data) {
-    // Validate input data
-    if (!data) {
-        
-        return '';
-    }
-    
-    if (!Array.isArray(data)) {
-        
-        return '';
-    }
-    
-    if (data.length === 0) {
-        
-        return '';
-    }
-    
-    // Ensure first item is an object
-    if (!data[0] || typeof data[0] !== 'object') {
-        
-        return '';
-    }
-    
-    const headers = Object.keys(data[0]);
-    if (headers.length === 0) {
-        
-        return '';
-    }
-    
-    const csvRows = [headers.join(',')];
-    
-    for (const row of data) {
-        if (!row || typeof row !== 'object') {
-            
-            continue;
-        }
-        
-        const values = headers.map(header => {
-            const value = row[header];
-            if (value === null || value === undefined) {
-                return '';
-            }
-            return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
-        });
-        csvRows.push(values.join(','));
-    }
-    
-    return csvRows.join('\n');
-}
-
-function downloadFile(content, filename, contentType) {
-    const blob = new Blob([content], { type: contentType });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-}
-
-function checkPasswordStrength(password) {
-    if (!password) return { strength: 0, message: 'No password entered' };
-    
-    let strength = 0;
-    let message = '';
-    
-    if (password.length >= 8) strength += 1;
-    if (password.length >= 12) strength += 1;
-    if (/[a-z]/.test(password)) strength += 1;
-    if (/[A-Z]/.test(password)) strength += 1;
-    if (/[0-9]/.test(password)) strength += 1;
-    if (/[^A-Za-z0-9]/.test(password)) strength += 1;
-    
-    if (strength <= 2) {
-        message = 'Weak password';
-    } else if (strength <= 4) {
-        message = 'Fair password';
-    } else if (strength <= 5) {
-        message = 'Good password';
-    } else {
-        message = 'Strong password';
-    }
-    
-    return { strength, message };
-}
-
-// ==================== LOCAL STORAGE FUNCTIONS ====================
-
-function getLocalCertificates() {
-    try {
-        const certificates = localStorage.getItem('narap_certificates');
-        if (certificates) {
-            return JSON.parse(certificates);
-        }
-    } catch (error) {
-        
-    }
-    return [];
-}
-
-function saveLocalCertificates(certificates) {
-    try {
-        localStorage.setItem('narap_certificates', JSON.stringify(certificates));
-    } catch (error) {
-        
-    }
-}
-
-function getLocalMembers() {
-  try {
-    const raw = localStorage.getItem('narap_members');
-    if (!raw) return [];
-    const arr = JSON.parse(raw) || [];
-    return sortMembersAlpha(arr);
-  } catch (_) {
-    return [];
-  }
-}
-
-function saveLocalMembers(members) {
-  try {
-    const arr = Array.isArray(members) ? members : [];
-    const sorted = sortMembersAlpha(arr);
-    localStorage.setItem('narap_members', JSON.stringify(sorted));
-  } catch (error) {
-    // ignore write errors (quota, privacy mode, etc.)
-  }
-}
-
-
-// --- UI refresh helper for members (safe) ---
-
-// --- Commit members to localStorage + refresh the UI ---
-function hardenCommitMembers(list) {
-  try {
-    const arr = Array.isArray(list) ? list.slice() : [];
-    const keyOf = (m) => {
-      const id = m && (m._id || m.id);
-      if (id) return 'id:' + id;
-      const c = String(m?.code || '').trim().toLowerCase();
-      if (c) return 'c:' + c;
-      const e = String(m?.email || '').trim().toLowerCase();
-      if (e) return 'e:' + e;
-      return null;
-    };
-    const byKey = new Map();
-    arr.forEach(m => { const k = keyOf(m); if (!k) return; const prev = byKey.get(k); byKey.set(k, prev ? { ...prev, ...m } : m); });
-    const merged = Array.from(byKey.values());
-    if (typeof saveLocalMembers === 'function') saveLocalMembers(merged);
-    window.members = merged;
-    window.currentMembers = merged;
-
-    if (typeof refreshMembersUI === 'function') refreshMembersUI();
-    else if (typeof loadMembers === 'function') {
-      const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
-      loadMembers(1, per);
-    }
-
-    const count = merged.length;
-    ['totalMembers','membersCount'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = String(count);
-    });
-  } catch (e) {
-    console.error('hardenCommitMembers failed:', e);
-  }
-}
 
 function refreshMembersUI() {
   try {
@@ -2067,6 +1714,8 @@ async function loadDashboard() {
         
     await loadSystemActivityLogs();
         if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
+        await loadSystemActivityLogs();
+        if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
         } catch (error) {
         
         showMessage('Failed to load dashboard: ' + error.message, 'error');
@@ -2074,65 +1723,87 @@ async function loadDashboard() {
 }
 
 
-async function loadRecentActivity() {
+
+
+async function loadSystemActivityLogs() {
   try {
-    const container = document.getElementById('recentActivity');
+    const container = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
     if (!container) return;
 
-    // read persisted logs
     const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
-    // also derive pending actions as "system" notes
-    const pending = (typeof getPendingSync === 'function') ? getPendingSync() : null;
-    if (pending) {
-      const totalPending =
-        (pending.memberCreations?.length||0) + (pending.memberUpdates?.length||0) + (pending.memberDeletions?.length||0) +
-        (pending.certificateCreations?.length||0) + (pending.certificateUpdates?.length||0) + (pending.certificateDeletions?.length||0);
-      if (totalPending > 0) {
-        logs.unshift({
-          entity: 'system',
-          action: 'pending',
-          data: { totalPending },
-          ts: new Date().toISOString(),
-          date: new Date().toLocaleDateString(),
-          time: new Date().toLocaleTimeString()
-        });
-      }
+
+    // Use the same filters UI if present
+    const afSearch = document.getElementById('afSearch');
+    const afFrom = document.getElementById('afFrom');
+    const afTo = document.getElementById('afTo');
+    const afDeletedOnly = document.getElementById('afDeletedOnly');
+
+    const q = (afSearch?.value || '').toLowerCase().trim();
+
+    // Date window
+    let fromMs = 0, toMs = Number.MAX_SAFE_INTEGER;
+    if (afFrom && afFrom.value) {
+      try { fromMs = new Date(afFrom.value + 'T00:00:00').getTime(); } catch(_){}
+    }
+    if (afTo && afTo.value) {
+      try { toMs = new Date(afTo.value + 'T23:59:59.999').getTime(); } catch(_){}
     }
 
-    // Render
+    // Filter only 'system' entries plus critical member/certificate events (updated/deleted)
+    const sysAll = logs.filter(e => e.entity === 'system')
+                    .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 200))
+                    .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+
+    const delOnly = !!(afDeletedOnly && afDeletedOnly.checked);
+
+    const matches = (e) => {
+      const ts = new Date(e.ts || Date.now()).getTime();
+      if (ts < fromMs || ts > toMs) return false;
+      if (delOnly && String(e.action).toLowerCase() !== 'deleted') return false;
+      if (!q) return true;
+      const hay = [
+        e.entity, e.action, e.date, e.time,
+        e.data?.name, e.data?.code, e.data?.number, e.data?.member,
+        e.actor?.name, e.actor?.email
+      ].filter(Boolean).join(' ').toLowerCase();
+      return hay.indexOf(q) !== -1;
+    };
+
     container.innerHTML = '';
     const list = document.createElement('div');
-    list.className = 'recent-activity-list';
+    list.className = 'system-activity-list';
     list.style.maxHeight = '320px';
     list.style.overflow = 'auto';
     list.style.padding = '6px 0';
 
-    const fmt = (e) => {
+    const item = (e)=>{
       const when = (e.date && e.time) ? `${e.date} • ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
-      let who = '';
-      if (e.entity === 'member') who = e.data?.name || e.data?.code || 'Member';
-      if (e.entity === 'certificate') who = e.data?.number || e.data?.member || 'Certificate';
-      const badge = `<span class="badge badge-${e.action}" style="background:#eee;color:#333;border-radius:10px;padding:2px 8px;margin-right:8px;text-transform:capitalize;">${e.action}</span>`;
-      const label = `<strong style="text-transform:capitalize;">${e.entity}</strong> — ${who || ''}`;
-      return `<div class="ra-item" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">
-        <div>${badge}${label}</div>
+      let title = `[${e.entity}] ${e.action}`;
+      let sub = '';
+      if (e.entity === 'member') sub = e.data?.name || e.data?.code || '';
+      if (e.entity === 'certificate') sub = e.data?.number || e.data?.member || '';
+      if (e.entity === 'system') sub = (e.data && e.data.totalPending!=null) ? `${e.data.totalPending} change(s) pending` : (e.data?.message||'');
+      const actor = e.actor ? `<span style="color:#6c757d;margin-left:8px;">by ${e.actor.name || e.actor.email}</span>` : '';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f6f6f6;">
+        <div><strong>${title}</strong> <span style="color:#6c757d;">${sub}</span>${actor}</div>
         <div style="color:#6c757d;font-size:12px;">${when}</div>
       </div>`;
     };
 
-    if (!logs || !logs.length) {
-      list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No recent activity</div>`;
+    const sys = sysAll.filter(matches);
+    if (!sys.length) {
+      list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No system activity</div>`;
     } else {
-      list.innerHTML = logs.map(fmt).join('');
+      list.innerHTML = sys.map(item).join('');
     }
     container.appendChild(list);
 
-    // Activate scroll arrows for this container
     if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
   } catch (err) {
-    console.error('loadRecentActivity failed:', err);
+    console.error('loadSystemActivityLogs failed:', err);
   }
 }
+
 
 
 function getTimeAgo(date) {
@@ -3833,6 +3504,8 @@ async function addMember(event) {
         }
         if (typeof loadRecentActivity === 'function') {
             await loadRecentActivity();
+        await loadSystemActivityLogs();
+        if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
         }
         
     } catch (error) {
@@ -4661,6 +4334,8 @@ async function deleteMember(memberId) {
         }
         if (typeof loadRecentActivity === 'function') {
             await loadRecentActivity();
+        await loadSystemActivityLogs();
+        if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
         }
         
     } catch (error) {
@@ -5044,6 +4719,8 @@ async function editMember(event) {
         }
         if (typeof loadRecentActivity === 'function') {
             await loadRecentActivity();
+        await loadSystemActivityLogs();
+        if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
         }
         
     } catch (error) {
@@ -10695,19 +10372,49 @@ async function upsertMemberFormData(member, formData) {
 }
 
 
-
-
-
 async function loadSystemActivityLogs() {
   try {
     const container = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
     if (!container) return;
 
     const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
-    // Filter only 'system' entries plus critical member/certificate events to show a subset
-    const sys = logs.filter(e => e.entity === 'system')
-                    .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 50))
-                    .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+
+    // Use the same filters UI if present
+    const afSearch = document.getElementById('afSearch');
+    const afFrom = document.getElementById('afFrom');
+    const afTo = document.getElementById('afTo');
+    const afDeletedOnly = document.getElementById('afDeletedOnly');
+
+    const q = (afSearch?.value || '').toLowerCase().trim();
+
+    // Date window
+    let fromMs = 0, toMs = Number.MAX_SAFE_INTEGER;
+    if (afFrom && afFrom.value) {
+      try { fromMs = new Date(afFrom.value + 'T00:00:00').getTime(); } catch(_){}
+    }
+    if (afTo && afTo.value) {
+      try { toMs = new Date(afTo.value + 'T23:59:59.999').getTime(); } catch(_){}
+    }
+
+    // Filter only 'system' entries plus critical member/certificate events (updated/deleted)
+    const sysAll = logs.filter(e => e.entity === 'system')
+                    .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 200))
+                    .sort((a,b) => new Date(b.ts) - new Date(a.ts));
+
+    const delOnly = !!(afDeletedOnly && afDeletedOnly.checked);
+
+    const matches = (e) => {
+      const ts = new Date(e.ts || Date.now()).getTime();
+      if (ts < fromMs || ts > toMs) return false;
+      if (delOnly && String(e.action).toLowerCase() !== 'deleted') return false;
+      if (!q) return true;
+      const hay = [
+        e.entity, e.action, e.date, e.time,
+        e.data?.name, e.data?.code, e.data?.number, e.data?.member,
+        e.actor?.name, e.actor?.email
+      ].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    };
 
     container.innerHTML = '';
     const list = document.createElement('div');
@@ -10716,19 +10423,21 @@ async function loadSystemActivityLogs() {
     list.style.overflow = 'auto';
     list.style.padding = '6px 0';
 
-    const item = (e)=>{
+    const item = (e) => {
       const when = (e.date && e.time) ? `${e.date} • ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
       let title = `[${e.entity}] ${e.action}`;
       let sub = '';
       if (e.entity === 'member') sub = e.data?.name || e.data?.code || '';
       if (e.entity === 'certificate') sub = e.data?.number || e.data?.member || '';
-      if (e.entity === 'system') sub = (e.data && e.data.totalPending!=null) ? `${e.data.totalPending} change(s) pending` : (e.data?.message||'');
+      if (e.entity === 'system') sub = (e.data && e.data.totalPending != null) ? `${e.data.totalPending} change(s) pending` : (e.data?.message || '');
+      const actor = e.actor ? `<span style="color:#6c757d;margin-left:8px;">by ${e.actor.name || e.actor.email}</span>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f6f6f6;">
-        <div><strong>${title}</strong> <span style="color:#6c757d;">${sub}</span></div>
+        <div><strong>${title}</strong> <span style="color:#6c757d;">${sub}</span>${actor}</div>
         <div style="color:#6c757d;font-size:12px;">${when}</div>
       </div>`;
     };
 
+    const sys = sysAll.filter(matches);
     if (!sys.length) {
       list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No system activity</div>`;
     } else {
@@ -10741,8 +10450,6 @@ async function loadSystemActivityLogs() {
     console.error('loadSystemActivityLogs failed:', err);
   }
 }
-
-
 
 
 // Floating scroll arrows centered above activity sections
@@ -10824,4 +10531,101 @@ function initLogScrollArrows(){
     console.warn('initLogScrollArrows failed:', e);
   }
 }
+
+
+
+
+// Export current activity view (or full) to CSV
+function exportActivityCSV(opts = {}) {
+  try {
+    const scope = (opts.scope || (document.getElementById('afScope')?.value) || 'recent').toLowerCase();
+    const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
+
+    // Read UI filters
+    const afSearch = document.getElementById('afSearch');
+    const afEntity = document.getElementById('afEntity');
+    const afAction = document.getElementById('afAction');
+    const afDeletedOnly = document.getElementById('afDeletedOnly');
+    const afFrom = document.getElementById('afFrom');
+    const afTo = document.getElementById('afTo');
+    const q = (afSearch?.value || '').toLowerCase().trim();
+    const ent = (afEntity?.value || '').toLowerCase().trim();
+    const act = (afAction?.value || '').toLowerCase().trim();
+
+    const delOnly = !!(afDeletedOnly && afDeletedOnly.checked);
+
+    let fromMs = 0, toMs = Number.MAX_SAFE_INTEGER;
+    if (afFrom && afFrom.value) { try { fromMs = new Date(afFrom.value + 'T00:00:00').getTime(); } catch(_){} }
+    if (afTo && afTo.value) { try { toMs = new Date(afTo.value + 'T23:59:59.999').getTime(); } catch(_){} }
+
+    // Build candidate set by scope
+    let cand = logs.slice();
+    if (scope === 'system') {
+      cand = logs.filter(e => e.entity === 'system')
+             .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 200))
+             .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+    } // 'recent' => all logs (already)
+
+    // Apply filters
+    const norm = (x)=>String(x||'').toLowerCase();
+    const filtered = cand.filter(e => {
+      const ts = new Date(e.ts || Date.now()).getTime();
+      if (ts < fromMs || ts > toMs) return false;
+      if (ent && String(e.entity).toLowerCase() !== ent) return false;
+      if (act && String(e.action).toLowerCase() !== act) return false;
+      if (delOnly && String(e.action).toLowerCase() !== 'deleted') return false;
+      if (delOnly && String(e.action).toLowerCase() !== 'deleted') return false;
+      if (!q) return true;
+      const hay = [
+        e.entity, e.action, e.date, e.time,
+        e.data?.name, e.data?.code, e.data?.number, e.data?.member,
+        e.actor?.name, e.actor?.email
+      ].filter(Boolean).join(' ').toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+
+    // CSV
+    const cols = ['ts','date','time','entity','action','actorName','actorEmail','memberName','code','state','certificateNumber','certificateMember','message'];
+    function esc(v){
+      const s = (v == null ? '' : String(v));
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+    const header = cols.join(',');
+    const lines = filtered.map(e => {
+      const row = {
+        ts: e.ts || '',
+        date: e.date || '',
+        time: e.time || '',
+        entity: e.entity || '',
+        action: e.action || '',
+        actorName: e.actor?.name || '',
+        actorEmail: e.actor?.email || '',
+        memberName: e.data?.name || e.data?.member || '',
+        code: e.data?.code || '',
+        state: e.data?.state || '',
+        certificateNumber: e.data?.number || '',
+        certificateMember: e.data?.member || '',
+        message: e.data?.message || ''
+      };
+      return cols.map(k => esc(row[k])).join(',');
+    });
+    const csv = '\uFEFF' + header + (lines.length ? '\n' + lines.join('\n') : '');
+
+    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    const filename = `activity_${scope}_${stamp}.csv`;
+    if (typeof downloadFile === 'function') downloadFile(csv, filename, 'text/csv;charset=utf-8');
+    else {
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+  } catch (err) {
+    console.error('exportActivityCSV failed:', err);
+    if (typeof showMessage === 'function') showMessage('Export Activity failed. See console.', 'danger');
+  }
+}
+window.exportActivityCSV = exportActivityCSV;
 
