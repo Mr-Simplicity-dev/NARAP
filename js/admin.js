@@ -192,6 +192,106 @@ class DataCache {
 }
 
 // ==================== GLOBAL CONSTANTS AND STATE ====================
+
+
+// ==================== ACTIVITY LOGGING (Members & Certificates) ====================
+// Persisted in localStorage key: 'narap_activity_log'
+(function(){
+  if (window.ActivityLogger) return; // don't redefine
+
+  class ActivityLogger {
+    constructor(key='narap_activity_log', max=5000){
+      this.key = key;
+      this.max = max;
+    }
+    _read(){
+      try {
+        const raw = localStorage.getItem(this.key);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch(_) { return []; }
+    }
+    _write(list){
+      try {
+        const arr = Array.isArray(list) ? list.slice(-this.max) : [];
+        localStorage.setItem(this.key, JSON.stringify(arr));
+      } catch(e){ console.warn('ActivityLogger write failed:', e); }
+    }
+    all(){ return this._read().slice().sort((a,b)=>new Date(b.ts)-new Date(a.ts)); }
+    clear(){ localStorage.removeItem(this.key); }
+    log(entry){
+      try {
+        const now = new Date();
+        const e = Object.assign({
+          ts: now.toISOString(),
+          date: now.toLocaleDateString(),
+          time: now.toLocaleTimeString(),
+        }, entry || {});
+        const list = this._read();
+        list.push(e);
+        this._write(list);
+        return e;
+      } catch (err){
+        console.warn('ActivityLogger.log failed:', err);
+        return null;
+      }
+    }
+    // Convenience API
+    member(action, data){ return this.log({entity:'member', action, data}); }
+    certificate(action, data){ return this.log({entity:'certificate', action, data}); }
+    system(action, data){ return this.log({entity:'system', action, data}); }
+  }
+
+  window.ActivityLogger = ActivityLogger;
+  window.activityLogger = new ActivityLogger();
+
+  // Simple utilities
+  window.getActivityLog = () => activityLogger.all();
+  window.logMemberAdd = (m)=>activityLogger.member('added', {id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName, state: m?.state||m?.State});
+  window.logMemberUpdate = (m)=>activityLogger.member('updated', {id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName, state: m?.state||m?.State});
+  window.logMemberDelete = (m)=>activityLogger.member('deleted', {id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName});
+  window.logCertificateAdd = (c)=>activityLogger.certificate('added', {id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName});
+  window.logCertificateUpdate = (c)=>activityLogger.certificate('updated', {id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName});
+  window.logCertificateDelete = (c)=>activityLogger.certificate('deleted', {id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName});
+
+  // Hook upsertMemberFormData if present (to capture create/update)
+  const _origUpsert = window.upsertMemberFormData;
+  if (typeof _origUpsert === 'function') {
+    window.upsertMemberFormData = async function(mm, formData){
+      const existed = (()=>{
+        try{
+          const locals = (typeof getLocalMembers==='function' ? getLocalMembers() : []) || [];
+          const key = (mm?._id||mm?.id) || (mm?.code ? 'c:'+String(mm.code).toLowerCase() : (mm?.email ? 'e:'+String(mm.email).toLowerCase() : null));
+          if (!key) return false;
+          return locals.some(m=> (m._id&&mm._id&&m._id===mm._id) ||
+                                 (m.id&&mm.id&&m.id===mm.id) ||
+                                 (mm.code && String(m.code||'').toLowerCase()===String(mm.code).toLowerCase()) ||
+                                 (mm.email && String(m.email||'').toLowerCase()===String(mm.email).toLowerCase()));
+        }catch(_){ return false; }
+      })();
+      const res = await _origUpsert.apply(this, arguments);
+      try {
+        if (res && res.ok) {
+          existed ? logMemberUpdate(mm) : logMemberAdd(mm);
+        }
+      } catch(_){}
+      return res;
+    }
+  }
+
+  // Expose a helper to log deletions when UI deletes locally
+  window.logDeletionIfOk = function(entity, original, response){
+    try{
+      if (response === true || (response && response.ok) || response === 'ok') {
+        if (entity === 'member') logMemberDelete(original);
+        if (entity === 'certificate') logCertificateDelete(original);
+      }
+    } catch(_){}
+  };
+
+})();
+
+
     
 // ---- Pagination: persistent values & defaults (DROP-IN, safe) ----
 let membersPerPage = parseInt(localStorage.getItem('narap_members_per_page') || '10', 10);
@@ -1051,6 +1151,7 @@ async function syncPendingChanges() {
         });
         if (resp.ok) {
           syncedCount++;
+          try { logCertificateAdd(c); } catch(_) {}
         } else {
           remain.certificateCreations.push(cert);
         }
@@ -1071,6 +1172,7 @@ async function syncPendingChanges() {
         });
         if (resp.ok) {
           syncedCount++;
+          try { logCertificateUpdate(cert); } catch(_){ }
         } else {
           remain.certificateUpdates.push(cert);
         }
@@ -1163,12 +1265,14 @@ async function syncPendingChanges() {
         const resp = await fetch(`${backendUrl}/api/users/deleteUser/${id}`, { method: 'DELETE' });
         if (resp.ok) {
           syncedCount++;
+          try { logMemberDelete(member); } catch(_){ }
         } else {
           const body = (await _tryJson(resp)) || {};
           const msg = (body.message || '').toLowerCase();
           if (resp.status === 404 || msg.includes('not found')) {
             // Desired end-state already achieved
             syncedCount++;
+            try { logMemberDelete(member); } catch(_){ }
           } else {
             remain.memberDeletions.push(member);
           }
@@ -1961,130 +2065,75 @@ async function loadDashboard() {
         
         
         
-    } catch (error) {
+    await loadSystemActivityLogs();
+        if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
+        } catch (error) {
         
         showMessage('Failed to load dashboard: ' + error.message, 'error');
     }
 }
 
+
 async function loadRecentActivity() {
-    try {
-        
-        
-        const recentActivityEl = document.getElementById('recentActivity');
-        if (!recentActivityEl) {
-            
-            return;
-        }
-        
-        // Get recent activities from local storage and pending sync
-        const localMembers = getLocalMembers();
-        const localCertificates = getLocalCertificates();
-        const pendingSync = getPendingSync();
-        
-        const activities = [];
-        
-        // Add recent member activities
-        if (localMembers && Array.isArray(localMembers) && localMembers.length > 0) {
-            const recentMembers = localMembers
-                .sort((a, b) => {
-                    const dateA = new Date(a.createdAt || a.dateAdded || a.updatedAt || 0);
-                    const dateB = new Date(b.createdAt || b.dateAdded || b.updatedAt || 0);
-                    return dateB - dateA;
-                })
-                .slice(0, 5);
-            
-            recentMembers.forEach(member => {
-                const date = new Date(member.createdAt || member.dateAdded || member.updatedAt);
-                activities.push({
-                    type: 'member',
-                    action: member.createdAt ? 'Added' : 'Updated',
-                    name: member.name || member.fullName || 'Unknown Member',
-                    date: date,
-                    description: `${member.createdAt ? 'Added' : 'Updated'} member: ${member.name || member.fullName}`
-                });
-            });
-        }
-        
-        // Add recent certificate activities
-        if (localCertificates && Array.isArray(localCertificates) && localCertificates.length > 0) {
-            const recentCertificates = localCertificates
-                .sort((a, b) => {
-                    const dateA = new Date(a.createdAt || a.issueDate || a.updatedAt || 0);
-                    const dateB = new Date(b.createdAt || b.issueDate || b.updatedAt || 0);
-                    return dateB - dateA;
-                })
-                .slice(0, 3);
-            
-            recentCertificates.forEach(certificate => {
-                const date = new Date(certificate.createdAt || certificate.issueDate || certificate.updatedAt);
-                const recipientName = certificate.memberName || certificate.recipientName || certificate.recipient || 'Unknown';
-                activities.push({
-                    type: 'certificate',
-                    action: 'Issued',
-                    name: recipientName,
-                    date: date,
-                    description: `Certificate issued to: ${recipientName}`
-                });
-            });
-        }
-        
-        // Add pending sync activities
-        const pendingCount = 
-            (pendingSync.memberCreations?.length || 0) +
-            (pendingSync.memberUpdates?.length || 0) +
-            (pendingSync.memberDeletions?.length || 0) +
-            (pendingSync.certificateCreations?.length || 0) +
-            (pendingSync.certificateUpdates?.length || 0);
-        
-        if (pendingCount > 0) {
-            activities.push({
-                type: 'sync',
-                action: 'Pending',
-                name: `${pendingCount} changes`,
-                date: new Date(),
-                description: `${pendingCount} changes pending sync with backend`
-            });
-        }
-        
-        // Sort all activities by date (most recent first)
-        activities.sort((a, b) => b.date - a.date);
-        
-        // Display activities
-        if (!activities || activities.length === 0) {
-            recentActivityEl.innerHTML = '<p class="text-muted">No recent activity</p>';
-        } else {
-            const activityHTML = activities.slice(0, 8).map(activity => {
-                const timeAgo = getTimeAgo(activity.date);
-                const icon = getActivityIcon(activity.type);
-                const color = getActivityColor(activity.type);
-                
-                return `
-                    <div class="activity-item" style="margin-bottom: 15px; padding: 10px; border-left: 3px solid ${color}; background: rgba(0,0,0,0.02);">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="color: ${color}; font-size: 16px;">${icon}</span>
-                            <div style="flex: 1;">
-                                <div style="font-weight: 500; color: #333;">${activity.description}</div>
-                                <div style="font-size: 12px; color: #666;">${timeAgo}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            recentActivityEl.innerHTML = activityHTML;
-        }
-        
-        
-        
-    } catch (error) {
-        
-        const recentActivityEl = document.getElementById('recentActivity');
-        if (recentActivityEl) {
-            recentActivityEl.innerHTML = '<p class="text-muted">Failed to load recent activity</p>';
-        }
+  try {
+    const container = document.getElementById('recentActivity');
+    if (!container) return;
+
+    // read persisted logs
+    const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
+    // also derive pending actions as "system" notes
+    const pending = (typeof getPendingSync === 'function') ? getPendingSync() : null;
+    if (pending) {
+      const totalPending =
+        (pending.memberCreations?.length||0) + (pending.memberUpdates?.length||0) + (pending.memberDeletions?.length||0) +
+        (pending.certificateCreations?.length||0) + (pending.certificateUpdates?.length||0) + (pending.certificateDeletions?.length||0);
+      if (totalPending > 0) {
+        logs.unshift({
+          entity: 'system',
+          action: 'pending',
+          data: { totalPending },
+          ts: new Date().toISOString(),
+          date: new Date().toLocaleDateString(),
+          time: new Date().toLocaleTimeString()
+        });
+      }
     }
+
+    // Render
+    container.innerHTML = '';
+    const list = document.createElement('div');
+    list.className = 'recent-activity-list';
+    list.style.maxHeight = '320px';
+    list.style.overflow = 'auto';
+    list.style.padding = '6px 0';
+
+    const fmt = (e) => {
+      const when = (e.date && e.time) ? `${e.date} • ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
+      let who = '';
+      if (e.entity === 'member') who = e.data?.name || e.data?.code || 'Member';
+      if (e.entity === 'certificate') who = e.data?.number || e.data?.member || 'Certificate';
+      const badge = `<span class="badge badge-${e.action}" style="background:#eee;color:#333;border-radius:10px;padding:2px 8px;margin-right:8px;text-transform:capitalize;">${e.action}</span>`;
+      const label = `<strong style="text-transform:capitalize;">${e.entity}</strong> — ${who || ''}`;
+      return `<div class="ra-item" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">
+        <div>${badge}${label}</div>
+        <div style="color:#6c757d;font-size:12px;">${when}</div>
+      </div>`;
+    };
+
+    if (!logs || !logs.length) {
+      list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No recent activity</div>`;
+    } else {
+      list.innerHTML = logs.map(fmt).join('');
+    }
+    container.appendChild(list);
+
+    // Activate scroll arrows for this container
+    if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
+  } catch (err) {
+    console.error('loadRecentActivity failed:', err);
+  }
 }
+
 
 function getTimeAgo(date) {
     const now = new Date();
@@ -10645,4 +10694,134 @@ async function upsertMemberFormData(member, formData) {
   return { ok: false, status: p.status, message: (await _safeJson(p))?.message || 'Create failed' };
 }
 
+
+
+
+
+async function loadSystemActivityLogs() {
+  try {
+    const container = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
+    if (!container) return;
+
+    const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
+    // Filter only 'system' entries plus critical member/certificate events to show a subset
+    const sys = logs.filter(e => e.entity === 'system')
+                    .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 50))
+                    .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+
+    container.innerHTML = '';
+    const list = document.createElement('div');
+    list.className = 'system-activity-list';
+    list.style.maxHeight = '320px';
+    list.style.overflow = 'auto';
+    list.style.padding = '6px 0';
+
+    const item = (e)=>{
+      const when = (e.date && e.time) ? `${e.date} • ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
+      let title = `[${e.entity}] ${e.action}`;
+      let sub = '';
+      if (e.entity === 'member') sub = e.data?.name || e.data?.code || '';
+      if (e.entity === 'certificate') sub = e.data?.number || e.data?.member || '';
+      if (e.entity === 'system') sub = (e.data && e.data.totalPending!=null) ? `${e.data.totalPending} change(s) pending` : (e.data?.message||'');
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f6f6f6;">
+        <div><strong>${title}</strong> <span style="color:#6c757d;">${sub}</span></div>
+        <div style="color:#6c757d;font-size:12px;">${when}</div>
+      </div>`;
+    };
+
+    if (!sys.length) {
+      list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No system activity</div>`;
+    } else {
+      list.innerHTML = sys.map(item).join('');
+    }
+    container.appendChild(list);
+
+    if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
+  } catch (err) {
+    console.error('loadSystemActivityLogs failed:', err);
+  }
+}
+
+
+
+
+// Floating scroll arrows centered above activity sections
+function initLogScrollArrows(){
+  try{
+    const ra = document.getElementById('recentActivity');
+    const sa = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
+    if (!ra && !sa) return;
+
+    let active = null;
+    const pickActive = (el)=>{ active = el; updateArrows(); };
+
+    // create overlay once
+    let overlay = document.getElementById('activityScrollOverlay');
+    if (!overlay){
+      overlay = document.createElement('div');
+      overlay.id = 'activityScrollOverlay';
+      overlay.style.cssText = 'position:relative;width:100%;display:flex;justify-content:center;margin:8px 0;';
+      // Inner wrapper centered
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;gap:12px;background:rgba(248,249,250,.9);border:1px solid #e9ecef;border-radius:999px;padding:6px 10px;box-shadow:0 4px 12px rgba(0,0,0,.06);';
+      // up button
+      const up = document.createElement('button');
+      up.id = 'activityArrowUp';
+      up.textContent = '▲';
+      up.title = 'Scroll up';
+      up.style.cssText = 'border:none;background:#fff;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;';
+      // down button
+      const dn = document.createElement('button');
+      dn.id = 'activityArrowDown';
+      dn.textContent = '▼';
+      dn.title = 'Scroll down';
+      dn.style.cssText = 'border:none;background:#fff;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;';
+
+      wrap.appendChild(up); wrap.appendChild(dn);
+      overlay.appendChild(wrap);
+
+      // Insert above the two sections' common parent if possible; else place before recentActivity
+      const parent = (ra && ra.parentElement && ra.parentElement.parentElement) || (sa && sa.parentElement && sa.parentElement.parentElement) || document.body;
+      if (parent && parent.insertBefore) {
+        parent.insertBefore(overlay, parent.firstChild);
+      } else {
+        (ra || sa).parentElement.insertBefore(overlay, (ra || sa));
+      }
+
+      // handlers
+      const scrollBy = (el, dy)=>{ if (!el) return; el.scrollBy({top: dy, left:0, behavior:'smooth'}); };
+      up.addEventListener('click', ()=> scrollBy(active || ra || sa, -220));
+      dn.addEventListener('click', ()=> scrollBy(active || ra || sa,  220));
+
+      // show/hide depending on position
+      function update(){
+        const el = active || ra || sa;
+        const upBtn = document.getElementById('activityArrowUp');
+        const dnBtn = document.getElementById('activityArrowDown');
+        if (!el || !upBtn || !dnBtn) return;
+        const atTop = el.scrollTop <= 0;
+        const atBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
+        upBtn.style.visibility = atTop ? 'hidden' : 'visible';
+        dnBtn.style.visibility = atBottom ? 'hidden' : 'visible';
+      }
+      window.updateArrows = update;
+    }
+
+    const list1 = ra && ra.querySelector('.recent-activity-list');
+    const list2 = sa && sa.querySelector('.system-activity-list');
+
+    [list1, list2].forEach(el=>{
+      if (!el) return;
+      el.addEventListener('mouseenter', ()=>pickActive(el), {passive:true});
+      el.addEventListener('scroll', ()=>updateArrows(), {passive:true});
+      // initial state
+      if (!active) active = el;
+    });
+
+    // initial
+    setTimeout(()=>updateArrows && updateArrows(), 100);
+  }catch(e){
+    console.warn('initLogScrollArrows failed:', e);
+  }
+}
 
