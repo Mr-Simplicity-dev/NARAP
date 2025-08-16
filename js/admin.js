@@ -7819,170 +7819,209 @@ function parseCSVLine(line) {
     return result;
 }
 
-async function importCertificateData(parsedData, withProgress=false) {
-    // === Flexible header mapping (accepts multiple header variants) ===
-            // Build normalized header list from the first row if available
-            let __headers = null;
-            if (Array.isArray(rows) && rows.length > 0) {
-              __headers = Array.from(rows[0] || []).map(h => String(h || '').trim().toLowerCase());
-            } else if (Array.isArray(sheetRows) && sheetRows.length > 0) {
-              __headers = Array.from(sheetRows[0] || []).map(h => String(h || '').trim().toLowerCase());
-            }
+async function importCertificateData(parsedData, withProgress) {
+  withProgress = !!withProgress;
 
-            const headerAliases = {
-              recipient: ['recipient','name','member_name','member','recipient name'],
-              email: ['email','email_address','e-mail','mail'],
-              position: ['position','role','title'],
-              code: ['code','narap_code','membership_code','member_code'],
-              state: ['state','location','region'],
-              certificateNumber: ['certificate_number','certificate number','certificatenumber','certificate','number','cert no','cert no.'],
-              issueDate: ['issue date','issue_date','issuedate','date_issued','date issue','issued on','issued'],
-              expiryDate: ['valid until','expiry date','expiry','expiry_date','expirydate','date_expiry','date expiry','validity']
-            };
-
-            const colIndex = {};
-            if (Array.isArray(__headers)) {
-              for (const [canonical, aliases] of Object.entries(headerAliases)) {
-                const idx = __headers.findIndex(h => [canonical, ...aliases].includes(h));
-                if (idx !== -1) colIndex[canonical] = idx;
-              }
-            }
-
-            // Helper to read a field from a row using colIndex; returns empty string if missing
-            function __getField(cells, key) {
-              try {
-                if (colIndex.hasOwnProperty(key)) {
-                  const v = cells[colIndex[key]];
-                  return (v == null) ? '' : String(v).trim();
-                }
-
-    
-    // Helper to read from an object row (parsedData) with header alias support
-    // Looks up any matching alias (case-insensitive) among the row's keys.
-    function __getFieldObj(row, key) {
-      if (!row) return '';
-      const aliases = [key].concat(headerAliases[key] || []);
-      // Build a lowercase map of row keys for one-time fast lookup
-      const lowerMap = {};
-      for (const k in row) {
-        if (!Object.prototype.hasOwnProperty.call(row, k)) continue;
-        lowerMap[String(k).trim().toLowerCase()] = row[k];
-      }
-      for (const a of aliases) {
-        const lk = String(a).trim().toLowerCase();
-        if (lowerMap.hasOwnProperty(lk)) {
-          const v = lowerMap[lk];
-          return (v == null) ? '' : String(v).trim();
-        }
-      }
-      return '';
-    }              } catch (_) {}
-              return '';
-            }
-
-  console.log('Loading Importing certificate data...');
-
-  const created = [];
   const errors = [];
-  const total = parsedData.length;
-  const controller = window.__importAbortController || (('AbortController' in window) ? new AbortController() : null);
-  let cancelled = false;
-if (withProgress) { ensureImportProgressUI(); updateImportProgress(0, total, 'Importing certificates'); 
-  if (withProgress && cancelled) { finishImportProgress('cancelled'); }
-}
-  for (let i = 0; i < parsedData.length; i++) {
-      if (window.__importCancel) { cancelled = true; break; }
-const row = parsedData[i];
-    const rowNumber = i + 2; // header is row 1
+  const created = [];
+  const updated = [];
+  const total = Array.isArray(parsedData) ? parsedData.length : 0;
+
+  // Progress UI (guarded)
+  try {
+    if (withProgress && typeof ensureImportProgressUI === 'function') ensureImportProgressUI();
+    if (withProgress && typeof updateImportProgress === 'function') updateImportProgress(0, total, 'Importing certificates');
+  } catch (_) {}
+
+  if (!Array.isArray(parsedData) || parsedData.length === 0) {
+    if (typeof showMessage === 'function') showMessage('No certificate rows to import', 'warning');
+    return { created: 0, updated: 0, errors };
+  }
+
+  // pick(row, ...aliases) — supports varargs OR a single array of aliases
+  function pick(row) {
+    var aliases = Array.prototype.slice.call(arguments, 1);
+    if (aliases.length === 1 && Array.isArray(aliases[0])) aliases = aliases[0];
+    for (var i = 0; i < aliases.length; i++) {
+      var k = aliases[i];
+      if (Object.prototype.hasOwnProperty.call(row, k)) {
+        var v = row[k];
+        if (v != null && String(v).trim() !== '') return v;
+      }
+    }
+    return null;
+  }
+
+  // Local index by certificate number for dup/PUT logic
+  var local = [];
+  try { local = (typeof getLocalCertificates === 'function') ? (getLocalCertificates() || []) : []; } catch (_) {}
+  var byNumber = Object.create(null);
+  for (var i = 0; i < local.length; i++) {
+    var nn = String(local[i].certificateNumber || local[i].number || '').trim().toLowerCase();
+    if (nn) byNumber[nn] = local[i];
+  }
+
+  for (var r = 0; r < parsedData.length; r++) {
+    var row = parsedData[r] || {};
+    var rowNumber = r + 2; // header + 0-index
 
     try {
-      // Expected headers (case-sensitive to what your parser builds):
-      // Certificate Number, Recipient, Email, Title, Type, Status, Issue Date, Issued By
+      // Requireds (+aliases)
+      var number = pick(row, 'Certificate Number','certificateNumber','Number','number','Cert Number','CertNumber','CertificateID');
+      var recipientName = pick(row, 'Recipient Name','recipientName','Member Name','memberName','Recipient','Name','name');
+      var title = pick(row, 'Certificate Title','certificateTitle','Title','title');
+      var issueRaw = pick(row, 'Issue Date','issueDate','Issued Date','Issued','Date Issued','Date');
 
-      // --- Read fields using header aliases (object-based) ---
-    const number = (__getFieldObj(row, 'certificateNumber') || __getFieldObj(row, 'number') || '').toUpperCase().trim();
-    const recipient = __getFieldObj(row, 'recipient');
-    const email = __getFieldObj(row, 'email');
-    const position = __getFieldObj(row, 'position');      // optional
-    const code = __getFieldObj(row, 'code');              // may be required by backend; leaving as-is
-    const state = __getFieldObj(row, 'state');            // optional
-    const title = position || __getFieldObj(row, 'title') || '';
-    const type = (__getFieldObj(row, 'type') || 'membership').toLowerCase().trim();
-    const status = (__getFieldObj(row, 'status') || 'active').toLowerCase().trim();
-    const issueDate = __getFieldObj(row, 'issueDate');    // REQUIRED
-    const expiryDate = __getFieldObj(row, 'expiryDate');  // OPTIONAL
+      // Optionals
+      var issuedBy = pick(row, 'Issued By','issuedBy','Author','author','Issuer','issuer');
+      var email = pick(row, 'Email','email');
+      var memberCode = pick(row, 'Code','code','Member Code','memberCode');
+      var typeRaw = pick(row, 'Type','type');
+      var statusRaw = pick(row, 'Status','status');
+      var validRaw = pick(row, 'Valid Until','validUntil','Expiry Date','expiryDate','Expires','Expiration','Expiration Date');
 
-    const __issueISO = toISODate(issueDate);
-    const __expiryISO = toISODate(expiryDate);
-    if (!__issueISO) { errors.push('Row ' + rowNumber + ': Invalid Issue Date "' + issueDate + '". Use YYYY-MM-DD.'); continue; }
-    issueDate = __issueISO;
-    expiryDate = __expiryISO || expiryDate;
+      // Normalize requireds
+      number = number == null ? '' : String(number).trim();
+      recipientName = recipientName == null ? '' : String(recipientName).trim();
+      title = title == null ? '' : String(title).trim();
 
-    // --- Required checks (position/state optional; expiryDate optional) ---
-    const rowIssues = [];
-    if (!recipient) rowIssues.push('Missing value for recipient');
-    // email is optional; no required check
-    if (!number) rowIssues.push('Missing value for certificateNumber');
-    if (!issueDate) rowIssues.push('Missing value for issueDate');
-
-    if (rowIssues.length) {
-      errors.push({ row: rowNumber, issues: rowIssues });
-      continue;
-    }
-      const issuedBy = (row['Issued By'] || '').trim();
-
-      // Basic validation
-      if (!number || !recipient || !issueDate) {
-        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Issue Date)`);
+      if (!number || !recipientName || !title || !issueRaw) {
+        errors.push('Row ' + rowNumber + ': Missing required fields (Certificate Number, Recipient Name, Certificate Title, Issue Date)');
+        if (withProgress && typeof updateImportProgress === 'function') updateImportProgress(r + 1, total, 'Skipping invalid rows');
         continue;
       }
 
-      // Build payload for your existing create endpoint
-      const payload = {
-        number,
-        recipient,
-        email,
-        title,
+      // Date normalization
+      function _toISO(s) {
+        if (typeof toISODate === 'function') return toISODate(s);
+        var d = new Date(String(s));
+        return isNaN(d) ? null : d.toISOString().slice(0, 10);
+      }
+
+      var issueDateISO = _toISO(issueRaw);
+      if (!issueDateISO) {
+        errors.push('Row ' + rowNumber + ': Invalid Issue Date "' + issueRaw + '". Use YYYY-MM-DD.');
+        if (withProgress && typeof updateImportProgress === 'function') updateImportProgress(r + 1, total, 'Skipping invalid rows');
+        continue;
+      }
+
+      var validUntilISO = null;
+      if (validRaw != null && String(validRaw).trim() !== '') {
+        validUntilISO = _toISO(validRaw);
+        if (!validUntilISO) {
+          // Optional: omit but record a warning
+          errors.push('Row ' + rowNumber + ': Invalid Expiry/Valid-Until "' + validRaw + '". Field was omitted.');
+        }
+      }
+
+      // Other fields
+      var type = typeRaw ? String(typeRaw).trim().toLowerCase() : '';
+      var status = statusRaw ? String(statusRaw).trim().toLowerCase() : 'active';
+
+      // Payload (include both legacy and new keys for compatibility)
+      var payload = {
+        certificateNumber: number,
+        number: number,
+        recipientName: recipientName,
+        recipient: recipientName,
+        certificateTitle: title,
+        title: title,
         type: type || 'membership',
-        description: '',           // optional
-        issueDate: (toISODate(issueDate) || undefined),
         status: status || 'active',
-        validUntil: (toISODate(expiryDate) || undefined),
-        issuedBy: issuedBy || undefined
+        issuedBy: issuedBy ? String(issuedBy).trim() : '',
+        email: email ? String(email).trim() : '',
+        memberCode: memberCode ? String(memberCode).trim().toUpperCase() : '',
+        issueDate: issueDateISO
       };
+      if (validUntilISO) payload.validUntil = validUntilISO;
 
-      const resp = await fetch(`${backendUrl}/api/certificates`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      // Dup by number
+      var key = number.toLowerCase();
+      var dup = byNumber[key];
 
-      if (!resp.ok) {
-        const err = await tryJson(resp).catch(() => ({}));
-        errors.push(`Row ${rowNumber}: ${err.message || 'Failed to create certificate'}`);
-        continue;
+      // Backend create/update
+      var ok = false;
+      try {
+        var base = (typeof backendUrl !== 'undefined' ? backendUrl : '').replace(/\/+$/,'');
+        var url = base + '/api/certificates';
+        var method = 'POST';
+        if (dup && (dup._id || dup.id)) {
+          url = base + '/api/certificates/' + (dup._id || dup.id);
+          method = 'PUT';
+        }
+        var res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          ok = true;
+        } else {
+          var err = (typeof tryJson === 'function') ? await tryJson(res) : null;
+          var msg = (err && err.message) ? err.message : ('HTTP ' + res.status);
+          errors.push('Row ' + rowNumber + ': ' + msg);
+        }
+      } catch (netErr) {
+        errors.push('Row ' + rowNumber + ': Network error - ' + (netErr && netErr.message ? netErr.message : String(netErr)));
       }
 
-      const result = await tryJson(resp);
-      created.push(result.certificate || result);
-      console.log(`✅ Certificate imported: ${number}`);
-    } catch (e) {
-      errors.push(`Row ${rowNumber}: ${e.message}`);
+      // Local commit on success or offline fallback
+      if (ok || !navigator.onLine) {
+        var obj = Object.assign({}, dup || {}, payload);
+        if (validUntilISO) obj.validUntil = validUntilISO;
+
+        if (dup) updated.push(number); else created.push(number);
+
+        try {
+          var current = (typeof getLocalCertificates === 'function') ? (getLocalCertificates() || []) : [];
+          var replaced = false;
+          for (var j = 0; j < current.length; j++) {
+            var jj = String(current[j].certificateNumber || current[j].number || '').trim().toLowerCase();
+            if (jj === key) {
+              current[j] = Object.assign({}, current[j], obj);
+              replaced = true;
+              break;
+            }
+          }
+          if (!replaced) current.push(obj);
+          if (typeof saveLocalCertificates === 'function') saveLocalCertificates(current);
+        } catch (_) {}
+      }
+
+      if (withProgress && typeof updateImportProgress === 'function') {
+        updateImportProgress(r + 1, total, 'Importing certificates');
+      }
+    } catch (rowErr) {
+      errors.push('Row ' + rowNumber + ': ' + (rowErr && rowErr.message ? rowErr.message : 'Unknown error'));
+      if (withProgress && typeof updateImportProgress === 'function') {
+        updateImportProgress(r + 1, total, 'Importing certificates');
+      }
     }
   }
 
-  // Optional: refresh certificates list if you have a loader
-  if (typeof loadCertificates === 'function') {
-    await loadCertificates();
-  }
+  // Post-import UI refresh
+  try {
+    if (typeof loadRecentActivity === 'function') setTimeout(loadRecentActivity, 0);
+    if (typeof updateActivityOverlayVisibility === 'function') setTimeout(updateActivityOverlayVisibility, 0);
+  } catch (_) {}
 
-  if (errors.length) {
-    console.warn('❌ Certificate import errors:', errors);
-    showMessage(`Certificates imported with ${errors.length} errors. Check console.`, 'warning');
-  } else {
-    showMessage(`Successfully imported ${created.length} certificates!`, 'success');
-  }
+  try {
+    if (typeof loadCertificates === 'function') await loadCertificates();
+  } catch (_) {}
+
+  // Final message
+  try {
+    if (errors.length) {
+      console.error('Certificate import errors:', errors);
+      if (typeof showMessage === 'function') showMessage('Certificate import finished with ' + errors.length + ' issue(s). Check console.', 'warning');
+    } else {
+      if (typeof showMessage === 'function') showMessage('Certificates imported — Created: ' + created.length + ' • Updated: ' + updated.length, 'success');
+    }
+  } catch (_) {}
+
+  return { created: created.length, updated: updated.length, errors };
 }
+
 
 
 function downloadSampleCSV() {
@@ -8117,101 +8156,202 @@ function updateCsvFormat() {
   }
 }
 
-async function importCertificateData(parsedData, withProgress=false) {
-  console.log('Loading Importing certificate data...');
+async function importCertificateData(parsedData, withProgress) {
+  withProgress = !!withProgress;
 
-  const created = [];
   const errors = [];
+  const created = [];
+  const updated = [];
+  const total = Array.isArray(parsedData) ? parsedData.length : 0;
 
-  // Helper: get a field by trying multiple header names (case-sensitive to your parsed keys)
-  const pick = (row, ...keys) => {
-    for (const k of keys) {
-      if (row[k] != null && String(row[k]).trim() !== '') return String(row[k]).trim();
+  // Progress UI (safe-guarded)
+  try {
+    if (withProgress && typeof ensureImportProgressUI === 'function') ensureImportProgressUI();
+    if (withProgress && typeof updateImportProgress === 'function') updateImportProgress(0, total, 'Importing certificates');
+  } catch (_) {}
+
+  if (!Array.isArray(parsedData) || parsedData.length === 0) {
+    if (typeof showMessage === 'function') showMessage('No certificate rows to import', 'warning');
+    return { created: 0, updated: 0, errors };
+  }
+
+  // pick(row, ...aliases) – supports varargs aliases
+  function pick(row) {
+    var aliases = Array.prototype.slice.call(arguments, 1);
+    for (var i = 0; i < aliases.length; i++) {
+      var k = aliases[i];
+      if (Object.prototype.hasOwnProperty.call(row, k)) {
+        var v = row[k];
+        if (v != null && String(v).trim() !== '') return v;
+      }
     }
-    return '';
-  };
+    return null;
+  }
 
-  for (let i = 0; i < parsedData.length; i++) {
-    const row = parsedData[i];
-    const rowNumber = i + 2; // header is row 1
+  // Local index by number (for upsert logic / local merge)
+  var local = [];
+  try { local = (typeof getLocalCertificates === 'function') ? (getLocalCertificates() || []) : []; } catch (_) {}
+  var byNumber = Object.create(null);
+  for (var i = 0; i < local.length; i++) {
+    var nn = String(local[i].certificateNumber || local[i].number || '').trim().toLowerCase();
+    if (nn) byNumber[nn] = local[i];
+  }
+
+  for (var r = 0; r < parsedData.length; r++) {
+    var row = parsedData[r] || {};
+    var rowNumber = r + 2; // header + 0-index
 
     try {
-      // Support BOTH header styles
-      const number =
-        (pick(row, 'Certificate Number', 'CertificateID') || '').toUpperCase();
-      const recipient =
-        pick(row, 'Recipient', 'Member Name', 'Name'); // fallback if you include it
-      const email =
-        pick(row, 'Email', 'Member Email');
-      const title =
-        pick(row, 'Title', 'Certificate Title') || 'Membership Certificate';
-      const type =
-        (pick(row, 'Type') || 'membership').toLowerCase();            // membership/award/...
-      const status =
-        (pick(row, 'Status') || 'active').toLowerCase();              // active/revoked/expired
-      const issueDate =
-        pick(row, 'Issue Date', 'IssueDate');                         // YYYY-MM-DD preferred
-      const validUntil =
-        pick(row, 'Valid Until', 'ExpiryDate');                       // may be blank
-      const issuedBy =
-        pick(row, 'Issued By') || 'NARAP Authority';
+      // Requireds (+aliases)
+      var number = pick(row, 'Certificate Number', 'certificateNumber', 'Number', 'number', 'Cert Number', 'CertNumber', 'CertificateID');
+      var recipientName = pick(row, 'Recipient Name', 'recipientName', 'Member Name', 'memberName', 'Recipient', 'Name', 'name');
+      var title = pick(row, 'Certificate Title', 'certificateTitle', 'Title', 'title');
+      var issueRaw = pick(row, 'Issue Date', 'issueDate', 'Issued Date', 'Issued', 'Date Issued', 'Date');
 
-      // Basic validation (backend requires number, recipient, title)
-      if (!number || !recipient || !issueDate) {
-        errors.push(`Row ${rowNumber}: Missing required fields (Certificate Number, Recipient, Issue Date)`);
+      // Optionals
+      var issuedBy = pick(row, 'Issued By', 'issuedBy', 'Author', 'author', 'Issuer', 'issuer');
+      var email = pick(row, 'Email', 'email');
+      var memberCode = pick(row, 'Code', 'code', 'Member Code', 'memberCode');
+      var typeRaw = pick(row, 'Type', 'type');
+      var statusRaw = pick(row, 'Status', 'status');
+      var validRaw = pick(row, 'Valid Until', 'validUntil', 'Expiry Date', 'expiryDate', 'Expires', 'Expiration', 'Expiration Date');
+
+      // Normalize requireds
+      number = number == null ? '' : String(number).trim();
+      recipientName = recipientName == null ? '' : String(recipientName).trim();
+      title = title == null ? '' : String(title).trim();
+
+      if (!number || !recipientName || !title || !issueRaw) {
+        errors.push('Row ' + rowNumber + ': Missing required fields (Certificate Number, Recipient Name, Certificate Title, Issue Date)');
+        if (withProgress && typeof updateImportProgress === 'function') updateImportProgress(r + 1, total, 'Skipping invalid rows');
         continue;
       }
 
-      const payload = {
-        number,                           // required
-        recipient,                        // required
-        email,                            // optional
-        title,                            // required
+      // Normalize dates
+      var issueDateISO = (typeof toISODate === 'function') ? toISODate(issueRaw) : (new Date(issueRaw).toISOString().slice(0,10));
+      if (!issueDateISO) {
+        errors.push('Row ' + rowNumber + ': Invalid Issue Date "' + issueRaw + '". Use YYYY-MM-DD.');
+        if (withProgress && typeof updateImportProgress === 'function') updateImportProgress(r + 1, total, 'Skipping invalid rows');
+        continue;
+      }
+
+      var validUntilISO = null;
+      if (validRaw != null && String(validRaw).trim() !== '') {
+        validUntilISO = (typeof toISODate === 'function') ? toISODate(validRaw) : null;
+        if (!validUntilISO) {
+          // Expiry/Valid-Until is optional; if invalid, omit but record a warning for visibility
+          errors.push('Row ' + rowNumber + ': Invalid Expiry/Valid-Until "' + validRaw + '". Field was omitted.');
+        }
+      }
+
+      // Normalize other fields
+      var type = typeRaw ? String(typeRaw).trim().toLowerCase() : '';
+      var status = statusRaw ? String(statusRaw).trim().toLowerCase() : 'active';
+
+      // Build payload with compatibility keys
+      var payload = {
+        certificateNumber: number,
+        number: number, // compatibility
+        recipientName: recipientName,
+        recipient: recipientName, // compatibility
+        certificateTitle: title,
+        title: title, // compatibility
         type: type || 'membership',
-        description: '',                  // optional
-        issueDate: (toISODate(issueDate) || undefined),
-        validUntil: (toISODate(validUntil) || undefined),
         status: status || 'active',
-        validUntil: (toISODate(expiryDate) || undefined),
-        issuedBy: issuedBy || undefined
+        issuedBy: issuedBy ? String(issuedBy).trim() : '',
+        email: email ? String(email).trim() : '',
+        memberCode: memberCode ? String(memberCode).trim().toUpperCase() : '',
+        issueDate: issueDateISO
       };
+      if (validUntilISO) payload.validUntil = validUntilISO;
 
-      const resp = await fetch(`${backendUrl}/api/certificates`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      // Local dup check by number (to decide local merge; server may still handle idempotency)
+      var key = number.toLowerCase();
+      var dup = byNumber[key];
 
-      if (!resp.ok) {
-        // capture server message for clarity
-        let msg = `HTTP ${resp.status}`;
-        try {
-          const errData = await tryJson(resp);
-          if (errData?.message) msg = errData.message;
-        } catch (_) {}
-        errors.push(`Row ${rowNumber}: ${msg}`);
-        continue;
+      // POST (or PUT if you have an id locally)
+      var ok = false;
+      try {
+        var url = backendUrl + '/api/certificates';
+        var method = 'POST';
+        if (dup && (dup._id || dup.id)) {
+          url = backendUrl + '/api/certificates/' + (dup._id || dup.id);
+          method = 'PUT';
+        }
+
+        var res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          ok = true;
+        } else {
+          var err = (typeof tryJson === 'function') ? await tryJson(res) : null;
+          var msg = (err && err.message) ? err.message : ('HTTP ' + res.status);
+          errors.push('Row ' + rowNumber + ': ' + msg);
+        }
+      } catch (netErr) {
+        errors.push('Row ' + rowNumber + ': Network error - ' + (netErr && netErr.message ? netErr.message : String(netErr)));
       }
 
-      const result = await tryJson(resp);
-      created.push(result.certificate || result);
-      console.log(`✅ Certificate imported: ${number}`);
-    } catch (e) {
-      errors.push(`Row ${rowNumber}: ${e.message}`);
+      // Local commit on success or offline fallback
+      if (ok || !navigator.onLine) {
+        var obj = Object.assign({}, dup || {}, payload);
+        if (validUntilISO) obj.validUntil = validUntilISO;
+
+        // Update local index/storage
+        if (dup) {
+          updated.push(number);
+        } else {
+          created.push(number);
+        }
+
+        try {
+          var current = (typeof getLocalCertificates === 'function') ? (getLocalCertificates() || []) : [];
+          var replaced = false;
+          for (var j = 0; j < current.length; j++) {
+            var jj = String(current[j].certificateNumber || current[j].number || '').trim().toLowerCase();
+            if (jj === key) {
+              current[j] = Object.assign({}, current[j], obj);
+              replaced = true;
+              break;
+            }
+          }
+          if (!replaced) current.push(obj);
+          if (typeof saveLocalCertificates === 'function') saveLocalCertificates(current);
+        } catch (_) {}
+      }
+
+      if (withProgress && typeof updateImportProgress === 'function') updateImportProgress(r + 1, total, 'Importing certificates');
+    } catch (rowErr) {
+      errors.push('Row ' + rowNumber + ': ' + (rowErr && rowErr.message ? rowErr.message : 'Unknown error'));
+      if (withProgress && typeof updateImportProgress === 'function') updateImportProgress(r + 1, total, 'Importing certificates');
     }
   }
 
-  if (typeof loadCertificates === 'function') {
-    await loadCertificates();
-  }
+  // Post-import UI refresh
+  try {
+    if (typeof loadRecentActivity === 'function') setTimeout(loadRecentActivity, 0);
+    if (typeof updateActivityOverlayVisibility === 'function') setTimeout(updateActivityOverlayVisibility, 0);
+  } catch (_) {}
 
-  if (errors.length) {
-    console.warn('❌ Certificate import errors:', errors);
-    showMessage(`Certificates imported with ${errors.length} errors. See details below.`, 'warning');
-    showImportErrors(errors); // helper below
-  } else {
-    showMessage(`Successfully imported ${created.length} certificates!`, 'success');
-  }
+  try {
+    if (typeof loadCertificates === 'function') await loadCertificates();
+  } catch (_) {}
+
+  // Final message
+  try {
+    if (errors.length) {
+      console.error('Certificate import errors:', errors);
+      if (typeof showMessage === 'function') showMessage('Certificate import finished with ' + errors.length + ' issue(s). Check console.', 'warning');
+    } else {
+      if (typeof showMessage === 'function') showMessage('Certificates imported — Created: ' + created.length + ' • Updated: ' + updated.length, 'success');
+    }
+  } catch (_) {}
+
+  return { created: created.length, updated: updated.length, errors };
 }
 
 // Optional: show detailed errors inside the import modal
