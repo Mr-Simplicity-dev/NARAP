@@ -10902,3 +10902,106 @@ function initLogScrollArrows(){
   setTimeout(removeGhosts, 600);   // after async UI
   setTimeout(removeGhosts, 2000);  // after lazy loaders
 })();
+
+
+// ===== Ghost Popup Watcher (MutationObserver) =====
+(function ghostPopupWatcher(){
+  function hasMeaningfulText(el){
+    if (!el) return false;
+    const txt = (el.textContent || '').replace(/\u00A0/g,' ').trim();
+    return txt.length > 0;
+  }
+  function isTiny(el){
+    try {
+      const rect = el.getBoundingClientRect();
+      return rect.width <= 220 && rect.height <= 120;
+    } catch { return false; }
+  }
+  function nearTop(el){
+    try {
+      const rect = el.getBoundingClientRect();
+      return rect.top <= 140; // within top 140px of viewport
+    } catch { return false; }
+  }
+  function killToastish(el){
+    try {
+      // Remove truly empty Bootstrap toasts
+      if (el.matches('.toast')) {
+        const body = el.querySelector('.toast-body');
+        if (!hasMeaningfulText(body)) {
+          el.remove();
+          return true;
+        }
+      }
+      // Remove empty containers
+      if (el.matches('.toast-container')) {
+        const hasAny = Array.from(el.querySelectorAll('.toast')).some(t => {
+          const body = t.querySelector('.toast-body');
+          return hasMeaningfulText(body);
+        });
+        if (!hasAny) { el.remove(); return true; }
+      }
+    } catch {}
+    return false;
+  }
+  function isGhost(el){
+    if (!el || !(el instanceof Element)) return false;
+    const sel = el.matches.bind(el);
+    const isCandidate =
+      sel('#notification-container') ||
+      sel('.notification') ||
+      sel('.toast, .toast-container') ||
+      sel('.snackbar, .mdc-snackbar, .alert') ||
+      sel('.modal.show, .modal');
+    if (!isCandidate) return false;
+
+    if (killToastish(el)) return true;
+    const empty = !hasMeaningfulText(el);
+    return empty && isTiny(el) && nearTop(el);
+  }
+  function sweep(nodeList){
+    let removed = 0;
+    nodeList.forEach(el => {
+      try {
+        if (isGhost(el)) { removed++; return; }
+        el.querySelectorAll && el.querySelectorAll('.toast, .toast-container, #notification-container, .notification, .snackbar, .mdc-snackbar, .alert, .modal').forEach(child => {
+          if (isGhost(child)) removed++;
+        });
+      } catch {}
+    });
+    if (removed) { try { console.log('🧽 Ghost watcher removed:', removed); } catch {} }
+  }
+  // Initial sweep
+  if (document.body) sweep([document.body]);
+
+  // Observe changes anywhere in the body
+  const observer = new MutationObserver((mutations) => {
+    const added = [];
+    for (const m of mutations) {
+      m.addedNodes && m.addedNodes.forEach(n => {
+        if (n.nodeType === 1) added.push(n);
+      });
+    }
+    if (added.length) sweep(added);
+  });
+  if (document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // Also sweep periodically for slow loaders
+  setInterval(() => { try { sweep([document.body]); } catch {} }, 3000);
+})();
+
+// Extra CSS: hide empty toast bodies/containers using :has where supported
+try {
+  if (!document.getElementById('ghost-watcher-styles')) {
+    const style = document.createElement('style');
+    style.id = 'ghost-watcher-styles';
+    style.textContent = `
+      .toast:has(.toast-body:empty) { display: none !important; }
+      .toast .toast-body:empty { display: none !important; }
+      .toast-container:has(.toast:empty), .toast-container:not(:has(.toast)) { display: none !important; }
+    `;
+    document.head.appendChild(style);
+  }
+} catch {}
