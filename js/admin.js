@@ -3797,7 +3797,12 @@ async function addMember(event) {
         
         // Save to local storage
         saveLocalMembers(updatedMembers);
-        
+        // Activity log: member added
+        try {
+            if (typeof logMemberAdd === 'function') logMemberAdd(newMember);
+            if (typeof loadRecentActivity === 'function') { setTimeout(loadRecentActivity, 0); }
+            if (typeof updateActivityOverlayVisibility === 'function') { setTimeout(updateActivityOverlayVisibility, 0); }
+        } catch (e) { try { console.warn('logMemberAdd failed:', e); } catch(_) {} }
         // Add to pending sync if offline
         if (!isOnline) {
             const pendingSync = getPendingSync();
@@ -3976,7 +3981,7 @@ async function loadCertificates(
     // Map UI type → stored type if needed (adjust if your DB uses 'award' for 'achievement', etc.)
     const typeMap = {
       membership: 'membership',
-      achievement: 'achievement',   // change to 'award' if that’s what you store
+      achievement: 'achievement',   // change to 'award' if that"s what you store
       training: 'training',
       recognition: 'recognition',
       service: 'service'
@@ -4615,7 +4620,12 @@ async function deleteMember(memberId) {
         
         // Save to local storage immediately
         saveLocalMembers(updatedMembers);
-        
+        // Activity log: member deleted
+        try {
+            if (typeof logMemberDelete === 'function') logMemberDelete(memberToDelete);
+            if (typeof loadRecentActivity === 'function') { setTimeout(loadRecentActivity, 0); }
+            if (typeof updateActivityOverlayVisibility === 'function') { setTimeout(updateActivityOverlayVisibility, 0); }
+        } catch (e) { try { console.warn('logMemberDelete failed:', e); } catch(_) {} }
         // Add to pending sync if backend deletion failed or member was local
         if (!backendDeleteSuccess) {
             const pendingSync = getPendingSync();
@@ -5008,7 +5018,12 @@ async function editMember(event) {
         
         // Save to local storage
         saveLocalMembers(updatedMembers);
-        
+        // Activity log: member deleted
+        try {
+            if (typeof logMemberDelete === 'function') logMemberDelete(memberToDelete);
+            if (typeof loadRecentActivity === 'function') { setTimeout(loadRecentActivity, 0); }
+            if (typeof updateActivityOverlayVisibility === 'function') { setTimeout(updateActivityOverlayVisibility, 0); }
+        } catch (e) { try { console.warn('logMemberDelete failed:', e); } catch(_) {} }
         // Add to pending sync if offline
         if (!isOnline) {
             const pendingSync = getPendingSync();
@@ -7278,32 +7293,31 @@ async function importData(){
 
 
 async function importMembersData(parsedData, withProgress = false) {
-  let existingMember = undefined; // placeholder to avoid ReferenceError
+  console.log('Importing members data...');
 
-  console.log('🔄 Importing members data...');
-
-  // Ensure the local list exists
+  // Ensure local list exists
   window.members = Array.isArray(window.members) ? window.members : [];
   if (typeof enforceMembersAlpha === 'function') enforceMembersAlpha();
 
   const newMembers = [];
   const errors = [];
-  const total = parsedData.length;
+  const total = Array.isArray(parsedData) ? parsedData.length : 0;
 
   // Abort support (for the Cancel button)
-  const controller = (window.__importAbortController && 'signal' in (window.__importAbortController || {}))
-    ? window.__importAbortController
-    : (('AbortController' in window) ? new AbortController() : null);
+  const controller =
+    (window.__importAbortController && ('signal' in (window.__importAbortController || {})))
+      ? window.__importAbortController
+      : (typeof AbortController !== 'undefined' ? new AbortController() : null);
   let cancelled = false;
 
   // Local duplicate index (by code/email)
   const idx = (typeof buildExistingMemberIndex === 'function')
     ? buildExistingMemberIndex()
-    : (() => {
+    : (function () {
         const byCode = Object.create(null), byEmail = Object.create(null);
         for (const m of window.members) {
-          const c = (m.code || m.Code || '').toString().trim().toLowerCase();
-          const e = (m.email || m.Email || '').toString().trim().toLowerCase();
+          const c = String(m.code || m.Code || '').trim().toLowerCase();
+          const e = String(m.email || m.Email || '').trim().toLowerCase();
           if (c) byCode[c] = m;
           if (e) byEmail[e] = m;
         }
@@ -7317,8 +7331,8 @@ async function importMembersData(parsedData, withProgress = false) {
   const idByEmail = Object.create(null);
   try {
     for (const m of idx.base) {
-      const code = (m.code || m.Code || '').toString().trim().toLowerCase();
-      const email = (m.email || m.Email || '').toString().trim().toLowerCase();
+      const code = String(m.code || m.Code || '').trim().toLowerCase();
+      const email = String(m.email || m.Email || '').trim().toLowerCase();
       const id = m._id || m.id;
       if (id) {
         if (code) idByCode[code] = id;
@@ -7333,8 +7347,8 @@ async function importMembersData(parsedData, withProgress = false) {
           const arr = await tryJson(r);
           if (Array.isArray(arr)) {
             for (const m of arr) {
-              const code = (m.code || '').toString().trim().toLowerCase();
-              const email = (m.email || '').toString().trim().toLowerCase();
+              const code = String(m.code || '').trim().toLowerCase();
+              const email = String(m.email || '').trim().toLowerCase();
               const id = m._id || m.id;
               if (id) {
                 if (code) idByCode[code] = id;
@@ -7352,7 +7366,7 @@ async function importMembersData(parsedData, withProgress = false) {
     if (typeof updateImportProgress === 'function') updateImportProgress(0, total, 'Importing members');
   }
 
-  for (let i = 0; i < parsedData.length; i++) {
+  for (let i = 0; i < total; i++) {
     if (window.__importCancel) { cancelled = true; break; }
 
     const row = parsedData[i];
@@ -7360,7 +7374,7 @@ async function importMembersData(parsedData, withProgress = false) {
 
     try {
       // Validate required fields
-      if (!row.Name || !row.Code || !row.State || !row.Zone) {
+      if (!row || !row.Name || !row.Code || !row.State || !row.Zone) {
         errors.push(`Row ${rowNumber}: Missing required fields (Name, Code, State, Zone)`);
         if (withProgress && typeof updateImportProgress === 'function') {
           updateImportProgress(i + 1, total, 'Importing members');
@@ -7385,18 +7399,22 @@ async function importMembersData(parsedData, withProgress = false) {
         dup.zone     = String(row.Zone).trim() || dup.zone;
         if (row.Password) dup.password = row.Password;
 
+        // Activity log: member updated via import
+        try { if (typeof logMemberUpdate === 'function') logMemberUpdate(dup); } catch (_) {}
+
         // Queue backend update (avoid 404 on missing _id during import)
         try {
           let memberId = dup._id || dup.id || idByCode[codeKey] || idByEmail[emailKey];
           if (!memberId && typeof dup.code === 'string') memberId = idByCode[String(dup.code).trim().toLowerCase()];
           if (!memberId && typeof dup.email === 'string') memberId = idByEmail[String(dup.email).trim().toLowerCase()];
-          // Regardless of having an id or not, queue for upsert in sync
-          queueMemberUpdate({
-            _id: memberId,
-            name: dup.name, email: dup.email, code: dup.code,
-            position: dup.position, state: dup.state, zone: dup.zone
-          });
-          updatedBackend++; // counts as queued backend update
+          if (typeof queueMemberUpdate === 'function') {
+            queueMemberUpdate({
+              _id: memberId,
+              name: dup.name, email: dup.email, code: dup.code,
+              position: dup.position, state: dup.state, zone: dup.zone
+            });
+            updatedBackend++;
+          }
         } catch (e) {
           errors.push(`Row ${rowNumber}: Update error - ${e.message}`);
         }
@@ -7426,7 +7444,8 @@ async function importMembersData(parsedData, withProgress = false) {
       // Try network create; fall back to keeping it locally if it fails
       let created = null;
       try {
-        const url = (typeof backendUrl !== 'undefined' ? backendUrl : 'https://narap-backend.onrender.com') + '/api/users/addUser';
+        const baseUrl = (typeof backendUrl !== 'undefined' && backendUrl) ? backendUrl : 'https://narap-backend.onrender.com';
+        const url = baseUrl + '/api/users/addUser';
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -7439,9 +7458,9 @@ async function importMembersData(parsedData, withProgress = false) {
           created = (json && (json.data || json.user || json.result)) || member;
         } else {
           let msg = '';
-          try { const err = await tryJson(res); msg = err.message || ''; } catch (_) {}
+          try { const err = await tryJson(res); msg = (err && err.message) || ''; } catch (_) {}
           if (/exists/i.test(msg)) {
-            // Server says duplicate → keep locally so user still sees it
+            // Server says duplicate -> keep locally so user still sees it
             created = member;
             errors.push(`Row ${rowNumber}: ${msg}`);
           } else {
@@ -7459,6 +7478,9 @@ async function importMembersData(parsedData, withProgress = false) {
 
       if (created) {
         newMembers.push(created);
+        // Activity log: member added via import
+        try { if (typeof logMemberAdd === 'function') logMemberAdd(created); } catch (_) {}
+
         // Update indices so later rows see the new addition
         idx.byCode[codeKey] = created;
         if (emailKey) idx.byEmail[emailKey] = created;
@@ -7469,7 +7491,7 @@ async function importMembersData(parsedData, withProgress = false) {
       }
 
     } catch (err) {
-      errors.push(`Row ${rowNumber}: ${err.message || 'Unknown error'}`);
+      errors.push(`Row ${rowNumber}: ${err && err.message ? err.message : 'Unknown error'}`);
       if (withProgress && typeof updateImportProgress === 'function') {
         updateImportProgress(i + 1, total, 'Importing members');
       }
@@ -7483,17 +7505,17 @@ async function importMembersData(parsedData, withProgress = false) {
       : [...newMembers];
   }
 
-  // If 'updatedMembers' array exists from import, merge it too (by id/code/email)
+  // If updatedMembers array exists globally, merge it too (by id/code/email)
   try {
-    if (typeof updatedMembers !== "undefined" && Array.isArray(updatedMembers) && updatedMembers.length) {
+    if (typeof updatedMembers !== 'undefined' && Array.isArray(updatedMembers) && updatedMembers.length) {
       const toMerge = Array.from(updatedMembers);
       const byKey = new Map();
       const keyOf = (m) => {
         const id = m && (m._id || m.id);
         if (id) return 'id:' + id;
-        const c = String(m?.code || '').trim().toLowerCase();
+        const c = String(m && m.code || '').trim().toLowerCase();
         if (c) return 'c:' + c;
-        const e = String(m?.email || '').trim().toLowerCase();
+        const e = String(m && m.email || '').trim().toLowerCase();
         if (e) return 'e:' + e;
         return null;
       };
@@ -7505,75 +7527,135 @@ async function importMembersData(parsedData, withProgress = false) {
         const k = keyOf(m);
         if (!k) return;
         const prev = byKey.get(k);
-        byKey.set(k, prev ? { ...prev, ...m } : m);
+        byKey.set(k, prev ? Object.assign({}, prev, m) : m);
       });
       window.members = Array.from(byKey.values());
-      window.currentMembers = window.members;
-      if (typeof saveLocalMembers === 'function') saveLocalMembers(window.members);
     }
   } catch (e) {
     console.warn('Post-import merge updatedMembers failed:', e);
   }
 
-  // ---- Persist + refresh UI so user immediately sees imported/updated rows ----
-  try {
-    // De-duplicate by stable key (id, code, email) in case newMembers overlapped
-    const keyOf = (m) => {
-      const id = m && (m._id || m.id);
-      if (id) return 'id:' + id;
-      const c = String(m?.code || '').trim().toLowerCase();
-      if (c) return 'c:' + c;
-      const e = String(m?.email || '').trim().toLowerCase();
-      if (e) return 'e:' + e;
-      return null;
-    };
-    const seen = new Set();
-    const list = [];
-    (Array.isArray(window.members) ? window.members : []).forEach(m => {
-      const k = keyOf(m);
-      if (!k || !seen.has(k)) { if (k) seen.add(k); list.push(m); }
-    });
-    // Persist + expose
-    if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
-    window.members = list;
-    window.currentMembers = list;
+  // Persist and expose
+  window.currentMembers = window.members;
+  if (typeof saveLocalMembers === 'function') saveLocalMembers(window.members);
+  if (typeof enforceMembersAlpha === 'function') enforceMembersAlpha();
 
-    // UI refresh (prefer filters → loader → direct render)
-    if (typeof refreshMembersUI === 'function') {
-      refreshMembersUI();
+  // Refresh members UI (best effort)
+  try {
+    if (typeof applyMemberFiltersAndRender === 'function') {
+      applyMemberFiltersAndRender();
     } else if (typeof loadMembers === 'function') {
-      const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
-      try { await loadMembers(1, per); } catch(_) {}
+      const per = parseInt(localStorage.getItem('narap_members_per_page'), 10) || 10;
+      loadMembers(1, per);
     }
-  } catch (e) {
-    console.error('Post-import commit error:', e);
-  }
+  } catch (_) {}
 
-  if (withProgress && typeof finishImportProgress === 'function') {
-    finishImportProgress(cancelled ? 'cancelled' : 'done');
-  }
-
-  if (typeof loadMembers === 'function') {
-    try { await loadMembers(); } catch(_) {}
-  }
-
-  if (errors.length) {
-    console.error('❌ Import errors:', errors);
-    if (typeof showMessage === 'function') {
-      showMessage(`Import completed with ${errors.length} issue(s). Check console.`, 'warning');
-    }
-  } else {
-    if (typeof showMessage === 'function') {
-      showMessage(`Import finished — Created: ${newMembers.length} • Updated (backend): ${updatedBackend} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup} • Errors: ${errors.length}`, 'success');
-    }
-  }
-
-  // Optional summary log
+  // Refresh activity panel / overlay (best effort)
   try {
-    const msg = `New: ${newMembers.length} • Updated (local): ${updatedLocal} • Duplicates skipped: ${skippedDup}`;
+    if (typeof loadRecentActivity === 'function') loadRecentActivity();
+    if (typeof updateActivityOverlayVisibility === 'function') updateActivityOverlayVisibility();
+  } catch (_) {}
+
+  // Summary log
+  try {
+    const msg = 'New: ' + newMembers.length +
+                ' - Updated (local): ' + updatedLocal +
+                ' - Duplicates skipped: ' + skippedDup;
     console.log('Import summary:', msg);
   } catch (_) {}
+
+  return {
+    ok: !cancelled,
+    cancelled,
+    total,
+    newCount: newMembers.length,
+    updatedLocal,
+    updatedBackend,
+    skippedDup,
+    errors
+  };
 }
+
+
+ // ---- Persist + refresh UI so user immediately sees imported/updated rows ----
+try {
+  // De-duplicate by stable key (id, code, email) in case window.members has overlaps
+  const keyOf = (m) => {
+    if (!m) return null;
+    const id = (m._id || m.id);
+    if (id) return 'id:' + id;
+    const c = String((m && m.code) || '').trim().toLowerCase();
+    if (c) return 'c:' + c;
+    const e = String((m && m.email) || '').trim().toLowerCase();
+    if (e) return 'e:' + e;
+    return null;
+  };
+
+  const seen = new Set();
+  const list = [];
+  const base = Array.isArray(window.members) ? window.members : [];
+
+  // Keep the first occurrence per key; also keep items without a stable key once
+  for (const m of base) {
+    const k = keyOf(m);
+    if (k) {
+      if (!seen.has(k)) { seen.add(k); list.push(m); }
+    } else {
+      // no id/code/email -> keep the first such entry only
+      if (!list.includes(m)) list.push(m);
+    }
+  }
+
+  // Persist + expose
+  window.members = list;
+  window.currentMembers = list;
+  if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+
+  // Refresh activity panel after import
+  try { if (typeof loadRecentActivity === 'function') { setTimeout(loadRecentActivity, 0); } } catch (_) {}
+  try { if (typeof updateActivityOverlayVisibility === 'function') { setTimeout(updateActivityOverlayVisibility, 0); } } catch (_) {}
+
+  // UI refresh (prefer filters -> loader -> direct render)
+  if (typeof refreshMembersUI === 'function') {
+    refreshMembersUI();
+  } else if (typeof loadMembers === 'function') {
+    const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
+    try { await loadMembers(1, per); } catch (_) {}
+  }
+} catch (e) {
+  console.error('Post-import commit error:', e);
+}
+
+if (withProgress && typeof finishImportProgress === 'function') {
+  try { finishImportProgress(cancelled ? 'cancelled' : 'done'); } catch (_) {}
+}
+
+if (errors && errors.length) {
+  console.error('Import errors:', errors);
+  if (typeof showMessage === 'function') {
+    showMessage('Import completed with ' + errors.length + ' issue(s). Check console.', 'warning');
+  }
+} else {
+  if (typeof showMessage === 'function') {
+    showMessage(
+      'Import finished - Created: ' + newMembers.length +
+      ' - Updated (backend): ' + updatedBackend +
+      ' - Updated (local): ' + updatedLocal +
+      ' - Duplicates skipped: ' + skippedDup +
+      ' - Errors: ' + errors.length,
+      'success'
+    );
+  }
+}
+
+// Optional summary log
+try {
+  const msg = 'New: ' + newMembers.length +
+              ' - Updated (local): ' + updatedLocal +
+              ' - Duplicates skipped: ' + skippedDup;
+  console.log('Import summary:', msg);
+} catch (_) {}
+
 
 
 function parseCSV(csvString) {
@@ -10452,7 +10534,7 @@ async function exportMembersFiltered(a = 'csv', b = 'ALL') {
       return;
     }
 
-    // ---- Normalizer (project’s existing function if available) ----
+    // ---- Normalizer (project"s existing function if available) ----
     const norm = (s) => (typeof normalizeStateForExport === 'function'
       ? normalizeStateForExport(s)
       : String(s ?? '').trim());
@@ -10809,7 +10891,7 @@ function update() {
   const atTop = el.scrollTop <= 1;
   const atBottom = (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 1);
 
-  // hide wrappers entirely if there’s nothing to scroll (prevents ghost pill)
+  // hide wrappers entirely if there"s nothing to scroll (prevents ghost pill)
   topWrap.style.display = canScroll ? 'flex' : 'none';
   bottomWrap.style.display = canScroll ? 'flex' : 'none';
 
