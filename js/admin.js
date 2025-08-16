@@ -370,7 +370,6 @@ class DataCache {
 })();
 
 
-
 function refreshMembersUI() {
   try {
     const per =
@@ -1765,7 +1764,6 @@ async function loadDashboard() {
 
 
 
-
 async function loadRecentActivity() {
   try {
     const container = document.getElementById('recentActivity');
@@ -1785,21 +1783,8 @@ async function loadRecentActivity() {
         + '</select>'
         + '<select id="afAction" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
         + '  <option value="">All Actions</option><option value="added">Added</option><option value="updated">Edited</option><option value="deleted">Deleted</option><option value="pending">Pending</option>'
-        + '</select>'
-        + '<input id="afFrom" type="date" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
-        + '<input id="afTo" type="date" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
-        + '<select id="afScope" title="Export scope" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
-        + '  <option value="recent">Recent only</option><option value="system">System only</option><option value="all">All logs</option>'
-        + '</select>'
-        + '<button id="afExportCSV" style="padding:8px 12px;background:#198754;color:#fff;border:none;border-radius:6px;cursor:pointer;">Download Activity CSV</button>';
+        + '</select>';
       container.parentElement && container.parentElement.insertBefore(toolbar, container);
-
-      // Export button handler
-      const btn = toolbar.querySelector('#afExportCSV');
-      btn && btn.addEventListener('click', () => {
-        const scope = (document.getElementById('afScope')?.value || 'recent');
-        exportActivityCSV({ scope });
-      });
     }
 
     // read persisted logs
@@ -1826,26 +1811,11 @@ async function loadRecentActivity() {
     const afSearch = document.getElementById('afSearch');
     const afEntity = document.getElementById('afEntity');
     const afAction = document.getElementById('afAction');
-    const afFrom = document.getElementById('afFrom');
-    const afTo = document.getElementById('afTo');
-
     const q = (afSearch?.value || '').toLowerCase().trim();
     const ent = (afEntity?.value || '').toLowerCase().trim();
     const act = (afAction?.value || '').toLowerCase().trim();
 
-    // Date range
-    let fromMs = 0, toMs = Number.MAX_SAFE_INTEGER;
-    if (afFrom && afFrom.value) {
-      try { fromMs = new Date(afFrom.value + 'T00:00:00').getTime(); } catch(_){}
-    }
-    if (afTo && afTo.value) {
-      try { toMs = new Date(afTo.value + 'T23:59:59.999').getTime(); } catch(_){}
-    }
-
     const matches = (e) => {
-      // Date window
-      const ts = new Date(e.ts || Date.now()).getTime();
-      if (ts < fromMs || ts > toMs) return false;
       if (ent && String(e.entity).toLowerCase() !== ent) return false;
       if (act && String(e.action).toLowerCase() !== act) return false;
       if (!q) return true;
@@ -1888,13 +1858,11 @@ async function loadRecentActivity() {
     container.appendChild(list);
 
     // Listeners (debounced) to live-update
-    const rerender = () => { loadRecentActivity(); loadSystemActivityLogs(); };
+    const rerender = () => loadRecentActivity();
     ['keyup','change','search','input'].forEach(ev => {
       afSearch && afSearch.addEventListener(ev, rerender, { once: true });
       afEntity && afEntity.addEventListener(ev, rerender, { once: true });
       afAction && afAction.addEventListener(ev, rerender, { once: true });
-      afFrom && afFrom.addEventListener(ev, rerender, { once: true });
-      afTo && afTo.addEventListener(ev, rerender, { once: true });
     });
 
     // Activate scroll arrows for this container
@@ -1903,7 +1871,6 @@ async function loadRecentActivity() {
     console.error('loadRecentActivity failed:', err);
   }
 }
-
 
 
 
@@ -10477,7 +10444,6 @@ async function upsertMemberFormData(member, formData) {
 
 
 
-
 async function loadSystemActivityLogs() {
   try {
     const container = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
@@ -10487,19 +10453,7 @@ async function loadSystemActivityLogs() {
 
     // Use the same filters UI if present
     const afSearch = document.getElementById('afSearch');
-    const afFrom = document.getElementById('afFrom');
-    const afTo = document.getElementById('afTo');
-
     const q = (afSearch?.value || '').toLowerCase().trim();
-
-    // Date window
-    let fromMs = 0, toMs = Number.MAX_SAFE_INTEGER;
-    if (afFrom && afFrom.value) {
-      try { fromMs = new Date(afFrom.value + 'T00:00:00').getTime(); } catch(_){}
-    }
-    if (afTo && afTo.value) {
-      try { toMs = new Date(afTo.value + 'T23:59:59.999').getTime(); } catch(_){}
-    }
 
     // Filter only 'system' entries plus critical member/certificate events (updated/deleted)
     const sysAll = logs.filter(e => e.entity === 'system')
@@ -10507,8 +10461,6 @@ async function loadSystemActivityLogs() {
                     .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
 
     const matches = (e) => {
-      const ts = new Date(e.ts || Date.now()).getTime();
-      if (ts < fromMs || ts > toMs) return false;
       if (!q) return true;
       const hay = [
         e.entity, e.action, e.date, e.time,
@@ -10552,7 +10504,6 @@ async function loadSystemActivityLogs() {
     console.error('loadSystemActivityLogs failed:', err);
   }
 }
-
 
 
 
@@ -10637,96 +10588,4 @@ function initLogScrollArrows(){
     console.warn('initLogScrollArrows failed:', e);
   }
 }
-
-
-
-
-// Export current activity view (or full) to CSV
-function exportActivityCSV(opts = {}) {
-  try {
-    const scope = (opts.scope || (document.getElementById('afScope')?.value) || 'recent').toLowerCase();
-    const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
-
-    // Read UI filters
-    const afSearch = document.getElementById('afSearch');
-    const afEntity = document.getElementById('afEntity');
-    const afAction = document.getElementById('afAction');
-    const afFrom = document.getElementById('afFrom');
-    const afTo = document.getElementById('afTo');
-    const q = (afSearch?.value || '').toLowerCase().trim();
-    const ent = (afEntity?.value || '').toLowerCase().trim();
-    const act = (afAction?.value || '').toLowerCase().trim();
-
-    let fromMs = 0, toMs = Number.MAX_SAFE_INTEGER;
-    if (afFrom && afFrom.value) { try { fromMs = new Date(afFrom.value + 'T00:00:00').getTime(); } catch(_){} }
-    if (afTo && afTo.value) { try { toMs = new Date(afTo.value + 'T23:59:59.999').getTime(); } catch(_){} }
-
-    // Build candidate set by scope
-    let cand = logs.slice();
-    if (scope === 'system') {
-      cand = logs.filter(e => e.entity === 'system')
-             .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 200))
-             .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
-    } // 'recent' => all logs (already)
-
-    // Apply filters
-    const norm = (x)=>String(x||'').toLowerCase();
-    const filtered = cand.filter(e => {
-      const ts = new Date(e.ts || Date.now()).getTime();
-      if (ts < fromMs || ts > toMs) return false;
-      if (ent && String(e.entity).toLowerCase() !== ent) return false;
-      if (act && String(e.action).toLowerCase() !== act) return false;
-      if (!q) return true;
-      const hay = [
-        e.entity, e.action, e.date, e.time,
-        e.data?.name, e.data?.code, e.data?.number, e.data?.member,
-        e.actor?.name, e.actor?.email
-      ].filter(Boolean).join(' ').toLowerCase();
-      return hay.indexOf(q) !== -1;
-    });
-
-    // CSV
-    const cols = ['ts','date','time','entity','action','actorName','actorEmail','memberName','code','state','certificateNumber','certificateMember','message'];
-    function esc(v){
-      const s = (v == null ? '' : String(v));
-      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-    }
-    const header = cols.join(',');
-    const lines = filtered.map(e => {
-      const row = {
-        ts: e.ts || '',
-        date: e.date || '',
-        time: e.time || '',
-        entity: e.entity || '',
-        action: e.action || '',
-        actorName: e.actor?.name || '',
-        actorEmail: e.actor?.email || '',
-        memberName: e.data?.name || e.data?.member || '',
-        code: e.data?.code || '',
-        state: e.data?.state || '',
-        certificateNumber: e.data?.number || '',
-        certificateMember: e.data?.member || '',
-        message: e.data?.message || ''
-      };
-      return cols.map(k => esc(row[k])).join(',');
-    });
-    const csv = '\uFEFF' + header + (lines.length ? '\n' + lines.join('\n') : '');
-
-    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-    const filename = `activity_${scope}_${stamp}.csv`;
-    if (typeof downloadFile === 'function') downloadFile(csv, filename, 'text/csv;charset=utf-8');
-    else {
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    }
-  } catch (err) {
-    console.error('exportActivityCSV failed:', err);
-    if (typeof showMessage === 'function') showMessage('Export Activity failed. See console.', 'danger');
-  }
-}
-window.exportActivityCSV = exportActivityCSV;
 
