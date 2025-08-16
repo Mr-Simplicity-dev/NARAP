@@ -10380,49 +10380,127 @@ async function getAllMembersForExport() {
   return Array.isArray(window.members) ? window.members : [];
 }
 
-async function exportMembersFiltered(format = 'csv', stateFilter = 'ALL') {
-  const allMembers = await getAllMembersForExport();
-  if (!Array.isArray(allMembers) || allMembers.length === 0) {
-    if (typeof showMessage === 'function') showMessage('No members to export', 'warning');
-    return;
-  }
+async 
+// Drop-in replacement: guarantees alphabetical export order
+function exportMembersFiltered(options = {}) {
+  try {
+    // 1) Resolve source data
+    const source = Array.isArray(window.members) ? window.members : [];
+    if (!source.length) {
+      console.warn('Export aborted: no members in memory.');
+      if (typeof showMessage === 'function') showMessage('No members to export.', 'warning');
+      return;
+    }
 
-  let members = allMembers.slice();
+    // 2) Resolve selected state & format from options or DOM
+    const selectedStateRaw =
+      (options && options.state != null ? options.state : undefined) ??
+      document.getElementById('exportStateSelect')?.value ??
+      document.getElementById('stateFilter')?.value ??
+      'ALL';
 
-  if (stateFilter && stateFilter !== 'ALL') {
-    const wanted = normalizeStateForExport(stateFilter);
-    members = members.filter(m => normalizeStateForExport(m.state || m.State) === wanted);
-  }
+    const format = ((options && options.format) || 'csv').toLowerCase();
 
-  if (members.length === 0) {
-    const label = (stateFilter === 'ALL') ? 'all states' : stateFilter;
-    if (typeof showMessage === 'function') showMessage(`No members found for ${label}`, 'warning');
-    return;
-  }
+    const norm = (s) => (typeof normalizeStateForExport === 'function'
+      ? normalizeStateForExport(s)
+      : (s ?? '').toString().trim());
 
-  let content, filename, contentType;
-  const stamp = new Date().toISOString().split('T')[0];
-  const slug = (stateFilter === 'ALL' ? 'all' : normalizeStateForExport(stateFilter).replace(/\s+/g, '_').toLowerCase());
+    const selectedState = selectedStateRaw?.toString().trim();
+    const isAll = !selectedState || selectedState.toUpperCase() === 'ALL';
 
-  if (format === 'csv') {
-    content = convertToCSV(members);
-    if (!content) { if (typeof showMessage === 'function') showMessage('Failed to convert members to CSV', 'error'); return; }
-    filename = `members_${slug}_${stamp}.csv`;
-    contentType = 'text/csv';
-  } else if (format === 'json') {
-    content = JSON.stringify(members, null, 2);
-    filename = `members_${slug}_${stamp}.json`;
-    contentType = 'application/json';
-  } else {
-    if (typeof showMessage === 'function') showMessage('Unsupported export format', 'error');
-    return;
-  }
+    // 3) Filter by state when needed (use robust normalizer)
+    let rows = isAll
+      ? source.slice()
+      : source.filter(m => norm(m.state || m.State) === norm(selectedState));
 
-  downloadFile(content, filename, contentType);
-  if (typeof showMessage === 'function') {
-    showMessage(`Exported ${members.length} member(s) for ${stateFilter === 'ALL' ? 'all states' : normalizeStateForExport(stateFilter)}.`, 'success');
+    if (!rows.length) {
+      const msg = isAll
+        ? 'No members found to export.'
+        : `No members found for state: ${selectedState}`;
+      console.warn(msg);
+      if (typeof showMessage === 'function') showMessage(msg, 'warning');
+      return;
+    }
+
+    // 4) Sort (guaranteed alphabetical)
+    const byName = (a, b) =>
+      String(a?.name || a?.fullName || '')
+        .trim()
+        .localeCompare(String(b?.name || b?.fullName || '').trim(), undefined, { sensitivity: 'base' });
+
+    if (isAll) {
+      if (typeof sortMembersAlpha === 'function') {
+        rows = sortMembersAlpha(rows); // your State→Name sorter
+      } else if (typeof compareByStateThenName === 'function') {
+        rows = rows.slice().sort(compareByStateThenName);
+      } else {
+        // Fallback: State (normalized) then Name
+        rows = rows.slice().sort((a, b) => {
+          const sa = norm(a.state || a.State);
+          const sb = norm(b.state || b.State);
+          const sCmp = sa.localeCompare(sb, undefined, { sensitivity: 'base' });
+          return sCmp !== 0 ? sCmp : byName(a, b);
+        });
+      }
+    } else {
+      // Single state: Name A→Z
+      rows = rows.slice().sort(byName);
+    }
+
+    // 5) Build filename
+    const safeState = isAll ? 'all_states' : norm(selectedState).replace(/\s+/g, '_');
+    const ts = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const filename = `members_${safeState}_${ts}.${format === 'json' ? 'json' : 'csv'}`;
+
+    // 6) Serialize (prefer your existing helpers)
+    let blob, mime = 'text/csv;charset=utf-8';
+
+    if (format === 'json') {
+      mime = 'application/json;charset=utf-8';
+      blob = new Blob([JSON.stringify(rows, null, 2)], { type: mime });
+    } else {
+      // CSV
+      let csvText;
+      if (typeof convertToCSV === 'function') {
+        csvText = convertToCSV(rows); // use your existing converter
+      } else {
+        // Minimal CSV fallback (keeps common fields)
+        const cols = ['name','email','code','position','state','zone'];
+        const esc = (v) => {
+          const s = (v == null ? '' : String(v));
+          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const header = cols.join(',');
+        const lines = rows.map(r => cols.map(k => esc(r[k] ?? r[k?.toUpperCase?.()] ?? '')).join(','));
+        csvText = [header, ...lines].join('\n');
+      }
+      blob = new Blob([csvText], { type: mime });
+    }
+
+    // 7) Download (prefer your existing downloader)
+    if (typeof downloadFile === 'function') {
+      const text = format === 'json' ? await blob.text() : await blob.text();
+      downloadFile(filename, text, mime);
+    } else {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(link.href);
+        link.remove();
+      }, 0);
+    }
+
+    console.log(`✅ Exported ${rows.length} record(s) → ${filename}`);
+    if (typeof showMessage === 'function') showMessage(`Exported ${rows.length} record(s).`, 'success');
+  } catch (err) {
+    console.error('Export failed:', err);
+    if (typeof showMessage === 'function') showMessage('Export failed. See console for details.', 'danger');
   }
 }
+
 
 function exportMembersPrompt() {
   const overlay = document.createElement('div');
