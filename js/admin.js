@@ -10808,3 +10808,97 @@ function initLogScrollArrows(){
   }
 }
 
+
+
+// ===== Ghost Popup Cleanup (defensive) =====
+(function ghostPopupCleanup(){
+  function isTrulyEmpty(el){
+    if (!el) return true;
+    const txt = (el.textContent || '').trim();
+    if (txt) return false;
+    // also consider if any child contains non-empty text
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while ((node = walker.nextNode())) {
+      if ((node.nodeValue || '').trim()) return false;
+    }
+    return true;
+  }
+
+  function removeGhosts(){
+    try {
+      // Specific known containers
+      const suspects = [
+        '#notification-container',
+        '.notification',
+        '.toast',
+        '.snackbar',
+        '.alert',
+        '.modal.show',
+        '.modal'
+      ];
+
+      const smallFixed = Array.from(document.querySelectorAll('*')).filter(el => {
+        try {
+          const cs = window.getComputedStyle(el);
+          if (!cs) return false;
+          if (!(cs.position in {fixed:1, absolute:1, sticky:1})) return false;
+          const w = el.offsetWidth, h = el.offsetHeight;
+          if (w === 0 && h === 0) return false;
+          // Treat tiny pill-like boxes as ghosts when empty
+          const tiny = (w <= 160 && h <= 80);
+          return tiny && isTrulyEmpty(el);
+        } catch { return false; }
+      });
+
+      const found = new Set();
+      suspects.forEach(sel => document.querySelectorAll(sel).forEach(el => { if (isTrulyEmpty(el)) found.add(el); }));
+      smallFixed.forEach(el => found.add(el));
+
+      let removed = 0;
+      found.forEach(el => {
+        try {
+          // Don't remove if it has role="status" or aria-live and is in use
+          const live = el.getAttribute('aria-live') || '';
+          if (/polite|assertive/i.test(live)) {
+            // If empty, just hide
+            el.style.display = 'none';
+            return;
+          }
+          el.remove();
+          removed++;
+        } catch {}
+      });
+
+      if (removed > 0) {
+        try { console.log('🧹 Removed ghost popups:', removed); } catch {}
+      }
+    } catch (e) {
+      try { console.warn('Ghost cleanup failed:', e); } catch {}
+    }
+  }
+
+  // CSS safeguard (hide empty notification containers)
+  try {
+    if (!document.getElementById('ghost-popup-styles')) {
+      const style = document.createElement('style');
+      style.id = 'ghost-popup-styles';
+      style.textContent = `
+        #notification-container:empty { display: none !important; }
+        #notification-container .notification:empty { display: none !important; }
+        .toast:empty, .snackbar:empty, .alert:empty { display: none !important; }
+      `;
+      document.head.appendChild(style);
+    }
+  } catch {}
+
+  // Run now (if DOM ready) and on next ticks
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', removeGhosts, { once: true });
+  } else {
+    removeGhosts();
+  }
+  setTimeout(removeGhosts, 100);   // after initial components mount
+  setTimeout(removeGhosts, 600);   // after async UI
+  setTimeout(removeGhosts, 2000);  // after lazy loaders
+})();
