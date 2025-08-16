@@ -2050,6 +2050,7 @@ async function loadDashboard() {
         
     await loadSystemActivityLogs();
         if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
+    if (typeof updateActivityOverlayVisibility === 'function') updateActivityOverlayVisibility();
         } catch (error) {
         
         showMessage('Failed to load dashboard: ' + error.message, 'error');
@@ -2112,6 +2113,7 @@ async function loadRecentActivity() {
 
     // Activate scroll arrows for this container
     if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
+    if (typeof updateActivityOverlayVisibility === 'function') updateActivityOverlayVisibility();
   } catch (err) {
     console.error('loadRecentActivity failed:', err);
   }
@@ -10720,6 +10722,7 @@ async function loadSystemActivityLogs() {
     container.appendChild(list);
 
     if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
+    if (typeof updateActivityOverlayVisibility === 'function') updateActivityOverlayVisibility();
   } catch (err) {
     console.error('loadSystemActivityLogs failed:', err);
   }
@@ -11005,3 +11008,50 @@ try {
     document.head.appendChild(style);
   }
 } catch {}
+
+
+
+// ===== Activity Overlay Visibility Manager =====
+(function activityOverlayVisibility(){
+  function canScroll(el){
+    if (!el) return false;
+    try {
+      return (el.scrollHeight - el.clientHeight) > 2;
+    } catch { return false; }
+  }
+  function updateActivityOverlayVisibility(){
+    try {
+      const overlay = document.getElementById('activityScrollOverlay');
+      if (!overlay) return;
+      const ra = document.getElementById('recentActivity');
+      const sa = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
+      const show = canScroll(ra) || canScroll(sa);
+      overlay.style.display = show ? 'flex' : 'none';
+    } catch {}
+  }
+  // Expose globally for other code to call after rendering
+  window.updateActivityOverlayVisibility = updateActivityOverlayVisibility;
+
+  function bind(){
+    const ra = document.getElementById('recentActivity');
+    const sa = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
+    [ra, sa].forEach(el => {
+      if (!el) return;
+      el.addEventListener('scroll', updateActivityOverlayVisibility, { passive: true });
+      el.addEventListener('mouseenter', updateActivityOverlayVisibility, { passive: true });
+    });
+    window.addEventListener('resize', updateActivityOverlayVisibility, { passive: true });
+
+    // Initial checks (for async content too)
+    updateActivityOverlayVisibility();
+    setTimeout(updateActivityOverlayVisibility, 200);
+    setTimeout(updateActivityOverlayVisibility, 800);
+    setTimeout(updateActivityOverlayVisibility, 2000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind, { once: true });
+  } else {
+    bind();
+  }
+})();
