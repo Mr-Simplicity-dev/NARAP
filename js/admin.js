@@ -7290,12 +7290,12 @@ async function importData(){
 }
 
 
-
-
 async function importMembersData(parsedData, withProgress = false) {
+  let existingMember = undefined; // placeholder to avoid ReferenceError
+
   console.log('Importing members data...');
 
-  // Ensure local list exists
+  // Ensure the local list exists
   window.members = Array.isArray(window.members) ? window.members : [];
   if (typeof enforceMembersAlpha === 'function') enforceMembersAlpha();
 
@@ -7316,8 +7316,8 @@ async function importMembersData(parsedData, withProgress = false) {
     : (function () {
         const byCode = Object.create(null), byEmail = Object.create(null);
         for (const m of window.members) {
-          const c = String(m.code || m.Code || '').trim().toLowerCase();
-          const e = String(m.email || m.Email || '').trim().toLowerCase();
+          const c = String((m && (m.code || m.Code)) || '').trim().toLowerCase();
+          const e = String((m && (m.email || m.Email)) || '').trim().toLowerCase();
           if (c) byCode[c] = m;
           if (e) byEmail[e] = m;
         }
@@ -7331,9 +7331,9 @@ async function importMembersData(parsedData, withProgress = false) {
   const idByEmail = Object.create(null);
   try {
     for (const m of idx.base) {
-      const code = String(m.code || m.Code || '').trim().toLowerCase();
-      const email = String(m.email || m.Email || '').trim().toLowerCase();
-      const id = m._id || m.id;
+      const code = String((m && (m.code || m.Code)) || '').trim().toLowerCase();
+      const email = String((m && (m.email || m.Email)) || '').trim().toLowerCase();
+      const id = (m && (m._id || m.id));
       if (id) {
         if (code) idByCode[code] = id;
         if (email) idByEmail[email] = id;
@@ -7342,14 +7342,14 @@ async function importMembersData(parsedData, withProgress = false) {
     // If we have no IDs, try to fetch once from backend to enrich map
     if (navigator.onLine && Object.keys(idByCode).length === 0 && Object.keys(idByEmail).length === 0) {
       try {
-        const r = await fetch(`${backendUrl}/api/users/getUsers`);
+        const r = await fetch(String(backendUrl) + '/api/users/getUsers');
         if (r.ok) {
           const arr = await tryJson(r);
           if (Array.isArray(arr)) {
             for (const m of arr) {
-              const code = String(m.code || '').trim().toLowerCase();
-              const email = String(m.email || '').trim().toLowerCase();
-              const id = m._id || m.id;
+              const code = String((m && m.code) || '').trim().toLowerCase();
+              const email = String((m && m.email) || '').trim().toLowerCase();
+              const id = (m && (m._id || m.id));
               if (id) {
                 if (code) idByCode[code] = id;
                 if (email) idByEmail[email] = id;
@@ -7375,7 +7375,7 @@ async function importMembersData(parsedData, withProgress = false) {
     try {
       // Validate required fields
       if (!row || !row.Name || !row.Code || !row.State || !row.Zone) {
-        errors.push(`Row ${rowNumber}: Missing required fields (Name, Code, State, Zone)`);
+        errors.push('Row ' + rowNumber + ': Missing required fields (Name, Code, State, Zone)');
         if (withProgress && typeof updateImportProgress === 'function') {
           updateImportProgress(i + 1, total, 'Importing members');
         }
@@ -7413,10 +7413,10 @@ async function importMembersData(parsedData, withProgress = false) {
               name: dup.name, email: dup.email, code: dup.code,
               position: dup.position, state: dup.state, zone: dup.zone
             });
-            updatedBackend++;
+            updatedBackend++; // counts as queued backend update
           }
         } catch (e) {
-          errors.push(`Row ${rowNumber}: Update error - ${e.message}`);
+          errors.push('Row ' + rowNumber + ': Update error - ' + e.message);
         }
 
         updatedLocal++;
@@ -7462,9 +7462,9 @@ async function importMembersData(parsedData, withProgress = false) {
           if (/exists/i.test(msg)) {
             // Server says duplicate -> keep locally so user still sees it
             created = member;
-            errors.push(`Row ${rowNumber}: ${msg}`);
+            errors.push('Row ' + rowNumber + ': ' + msg);
           } else {
-            errors.push(`Row ${rowNumber}: ${msg || ('HTTP ' + res.status)}`);
+            errors.push('Row ' + rowNumber + ': ' + (msg || ('HTTP ' + res.status)));
           }
         }
       } catch (e) {
@@ -7472,7 +7472,7 @@ async function importMembersData(parsedData, withProgress = false) {
           cancelled = true;
           break;
         }
-        errors.push(`Row ${rowNumber}: Network error - ${e.message}`);
+        errors.push('Row ' + rowNumber + ': Network error - ' + e.message);
         created = member; // keep locally
       }
 
@@ -7491,7 +7491,7 @@ async function importMembersData(parsedData, withProgress = false) {
       }
 
     } catch (err) {
-      errors.push(`Row ${rowNumber}: ${err && err.message ? err.message : 'Unknown error'}`);
+      errors.push('Row ' + rowNumber + ': ' + (err && err.message ? err.message : 'Unknown error'));
       if (withProgress && typeof updateImportProgress === 'function') {
         updateImportProgress(i + 1, total, 'Importing members');
       }
@@ -7505,56 +7505,105 @@ async function importMembersData(parsedData, withProgress = false) {
       : [...newMembers];
   }
 
-  // If updatedMembers array exists globally, merge it too (by id/code/email)
+  // If 'updatedMembers' array exists from import, merge it too (by id/code/email)
   try {
     if (typeof updatedMembers !== 'undefined' && Array.isArray(updatedMembers) && updatedMembers.length) {
       const toMerge = Array.from(updatedMembers);
       const byKey = new Map();
-      const keyOf = (m) => {
+      const keyOf = function (m) {
         const id = m && (m._id || m.id);
         if (id) return 'id:' + id;
-        const c = String(m && m.code || '').trim().toLowerCase();
+        const c = String((m && m.code) || '').trim().toLowerCase();
         if (c) return 'c:' + c;
-        const e = String(m && m.email || '').trim().toLowerCase();
+        const e = String((m && m.email) || '').trim().toLowerCase();
         if (e) return 'e:' + e;
         return null;
       };
-      (Array.isArray(window.members) ? window.members : []).forEach(m => {
+      (Array.isArray(window.members) ? window.members : []).forEach(function (m) {
         const k = keyOf(m);
         if (k && !byKey.has(k)) byKey.set(k, m);
       });
-      toMerge.forEach(m => {
+      toMerge.forEach(function (m) {
         const k = keyOf(m);
         if (!k) return;
         const prev = byKey.get(k);
         byKey.set(k, prev ? Object.assign({}, prev, m) : m);
       });
       window.members = Array.from(byKey.values());
+      window.currentMembers = window.members;
+      if (typeof saveLocalMembers === 'function') saveLocalMembers(window.members);
     }
   } catch (e) {
     console.warn('Post-import merge updatedMembers failed:', e);
   }
 
-  // Persist and expose
-  window.currentMembers = window.members;
-  if (typeof saveLocalMembers === 'function') saveLocalMembers(window.members);
-  if (typeof enforceMembersAlpha === 'function') enforceMembersAlpha();
-
-  // Refresh members UI (best effort)
+  // ---- Persist + refresh UI so user immediately sees imported/updated rows ----
   try {
-    if (typeof applyMemberFiltersAndRender === 'function') {
-      applyMemberFiltersAndRender();
+    // De-duplicate by stable key (id, code, email) in case window.members has overlaps
+    const keyOf2 = function (m) {
+      if (!m) return null;
+      const id = (m._id || m.id);
+      if (id) return 'id:' + id;
+      const c = String((m && m.code) || '').trim().toLowerCase();
+      if (c) return 'c:' + c;
+      const e = String((m && m.email) || '').trim().toLowerCase();
+      if (e) return 'e:' + e;
+      return null;
+    };
+    const seen = new Set();
+    const list = [];
+    (Array.isArray(window.members) ? window.members : []).forEach(function (m) {
+      const k = keyOf2(m);
+      if (!k || !seen.has(k)) { if (k) seen.add(k); list.push(m); }
+    });
+
+    // Persist + expose
+    window.members = list;
+    window.currentMembers = list;
+    if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+
+    // Refresh activity panel after import
+    try { if (typeof loadRecentActivity === 'function') { setTimeout(loadRecentActivity, 0); } } catch (_) {}
+    try { if (typeof updateActivityOverlayVisibility === 'function') { setTimeout(updateActivityOverlayVisibility, 0); } } catch (_) {}
+
+    // UI refresh (prefer filters -> loader -> direct render)
+    if (typeof refreshMembersUI === 'function') {
+      refreshMembersUI();
     } else if (typeof loadMembers === 'function') {
-      const per = parseInt(localStorage.getItem('narap_members_per_page'), 10) || 10;
-      loadMembers(1, per);
+      const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
+      try { await loadMembers(1, per); } catch (_) {}
     }
-  } catch (_) {}
+  } catch (e) {
+    console.error('Post-import commit error:', e);
+  }
 
-  // Refresh activity panel / overlay (best effort)
-  try {
-    if (typeof loadRecentActivity === 'function') loadRecentActivity();
-    if (typeof updateActivityOverlayVisibility === 'function') updateActivityOverlayVisibility();
-  } catch (_) {}
+  if (withProgress && typeof finishImportProgress === 'function') {
+    try { finishImportProgress(cancelled ? 'cancelled' : 'done'); } catch (_) {}
+  }
+
+  // Optional extra load (if your UI expects it)
+  if (typeof loadMembers === 'function') {
+    try { await loadMembers(); } catch (_) {}
+  }
+
+  // Toast
+  if (errors.length) {
+    console.error('Import errors:', errors);
+    if (typeof showMessage === 'function') {
+      showMessage('Import completed with ' + errors.length + ' issue(s). Check console.', 'warning');
+    }
+  } else {
+    if (typeof showMessage === 'function') {
+      showMessage(
+        'Import finished - Created: ' + newMembers.length +
+        ' - Updated (backend): ' + updatedBackend +
+        ' - Updated (local): ' + updatedLocal +
+        ' - Duplicates skipped: ' + skippedDup +
+        ' - Errors: ' + errors.length,
+        'success'
+      );
+    }
+  }
 
   // Summary log
   try {
@@ -7563,99 +7612,7 @@ async function importMembersData(parsedData, withProgress = false) {
                 ' - Duplicates skipped: ' + skippedDup;
     console.log('Import summary:', msg);
   } catch (_) {}
-
-  return {
-    ok: !cancelled,
-    cancelled,
-    total,
-    newCount: newMembers.length,
-    updatedLocal,
-    updatedBackend,
-    skippedDup,
-    errors
-  };
 }
-
-
- // ---- Persist + refresh UI so user immediately sees imported/updated rows ----
-try {
-  // De-duplicate by stable key (id, code, email) in case window.members has overlaps
-  const keyOf = (m) => {
-    if (!m) return null;
-    const id = (m._id || m.id);
-    if (id) return 'id:' + id;
-    const c = String((m && m.code) || '').trim().toLowerCase();
-    if (c) return 'c:' + c;
-    const e = String((m && m.email) || '').trim().toLowerCase();
-    if (e) return 'e:' + e;
-    return null;
-  };
-
-  const seen = new Set();
-  const list = [];
-  const base = Array.isArray(window.members) ? window.members : [];
-
-  // Keep the first occurrence per key; also keep items without a stable key once
-  for (const m of base) {
-    const k = keyOf(m);
-    if (k) {
-      if (!seen.has(k)) { seen.add(k); list.push(m); }
-    } else {
-      // no id/code/email -> keep the first such entry only
-      if (!list.includes(m)) list.push(m);
-    }
-  }
-
-  // Persist + expose
-  window.members = list;
-  window.currentMembers = list;
-  if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
-
-  // Refresh activity panel after import
-  try { if (typeof loadRecentActivity === 'function') { setTimeout(loadRecentActivity, 0); } } catch (_) {}
-  try { if (typeof updateActivityOverlayVisibility === 'function') { setTimeout(updateActivityOverlayVisibility, 0); } } catch (_) {}
-
-  // UI refresh (prefer filters -> loader -> direct render)
-  if (typeof refreshMembersUI === 'function') {
-    refreshMembersUI();
-  } else if (typeof loadMembers === 'function') {
-    const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
-    try { await loadMembers(1, per); } catch (_) {}
-  }
-} catch (e) {
-  console.error('Post-import commit error:', e);
-}
-
-if (withProgress && typeof finishImportProgress === 'function') {
-  try { finishImportProgress(cancelled ? 'cancelled' : 'done'); } catch (_) {}
-}
-
-if (errors && errors.length) {
-  console.error('Import errors:', errors);
-  if (typeof showMessage === 'function') {
-    showMessage('Import completed with ' + errors.length + ' issue(s). Check console.', 'warning');
-  }
-} else {
-  if (typeof showMessage === 'function') {
-    showMessage(
-      'Import finished - Created: ' + newMembers.length +
-      ' - Updated (backend): ' + updatedBackend +
-      ' - Updated (local): ' + updatedLocal +
-      ' - Duplicates skipped: ' + skippedDup +
-      ' - Errors: ' + errors.length,
-      'success'
-    );
-  }
-}
-
-// Optional summary log
-try {
-  const msg = 'New: ' + newMembers.length +
-              ' - Updated (local): ' + updatedLocal +
-              ' - Duplicates skipped: ' + skippedDup;
-  console.log('Import summary:', msg);
-} catch (_) {}
-
 
 
 function parseCSV(csvString) {
