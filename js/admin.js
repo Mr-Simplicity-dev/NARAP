@@ -3876,6 +3876,22 @@ async function addMember(event) {
 
 // ==================== CERTIFICATE FUNCTIONS ====================
 
+
+// === Helper: robust certificate number extractor (supports imported columns like "cert#", "cert no", etc.) ===
+function __extractCertNumber(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  const keys = [
+    'certificateNumber','number','certNumber','certNo','cert','cert_code','certCode','certNum',
+    'cert#','cert #','certno','cert no','certificate no','certificate_no','certificate #','certificate id','certid'
+  ];
+  for (const k of keys) {
+    if (Object.prototype.hasOwnProperty.call(obj, k) && obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') {
+      return String(obj[k]);
+    }
+  }
+  return '';
+}
+// === End helper ===
 async function getCertificates() {
     try {
         
@@ -4073,7 +4089,7 @@ const extractCodeFromCertNumber = (num) => {
 
     // Apply filters
     var filtered = (mergedCertificates || []).filter(function (c) {
-      var num = String((c && (c.certificateNumber || c.number)) || '').toLowerCase();
+      var num = String(__extractCertNumber(c) || '').toLowerCase();
       var recipient = String((c && (c.recipientName || c.recipient)) || '').toLowerCase();
       var email = String((c && c.email) || '').toLowerCase();
       var title = String((c && (c.certificateTitle || c.title)) || '').toLowerCase();
@@ -5170,13 +5186,13 @@ function displayCertificates(certificates, totalItems = 0, currentPage = 1, tota
     
     tableBody.innerHTML = certificates.map((certificate, index) => {
         // Ensure all data is properly formatted
-        const certificateNumber = certificate.certificateNumber || certificate.number || 'N/A';
+        const certificateNumber = __extractCertNumber(certificate) || 'N/A';
         const recipientName = certificate.recipientName || certificate.recipient || certificate.name || 'N/A';
         const title = certificate.title || certificate.certificateTitle || 'N/A';
         const issueDate = certificate.issueDate ? new Date(certificate.issueDate).toLocaleDateString() : 'N/A';
         const status = certificate.status || 'Active';
         const statusClass = status.toLowerCase();
-        const certificateId = certificate._id || certificate.id || (certificate.certificateNumber || certificate.number || '');
+        const certificateId = certificate._id || certificate.id || (__extractCertNumber(certificate) || '');
         
         // Ensure title is properly formatted and aligned
         const formattedTitle = title.trim() || 'N/A';
@@ -5226,7 +5242,7 @@ function viewCertificate(certificateId) {
         const normalizeNum = (s)=>String(s||'').toUpperCase().replace(/\s+/g,'').trim();
         const certificate = certificates.find(cert => (
             cert._id === certificateId || cert.id === certificateId ||
-            normalizeNum(cert.certificateNumber || cert.number) === normalizeNum(certificateId)
+            normalizeNum(__extractCertNumber(cert)) === normalizeNum(certificateId)
         ));
         
         if (!certificate) {
@@ -5465,7 +5481,7 @@ function downloadCertificate(certificateId) {
         const normalizeNum = (s)=>String(s||'').toUpperCase().replace(/\s+/g,'').trim();
         const certificate = certificates.find(cert => (
             cert._id === certificateId || cert.id === certificateId ||
-            normalizeNum(cert.certificateNumber || cert.number) === normalizeNum(certificateId)
+            normalizeNum(__extractCertNumber(cert)) === normalizeNum(certificateId)
         ));
         
         if (!certificate) {
@@ -5494,7 +5510,7 @@ async function editCertificate(certificateId) {
         const normalizeNum = (s)=>String(s||'').toUpperCase().replace(/\s+/g,'').trim();
         const certificate = certificates.find(cert => (
             cert._id === certificateId || cert.id === certificateId ||
-            normalizeNum(cert.certificateNumber || cert.number) === normalizeNum(certificateId)
+            normalizeNum(__extractCertNumber(cert)) === normalizeNum(certificateId)
         ));
         
         if (!certificate) {
@@ -5560,7 +5576,7 @@ async function updateCertificate(event) {
         // Resolve id using number if ID is missing or a number-like value was stored
         if (!certificateId || certificateId.trim() === '' || certificateId.includes('/')) {
             const list = (window.currentCertificates && Array.isArray(window.currentCertificates)) ? window.currentCertificates : (typeof getLocalCertificates === 'function' ? getLocalCertificates() : []);
-            const match = (list||[]).find(c => normalizeNum(c.certificateNumber || c.number) === normalizeNum(certificateId || fallbackNumber));
+            const match = (list||[]).find(c => normalizeNum(__extractCertNumber(c)) === normalizeNum(certificateId || fallbackNumber));
             if (match && (match._id || match.id)) {
                 certificateId = match._id || match.id;
                 document.getElementById('issueCertificateForm').dataset.certificateId = certificateId;
@@ -11622,7 +11638,7 @@ try {
   if (window.__certificateDedupePatchApplied) return;
   window.__certificateDedupePatchApplied = true;
   const norm = s => String(s||'').toUpperCase().replace(/\s+/g,'').trim();
-  const keyNum = c => norm(c && (c.certificateNumber || c.number));
+  const keyNum = c => norm(c && (__extractCertNumber(c) || c.certificateNumber || c.number));
   function mergeCert(a,b){
     if (!a) return b||{};
     if (!b) return a||{};
@@ -11639,10 +11655,7 @@ try {
       const c = Object.assign({}, c0);
       // Normalize numbers
       const n = keyNum(c);
-      if (n){
-        c.certificateNumber = n;
-        c.number = n;
-      }
+      if (n){ c.certificateNumber = n; c.number = n; } else { const raw = __extractCertNumber(c); if (raw){ const nn = norm(raw); c.certificateNumber = nn; c.number = nn; } }
       const id = c._id || c.id || null;
       // Merge by id first
       if (id){
