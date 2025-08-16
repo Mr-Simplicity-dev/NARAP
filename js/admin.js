@@ -1,147 +1,3 @@
-/* NARAP Admin Build
- * Version: v12
- * Built: 2025-08-16T07:16:39.428529Z
- * Notes: Includes compatibility shims for getLocalCertificates/saveLocalMembers and others.
- */
-
-window.NARAP_BUILD_VERSION='v12';console.log('NARAP build',window.NARAP_BUILD_VERSION);
-/* ==================== COMPATIBILITY SHIMS (safety nets) ==================== */
-(function initCompatibilityShims(){
-  try {
-    // Backend base URL (used by server status checks, etc.)
-    if (typeof window.backendUrl === 'undefined' || !window.backendUrl) {
-      window.backendUrl = 'https://narap-backend.onrender.com';
-    }
-
-    // Simple message/toast helper
-    if (typeof window.showMessage !== 'function') {
-      window.showMessage = function(msg, type) {
-        try {
-          console[(type === 'danger' || type === 'error') ? 'error' : (type === 'warning' ? 'warn' : 'log')]('[MSG]', msg);
-          // Create a lightweight toast if not present
-          var host = document.getElementById('toastHost');
-          if (!host) {
-            host = document.createElement('div');
-            host.id = 'toastHost';
-            host.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;';
-            document.body.appendChild(host);
-          }
-          var el = document.createElement('div');
-          var bg = '#198754', fg = '#fff';
-          if (type === 'warning') { bg = '#ffc107'; fg = '#000'; }
-          if (type === 'danger' || type === 'error') { bg = '#dc3545'; fg = '#fff'; }
-          el.style.cssText = 'background:'+bg+';color:'+fg+';padding:10px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.15);font-family:system-ui,Arial,sans-serif;';
-          el.textContent = String(msg || '');
-          host.appendChild(el);
-          setTimeout(function(){ el.remove(); }, 3500);
-        } catch (e) { /* no-op */ }
-      };
-    }
-
-    // Password strength checker
-    if (typeof window.checkPasswordStrength !== 'function') {
-      window.checkPasswordStrength = function (pwd) {
-        var s = String(pwd || '');
-        var score = 0;
-        if (s.length >= 8) score++;
-        if (/[A-Z]/.test(s)) score++;
-        if (/[a-z]/.test(s)) score++;
-        if (/\d/.test(s)) score++;
-        if (/[^A-Za-z0-9]/.test(s)) score++;
-        var label = 'Very Weak';
-        if      (score >= 5) label = 'Strong';
-        else if (score === 4) label = 'Good';
-        else if (score === 3) label = 'Fair';
-        else if (score === 2) label = 'Weak';
-        return { score: score, label: label };
-      };
-    }
-
-    // Local members getter (for analytics & fallbacks)
-    if (typeof window.getLocalMembers !== 'function') {
-      window.getLocalMembers = function () {
-        try {
-          var candidates = ['narap_members', 'members', 'localMembers'];
-          for (var i = 0; i < candidates.length; i++) {
-            var raw = localStorage.getItem(candidates[i]);
-            if (!raw) continue;
-            try {
-              var arr = JSON.parse(raw);
-              if (Array.isArray(arr)) return arr;
-            } catch (e) {}
-          }
-          // if window.members exists and is array
-          if (Array.isArray(window.members)) return window.members;
-        } catch (e) {}
-        return [];
-      };
-    }
-
-    // Minimal CSV/Download helpers (fallbacks)
-    if (typeof window.downloadFile !== 'function') {
-      window.downloadFile = function (content, filename, contentType) {
-        try {
-          var blob = new Blob([content], {type: contentType || 'text/plain;charset=utf-8'});
-          var url = URL.createObjectURL(blob);
-          var a = document.createElement('a');
-          a.href = url; a.download = filename || 'download.txt';
-          document.body.appendChild(a); a.click(); a.remove();
-          URL.revokeObjectURL(url);
-        } catch (e) { console.error('downloadFile failed:', e); }
-      };
-    }
-
-    if (typeof window.tryJson !== 'function') {
-      window.tryJson = async function (resp) {
-        try { return await resp.json(); } catch (e) { return null; }
-      };
-    }
-  
-    // Certificates getters/setters (for dashboard, analytics, certificates tab)
-    if (typeof window.getLocalCertificates !== 'function') {
-      window.getLocalCertificates = function () {
-        try {
-          var keys = ['narap_certificates','certificates','localCertificates'];
-          for (var i = 0; i < keys.length; i++) {
-            var raw = localStorage.getItem(keys[i]);
-            if (!raw) continue;
-            try {
-              var arr = JSON.parse(raw);
-              if (Array.isArray(arr)) return arr;
-            } catch (e) {}
-          }
-        } catch (e) {}
-        return [];
-      };
-    }
-    if (typeof window.saveLocalCertificates !== 'function') {
-      window.saveLocalCertificates = function (arr) {
-        try {
-          var list = Array.isArray(arr) ? arr : [];
-          localStorage.setItem('narap_certificates', JSON.stringify(list));
-          window.certificates = list;
-        } catch (e) { console.warn('saveLocalCertificates failed:', e); }
-      };
-    }
-
-    // Members setter (some flows call this after fetch)
-    if (typeof window.saveLocalMembers !== 'function') {
-      window.saveLocalMembers = function (arr) {
-        try {
-          var list = Array.isArray(arr) ? arr : [];
-          localStorage.setItem('narap_members', JSON.stringify(list));
-          window.members = list;
-          window.currentMembers = list;
-        } catch (e) { console.warn('saveLocalMembers failed:', e); }
-      };
-    }
-
-  } catch (e) {
-    console.warn('initCompatibilityShims error:', e);
-  }
-})();
-/* ================== END COMPATIBILITY SHIMS ================== */
-
 // ==================== UTILITY CLASSES ====================
 
 // Performance Monitor Class
@@ -341,25 +197,30 @@ class DataCache {
 
 // ==================== ACTIVITY LOGGING (Members & Certificates) ====================
 // Persisted in localStorage key: 'narap_activity_log'
-(function(){
+
+(function () {
   if (window.ActivityLogger) return; // don't redefine
 
   function detectActor() {
     try {
       // Prefer explicit setter
-      if (window.__activityActor && (window.__activityActor.name || window.__activityActor.email)) return window.__activityActor;
+      if (window.__activityActor && (window.__activityActor.name || window.__activityActor.email)) {
+        return window.__activityActor;
+      }
       // Common localStorage keys your app might use
-      const keys = ['narap_admin','adminUser','currentUser','admin','user','authUser'];
+      const keys = ['narap_admin', 'adminUser', 'currentUser', 'admin', 'user', 'authUser'];
       for (const k of keys) {
         const raw = localStorage.getItem(k);
         if (!raw) continue;
         try {
           const obj = JSON.parse(raw);
-          if (obj && (obj.name || obj.email)) return { name: obj.name, email: obj.email, id: obj.id || obj._id };
-        } catch{}
+          if (obj && (obj.name || obj.email)) {
+            return { name: obj.name, email: obj.email, id: obj.id || obj._id };
+          }
+        } catch {}
       }
       // Plain strings
-      const sKeys = ['adminName','adminEmail','currentAdmin','admin_username'];
+      const sKeys = ['adminName', 'adminEmail', 'currentAdmin', 'admin_username'];
       const a = {};
       for (const k of sKeys) {
         const v = localStorage.getItem(k);
@@ -372,31 +233,31 @@ class DataCache {
       // From DOM
       const el = document.getElementById('adminName') || document.querySelector('[data-admin-name]');
       if (el && el.textContent) return { name: el.textContent.trim() };
-    } catch(_){}
+    } catch (_){}
     return {};
   }
 
   class ActivityLogger {
-    constructor(key='narap_activity_log', max=5000){
+    constructor(key = 'narap_activity_log', max = 5000) {
       this.key = key;
       this.max = max;
     }
-    _read(){
+    _read() {
       try {
         const raw = localStorage.getItem(this.key);
         const arr = raw ? JSON.parse(raw) : [];
         return Array.isArray(arr) ? arr : [];
-      } catch(_) { return []; }
+      } catch (_) { return []; }
     }
-    _write(list){
+    _write(list) {
       try {
         const arr = Array.isArray(list) ? list.slice(-this.max) : [];
         localStorage.setItem(this.key, JSON.stringify(arr));
-      } catch(e){ console.warn('ActivityLogger write failed:', e); }
+      } catch (e) { console.warn('ActivityLogger write failed:', e); }
     }
-    all(){ return this._read().slice().sort((a,b)=>new Date(b.ts)-new Date(a.ts)); }
-    clear(){ localStorage.removeItem(this.key); }
-    log(entry){
+    all() { return this._read().slice().sort((a, b) => new Date(b.ts) - new Date(a.ts)); }
+    clear() { localStorage.removeItem(this.key); }
+    log(entry) {
       try {
         const now = new Date();
         const actor = detectActor();
@@ -410,69 +271,105 @@ class DataCache {
         list.push(e);
         this._write(list);
         return e;
-      } catch (err){
+      } catch (err) {
         console.warn('ActivityLogger.log failed:', err);
         return null;
       }
     }
     // Convenience API
-    member(action, data){ return this.log({entity:'member', action, data}); }
-    certificate(action, data){ return this.log({entity:'certificate', action, data}); }
-    system(action, data){ return this.log({entity:'system', action, data}); }
+    member(action, data) { return this.log({ entity: 'member', action, data }); }
+    certificate(action, data) { return this.log({ entity: 'certificate', action, data }); }
+    system(action, data) { return this.log({ entity: 'system', action, data }); }
   }
 
   window.ActivityLogger = ActivityLogger;
   window.activityLogger = new ActivityLogger();
 
   // Public setter to override actor explicitly
-  window.setActivityActor = function(actor){
-    try { window.__activityActor = actor || {}; } catch(_){}
+  window.setActivityActor = function (actor) {
+    try { window.__activityActor = actor || {}; } catch (_){}
   };
 
   // Simple utilities
-  window.getActivityLog = () => activityLogger.all();
-  window.logMemberAdd = (m)=>activityLogger.member('added', {id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName, state: m?.state||m?.State});
-  window.logMemberUpdate = (m)=>activityLogger.member('updated', {id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName, state: m?.state||m?.State});
-  window.logMemberDelete = (m)=>activityLogger.member('deleted', {id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName});
-  window.logCertificateAdd = (c)=>activityLogger.certificate('added', {id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName});
-  window.logCertificateUpdate = (c)=>activityLogger.certificate('updated', {id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName});
-  window.logCertificateDelete = (c)=>activityLogger.certificate('deleted', {id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName});
+  window.getActivityLog = () => (window.activityLogger ? window.activityLogger.all() : []);
+  window.logMemberAdd = (m) => activityLogger.member('added', { id: m?._id || m?.id, code: m?.code, name: m?.name || m?.fullName, state: m?.state || m?.State });
+  window.logMemberUpdate = (m) => activityLogger.member('updated', { id: m?._id || m?.id, code: m?.code, name: m?.name || m?.fullName, state: m?.state || m?.State });
+  window.logMemberDelete = (m) => activityLogger.member('deleted', { id: m?._id || m?.id, code: m?.code, name: m?.name || m?.fullName });
+  window.logCertificateAdd = (c) => activityLogger.certificate('added', { id: c?._id || c?.id, number: c?.certificateNumber || c?.number, member: c?.memberName || c?.recipientName });
+  window.logCertificateUpdate = (c) => activityLogger.certificate('updated', { id: c?._id || c?.id, number: c?.certificateNumber || c?.number, member: c?.memberName || c?.recipientName });
+  window.logCertificateDelete = (c) => activityLogger.certificate('deleted', { id: c?._id || c?.id, number: c?.certificateNumber || c?.number, member: c?.memberName || c?.recipientName });
 
   // Hook upsertMemberFormData if present (to capture create/update)
   const _origUpsert = window.upsertMemberFormData;
   if (typeof _origUpsert === 'function') {
-    window.upsertMemberFormData = async function(mm, formData){
-      const existed = (()=>{
-        try{
-          const locals = (typeof getLocalMembers==='function' ? getLocalMembers() : []) || [];
-          const key = (mm?._id||mm?.id) || (mm?.code ? 'c:'+String(mm.code).toLowerCase() : (mm?.email ? 'e:'+String(mm.email).toLowerCase() : null));
+    window.upsertMemberFormData = async function (mm, formData) {
+      const existed = (() => {
+        try {
+          const locals = (typeof getLocalMembers === 'function' ? getLocalMembers() : []) || [];
+          const key =
+            (mm?._id || mm?.id) ||
+            (mm?.code ? 'c:' + String(mm.code).toLowerCase() :
+            (mm?.email ? 'e:' + String(mm.email).toLowerCase() : null));
           if (!key) return false;
-          return locals.some(m=> (m._id&&mm._id&&m._id===mm._id) ||
-                                 (m.id&&mm.id&&m.id===mm.id) ||
-                                 (mm.code && String(m.code||'').toLowerCase()===String(mm.code).toLowerCase()) ||
-                                 (mm.email && String(m.email||'').toLowerCase()===String(mm.email).toLowerCase()));
-        }catch(_){ return false; }
+          return locals.some(m =>
+            (m._id && mm._id && m._id === mm._id) ||
+            (m.id && mm.id && m.id === mm.id) ||
+            (mm.code && String(m.code || '').toLowerCase() === String(mm.code).toLowerCase()) ||
+            (mm.email && String(m.email || '').toLowerCase() === String(mm.email).toLowerCase())
+          );
+        } catch (_){ return false; }
       })();
       const res = await _origUpsert.apply(this, arguments);
       try {
         if (res && res.ok) {
           existed ? logMemberUpdate(mm) : logMemberAdd(mm);
         }
-      } catch(_){}
+      } catch (_){}
       return res;
-    }
+    };
   }
 
   // Expose a helper to log deletions when UI deletes locally
-  window.logDeletionIfOk = function(entity, original, response){
-    try{
+  window.logDeletionIfOk = function (entity, original, response) {
+    try {
       if (response === true || (response && response.ok) || response === 'ok') {
         if (entity === 'member') logMemberDelete(original);
         if (entity === 'certificate') logCertificateDelete(original);
       }
-    } catch(_){}
+    } catch (_){}
   };
+
+  // ✅ Fixed: the stray code that referenced `merged` is now a safe helper
+  // Call this after you compute a `merged` array of members.
+  if (typeof window.hardenCommitMembers !== 'function') {
+    window.hardenCommitMembers = function (merged) {
+      try {
+        if (!Array.isArray(merged)) throw new Error('merged must be an array');
+
+        if (typeof saveLocalMembers === 'function') saveLocalMembers(merged);
+        window.members = merged;
+        window.currentMembers = merged;
+
+        if (typeof refreshMembersUI === 'function') {
+          refreshMembersUI();
+        } else if (typeof loadMembers === 'function') {
+          const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
+          loadMembers(1, per);
+        }
+
+        const count = merged.length;
+        ['totalMembers', 'membersCount'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = String(count);
+        });
+      } catch (e) {
+        console.error('hardenCommitMembers failed:', e);
+      }
+    };
+  }
 })();
+
+
 
 function refreshMembersUI() {
   try {
@@ -1869,22 +1766,74 @@ async function loadDashboard() {
 
 
 
-async function loadSystemActivityLogs() {
+async function loadRecentActivity() {
   try {
-    const container = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
+    const container = document.getElementById('recentActivity');
     if (!container) return;
 
-    const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
+    // Build filters toolbar (once)
+    let toolbar = document.getElementById('activityFiltersBar');
+    if (!toolbar) {
+      toolbar = document.createElement('div');
+      toolbar.id = 'activityFiltersBar';
+      toolbar.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:6px;flex-wrap:wrap';
+      toolbar.innerHTML = ''
+        + '<input id="afSearch" type="search" placeholder="Search name/code/number..." '
+        + 'style="flex:1 1 220px;min-width:200px;padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
+        + '<select id="afEntity" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
+        + '  <option value="">All Entities</option><option value="member">Members</option><option value="certificate">Certificates</option><option value="system">System</option>'
+        + '</select>'
+        + '<select id="afAction" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
+        + '  <option value="">All Actions</option><option value="added">Added</option><option value="updated">Edited</option><option value="deleted">Deleted</option><option value="pending">Pending</option>'
+        + '</select>'
+        + '<input id="afFrom" type="date" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
+        + '<input id="afTo" type="date" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
+        + '<select id="afScope" title="Export scope" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
+        + '  <option value="recent">Recent only</option><option value="system">System only</option><option value="all">All logs</option>'
+        + '</select>'
+        + '<button id="afExportCSV" style="padding:8px 12px;background:#198754;color:#fff;border:none;border-radius:6px;cursor:pointer;">Download Activity CSV</button>';
+      container.parentElement && container.parentElement.insertBefore(toolbar, container);
 
-    // Use the same filters UI if present
+      // Export button handler
+      const btn = toolbar.querySelector('#afExportCSV');
+      btn && btn.addEventListener('click', () => {
+        const scope = (document.getElementById('afScope')?.value || 'recent');
+        exportActivityCSV({ scope });
+      });
+    }
+
+    // read persisted logs
+    const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
+    // also derive pending actions as "system" notes
+    const pending = (typeof getPendingSync === 'function') ? getPendingSync() : null;
+    if (pending) {
+      const totalPending =
+        (pending.memberCreations?.length||0) + (pending.memberUpdates?.length||0) + (pending.memberDeletions?.length||0) +
+        (pending.certificateCreations?.length||0) + (pending.certificateUpdates?.length||0) + (pending.certificateDeletions?.length||0);
+      if (totalPending > 0) {
+        logs.unshift({
+          entity: 'system',
+          action: 'pending',
+          data: { totalPending },
+          ts: new Date().toISOString(),
+          date: new Date().toLocaleDateString(),
+          time: new Date().toLocaleTimeString()
+        });
+      }
+    }
+
+    // Filters
     const afSearch = document.getElementById('afSearch');
+    const afEntity = document.getElementById('afEntity');
+    const afAction = document.getElementById('afAction');
     const afFrom = document.getElementById('afFrom');
     const afTo = document.getElementById('afTo');
-    const afDeletedOnly = document.getElementById('afDeletedOnly');
 
     const q = (afSearch?.value || '').toLowerCase().trim();
+    const ent = (afEntity?.value || '').toLowerCase().trim();
+    const act = (afAction?.value || '').toLowerCase().trim();
 
-    // Date window
+    // Date range
     let fromMs = 0, toMs = Number.MAX_SAFE_INTEGER;
     if (afFrom && afFrom.value) {
       try { fromMs = new Date(afFrom.value + 'T00:00:00').getTime(); } catch(_){}
@@ -1893,17 +1842,12 @@ async function loadSystemActivityLogs() {
       try { toMs = new Date(afTo.value + 'T23:59:59.999').getTime(); } catch(_){}
     }
 
-    // Filter only 'system' entries plus critical member/certificate events (updated/deleted)
-    const sysAll = logs.filter(e => e.entity === 'system')
-                    .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 200))
-                    .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
-
-    const delOnly = !!(afDeletedOnly && afDeletedOnly.checked);
-
     const matches = (e) => {
+      // Date window
       const ts = new Date(e.ts || Date.now()).getTime();
       if (ts < fromMs || ts > toMs) return false;
-      if (delOnly && String(e.action).toLowerCase() !== 'deleted') return false;
+      if (ent && String(e.entity).toLowerCase() !== ent) return false;
+      if (act && String(e.action).toLowerCase() !== act) return false;
       if (!q) return true;
       const hay = [
         e.entity, e.action, e.date, e.time,
@@ -1913,40 +1857,53 @@ async function loadSystemActivityLogs() {
       return hay.indexOf(q) !== -1;
     };
 
+    // Render
     container.innerHTML = '';
     const list = document.createElement('div');
-    list.className = 'system-activity-list';
+    list.className = 'recent-activity-list';
     list.style.maxHeight = '320px';
     list.style.overflow = 'auto';
     list.style.padding = '6px 0';
 
-    const item = (e)=>{
+    const fmt = (e) => {
       const when = (e.date && e.time) ? `${e.date} • ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
-      let title = `[${e.entity}] ${e.action}`;
-      let sub = '';
-      if (e.entity === 'member') sub = e.data?.name || e.data?.code || '';
-      if (e.entity === 'certificate') sub = e.data?.number || e.data?.member || '';
-      if (e.entity === 'system') sub = (e.data && e.data.totalPending!=null) ? `${e.data.totalPending} change(s) pending` : (e.data?.message||'');
+      let who = '';
+      if (e.entity === 'member') who = e.data?.name || e.data?.code || 'Member';
+      if (e.entity === 'certificate') who = e.data?.number || e.data?.member || 'Certificate';
+      const badge = `<span class="badge badge-${e.action}" style="background:#eee;color:#333;border-radius:10px;padding:2px 8px;margin-right:8px;text-transform:capitalize;">${e.action}</span>`;
+      const label = `<strong style="text-transform:capitalize;">${e.entity}</strong> — ${who || ''}`;
       const actor = e.actor ? `<span style="color:#6c757d;margin-left:8px;">by ${e.actor.name || e.actor.email}</span>` : '';
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f6f6f6;">
-        <div><strong>${title}</strong> <span style="color:#6c757d;">${sub}</span>${actor}</div>
+      return `<div class="ra-item" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">
+        <div>${badge}${label}${actor}</div>
         <div style="color:#6c757d;font-size:12px;">${when}</div>
       </div>`;
     };
 
-    const sys = sysAll.filter(matches);
-    if (!sys.length) {
-      list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No system activity</div>`;
+    const subset = logs.filter(matches);
+    if (!subset.length) {
+      list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No recent activity</div>`;
     } else {
-      list.innerHTML = sys.map(item).join('');
+      list.innerHTML = subset.map(fmt).join('');
     }
     container.appendChild(list);
 
+    // Listeners (debounced) to live-update
+    const rerender = () => { loadRecentActivity(); loadSystemActivityLogs(); };
+    ['keyup','change','search','input'].forEach(ev => {
+      afSearch && afSearch.addEventListener(ev, rerender, { once: true });
+      afEntity && afEntity.addEventListener(ev, rerender, { once: true });
+      afAction && afAction.addEventListener(ev, rerender, { once: true });
+      afFrom && afFrom.addEventListener(ev, rerender, { once: true });
+      afTo && afTo.addEventListener(ev, rerender, { once: true });
+    });
+
+    // Activate scroll arrows for this container
     if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
   } catch (err) {
-    console.error('loadSystemActivityLogs failed:', err);
+    console.error('loadRecentActivity failed:', err);
   }
 }
+
 
 
 
@@ -10516,6 +10473,11 @@ async function upsertMemberFormData(member, formData) {
 }
 
 
+
+
+
+
+
 async function loadSystemActivityLogs() {
   try {
     const container = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
@@ -10527,7 +10489,6 @@ async function loadSystemActivityLogs() {
     const afSearch = document.getElementById('afSearch');
     const afFrom = document.getElementById('afFrom');
     const afTo = document.getElementById('afTo');
-    const afDeletedOnly = document.getElementById('afDeletedOnly');
 
     const q = (afSearch?.value || '').toLowerCase().trim();
 
@@ -10543,21 +10504,18 @@ async function loadSystemActivityLogs() {
     // Filter only 'system' entries plus critical member/certificate events (updated/deleted)
     const sysAll = logs.filter(e => e.entity === 'system')
                     .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 200))
-                    .sort((a,b) => new Date(b.ts) - new Date(a.ts));
-
-    const delOnly = !!(afDeletedOnly && afDeletedOnly.checked);
+                    .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
 
     const matches = (e) => {
       const ts = new Date(e.ts || Date.now()).getTime();
       if (ts < fromMs || ts > toMs) return false;
-      if (delOnly && String(e.action).toLowerCase() !== 'deleted') return false;
       if (!q) return true;
       const hay = [
         e.entity, e.action, e.date, e.time,
         e.data?.name, e.data?.code, e.data?.number, e.data?.member,
         e.actor?.name, e.actor?.email
       ].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(q);
+      return hay.indexOf(q) !== -1;
     };
 
     container.innerHTML = '';
@@ -10567,13 +10525,13 @@ async function loadSystemActivityLogs() {
     list.style.overflow = 'auto';
     list.style.padding = '6px 0';
 
-    const item = (e) => {
+    const item = (e)=>{
       const when = (e.date && e.time) ? `${e.date} • ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
       let title = `[${e.entity}] ${e.action}`;
       let sub = '';
       if (e.entity === 'member') sub = e.data?.name || e.data?.code || '';
       if (e.entity === 'certificate') sub = e.data?.number || e.data?.member || '';
-      if (e.entity === 'system') sub = (e.data && e.data.totalPending != null) ? `${e.data.totalPending} change(s) pending` : (e.data?.message || '');
+      if (e.entity === 'system') sub = (e.data && e.data.totalPending!=null) ? `${e.data.totalPending} change(s) pending` : (e.data?.message||'');
       const actor = e.actor ? `<span style="color:#6c757d;margin-left:8px;">by ${e.actor.name || e.actor.email}</span>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f6f6f6;">
         <div><strong>${title}</strong> <span style="color:#6c757d;">${sub}</span>${actor}</div>
@@ -10594,6 +10552,10 @@ async function loadSystemActivityLogs() {
     console.error('loadSystemActivityLogs failed:', err);
   }
 }
+
+
+
+
 
 
 // Floating scroll arrows centered above activity sections
@@ -10689,14 +10651,11 @@ function exportActivityCSV(opts = {}) {
     const afSearch = document.getElementById('afSearch');
     const afEntity = document.getElementById('afEntity');
     const afAction = document.getElementById('afAction');
-    const afDeletedOnly = document.getElementById('afDeletedOnly');
     const afFrom = document.getElementById('afFrom');
     const afTo = document.getElementById('afTo');
     const q = (afSearch?.value || '').toLowerCase().trim();
     const ent = (afEntity?.value || '').toLowerCase().trim();
     const act = (afAction?.value || '').toLowerCase().trim();
-
-    const delOnly = !!(afDeletedOnly && afDeletedOnly.checked);
 
     let fromMs = 0, toMs = Number.MAX_SAFE_INTEGER;
     if (afFrom && afFrom.value) { try { fromMs = new Date(afFrom.value + 'T00:00:00').getTime(); } catch(_){} }
@@ -10717,8 +10676,6 @@ function exportActivityCSV(opts = {}) {
       if (ts < fromMs || ts > toMs) return false;
       if (ent && String(e.entity).toLowerCase() !== ent) return false;
       if (act && String(e.action).toLowerCase() !== act) return false;
-      if (delOnly && String(e.action).toLowerCase() !== 'deleted') return false;
-      if (delOnly && String(e.action).toLowerCase() !== 'deleted') return false;
       if (!q) return true;
       const hay = [
         e.entity, e.action, e.date, e.time,
