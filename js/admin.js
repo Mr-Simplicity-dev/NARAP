@@ -558,6 +558,49 @@ function downloadFile(content, filename, contentType) {
     URL.revokeObjectURL(url);
 }
 
+// --- Date normalization: robustly convert to 'YYYY-MM-DD' or return null ---
+function toISODate(input) {
+  if (input == null) return null;
+
+  // Excel serial number (days since 1899-12-30)
+  if (typeof input === 'number' && isFinite(input)) {
+    var ms = Math.round((input - 25569) * 86400 * 1000);
+    var d0 = new Date(ms);
+    return isNaN(d0) ? null : d0.toISOString().slice(0, 10);
+  }
+
+  var s = String(input).replace(/\u00a0/g, ' ').trim();
+  if (!s) return null;
+
+  // YYYY-MM-DD, YYYY/M/D, YYYY.M.D
+  var m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+  if (m) {
+    var y = +m[1], mo = +m[2], d = +m[3];
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+      return y + '-' + String(mo).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    }
+  }
+
+  // D/M/Y or M/D/Y (2 or 4 digit year)
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/);
+  if (m) {
+    var a = +m[1], b = +m[2], y2 = +m[3]; if (y2 < 100) y2 += 2000;
+    var dd, mm;
+    if (a > 12 && b <= 12) { dd = a; mm = b; }      // DMY
+    else if (b > 12 && a <= 12) { dd = b; mm = a; } // MDY
+    else { dd = a; mm = b; }                        // ambiguous -> assume DMY
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+      return y2 + '-' + String(mm).padStart(2,'0') + '-' + String(dd).padStart(2,'0');
+    }
+  }
+
+  // Native parse fallback (handles "Aug 16, 2025", etc.)
+  var d2 = new Date(s);
+  return isNaN(d2) ? null : d2.toISOString().slice(0, 10);
+}
+
+
+
 function checkPasswordStrength(password) {
     if (!password) return { strength: 0, message: 'No password entered' };
     
@@ -3999,6 +4042,14 @@ async function loadCertificates(
       const type = (c.type || '').toLowerCase();
       const status = (c.status || '').toLowerCase();
       const issuedBy = (c.issuedBy || '').toLowerCase();
+
+      // Normalize dates to ISO
+      const issueISO = toISODate(issueDate);
+      const validISO = toISODate(validUntil);
+      if (!issueISO) {
+        errors.push('Row ' + rowNumber + ': Invalid Issue Date "' + issueDate + '". Use YYYY-MM-DD.');
+        continue;
+      }
       const userName = (c.userId?.name || '').toLowerCase();
       const userEmail = (c.userId?.email || '').toLowerCase();
       const userCode = (c.userId?.code || '').toLowerCase();
@@ -7835,6 +7886,12 @@ const row = parsedData[i];
     const issueDate = __getFieldObj(row, 'issueDate');    // REQUIRED
     const expiryDate = __getFieldObj(row, 'expiryDate');  // OPTIONAL
 
+    const __issueISO = toISODate(issueDate);
+    const __expiryISO = toISODate(expiryDate);
+    if (!__issueISO) { errors.push('Row ' + rowNumber + ': Invalid Issue Date "' + issueDate + '". Use YYYY-MM-DD.'); continue; }
+    issueDate = __issueISO;
+    expiryDate = __expiryISO || expiryDate;
+
     // --- Required checks (position/state optional; expiryDate optional) ---
     const rowIssues = [];
     if (!recipient) rowIssues.push('Missing value for recipient');
@@ -7862,8 +7919,9 @@ const row = parsedData[i];
         title,
         type: type || 'membership',
         description: '',           // optional
-        issueDate: issueDate || undefined,
+        issueDate: (toISODate(issueDate) || undefined),
         status: status || 'active',
+        validUntil: (toISODate(expiryDate) || undefined),
         issuedBy: issuedBy || undefined
       };
 
@@ -8085,9 +8143,10 @@ async function importCertificateData(parsedData, withProgress=false) {
         title,                            // required
         type: type || 'membership',
         description: '',                  // optional
-        issueDate: issueDate || undefined,
-        validUntil: validUntil || undefined,
+        issueDate: (toISODate(issueDate) || undefined),
+        validUntil: (toISODate(validUntil) || undefined),
         status: status || 'active',
+        validUntil: (toISODate(expiryDate) || undefined),
         issuedBy: issuedBy || undefined
       };
 
