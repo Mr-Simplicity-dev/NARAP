@@ -5154,7 +5154,7 @@ function displayCertificates(certificates, totalItems = 0, currentPage = 1, tota
         const issueDate = certificate.issueDate ? new Date(certificate.issueDate).toLocaleDateString() : 'N/A';
         const status = certificate.status || 'Active';
         const statusClass = status.toLowerCase();
-        const certificateId = certificate._id || certificate.id || '';
+        const certificateId = certificate._id || certificate.id || (certificate.certificateNumber || certificate.number || '');
         
         // Ensure title is properly formatted and aligned
         const formattedTitle = title.trim() || 'N/A';
@@ -5201,9 +5201,11 @@ function displayCertificates(certificates, totalItems = 0, currentPage = 1, tota
 function viewCertificate(certificateId) {
     try {
         const certificates = window.currentCertificates || getLocalCertificates();
-        const certificate = certificates.find(cert => 
-            cert._id === certificateId || cert.id === certificateId
-        );
+        const normalizeNum = (s)=>String(s||'').toUpperCase().replace(/\s+/g,'').trim();
+        const certificate = certificates.find(cert => (
+            cert._id === certificateId || cert.id === certificateId ||
+            normalizeNum(cert.certificateNumber || cert.number) === normalizeNum(certificateId)
+        ));
         
         if (!certificate) {
             showMessage('Certificate not found', 'error');
@@ -5438,9 +5440,11 @@ function updatePageDisplay() {
 function downloadCertificate(certificateId) {
     try {
         const certificates = window.currentCertificates || getLocalCertificates();
-        const certificate = certificates.find(cert => 
-            cert._id === certificateId || cert.id === certificateId
-        );
+        const normalizeNum = (s)=>String(s||'').toUpperCase().replace(/\s+/g,'').trim();
+        const certificate = certificates.find(cert => (
+            cert._id === certificateId || cert.id === certificateId ||
+            normalizeNum(cert.certificateNumber || cert.number) === normalizeNum(certificateId)
+        ));
         
         if (!certificate) {
             showMessage('Certificate not found', 'error');
@@ -5465,9 +5469,11 @@ function downloadCertificate(certificateId) {
 async function editCertificate(certificateId) {
     try {
         const certificates = window.currentCertificates || getLocalCertificates();
-        const certificate = certificates.find(cert => 
-            cert._id === certificateId || cert.id === certificateId
-        );
+        const normalizeNum = (s)=>String(s||'').toUpperCase().replace(/\s+/g,'').trim();
+        const certificate = certificates.find(cert => (
+            cert._id === certificateId || cert.id === certificateId ||
+            normalizeNum(cert.certificateNumber || cert.number) === normalizeNum(certificateId)
+        ));
         
         if (!certificate) {
             showMessage('Certificate not found', 'error');
@@ -5525,13 +5531,24 @@ async function updateCertificate(event) {
     event.preventDefault();
     
     try {
-        const certificateId = document.getElementById('issueCertificateForm').dataset.certificateId;
+        let certificateId = document.getElementById('issueCertificateForm').dataset.certificateId;
+        const formDataPre = typeof getCertificateFormData === 'function' ? getCertificateFormData() : {};
+        const fallbackNumber = formDataPre && (formDataPre.certificateNumber || formDataPre.number || '');
+        const normalizeNum = (s)=>String(s||'').toUpperCase().replace(/\s+/g,'').trim();
+        // Resolve id using number if ID is missing or a number-like value was stored
+        if (!certificateId || certificateId.trim() === '' || certificateId.includes('/')) {
+            const list = (window.currentCertificates && Array.isArray(window.currentCertificates)) ? window.currentCertificates : (typeof getLocalCertificates === 'function' ? getLocalCertificates() : []);
+            const match = (list||[]).find(c => normalizeNum(c.certificateNumber || c.number) === normalizeNum(certificateId || fallbackNumber));
+            if (match && (match._id || match.id)) {
+                certificateId = match._id || match.id;
+                document.getElementById('issueCertificateForm').dataset.certificateId = certificateId;
+            }
+        }
         if (!certificateId) {
             showMessage('Certificate ID not found', 'error');
             return;
         }
-        
-        const formData = getCertificateFormData();
+const formData = getCertificateFormData();
         formData._id = certificateId;
         
         const certificates = window.currentCertificates || getLocalCertificates();
@@ -11576,3 +11593,120 @@ try {
   });
 })();
 
+
+
+// === Certificate Dedupe + Normalization Patch (added) ===
+(function(){
+  if (window.__certificateDedupePatchApplied) return;
+  window.__certificateDedupePatchApplied = true;
+  const norm = s => String(s||'').toUpperCase().replace(/\s+/g,'').trim();
+  const keyNum = c => norm(c && (c.certificateNumber || c.number));
+  function mergeCert(a,b){
+    if (!a) return b||{};
+    if (!b) return a||{};
+    const newer = new Date(b.updatedAt||b.revokedAt||b.createdAt||0) > new Date(a.updatedAt||a.revokedAt||a.createdAt||0) ? b : a;
+    return Object.assign({}, a, b, newer); // prefer fields from newer
+  }
+  function dedupeCertificates(list){
+    if (!Array.isArray(list)) return [];
+    const byId = new Map();
+    const byNum = new Map();
+    const out = [];
+    for (const c0 of list){
+      if (!c0) continue;
+      const c = Object.assign({}, c0);
+      // Normalize numbers
+      const n = keyNum(c);
+      if (n){
+        c.certificateNumber = n;
+        c.number = n;
+      }
+      const id = c._id || c.id || null;
+      // Merge by id first
+      if (id){
+        if (byId.has(id)){
+          const merged = mergeCert(byId.get(id), c);
+          byId.set(id, merged);
+        } else {
+          byId.set(id, c);
+        }
+      } else if (n){
+        if (byNum.has(n)){
+          const merged = mergeCert(byNum.get(n), c);
+          byNum.set(n, merged);
+        } else {
+          byNum.set(n, c);
+        }
+      } else {
+        out.push(c);
+      }
+    }
+    // Cross-merge id and number maps when they refer to the same cert
+    const usedNums = new Set();
+    for (const [id, c] of byId){
+      const n = keyNum(c);
+      if (n && byNum.has(n)){
+        const merged = mergeCert(c, byNum.get(n));
+        byId.set(id, merged);
+        usedNums.add(n);
+      }
+    }
+    byNum.forEach((c, n) => {
+      if (!usedNums.has(n)){
+        out.push(c);
+      }
+    });
+    out.push(...byId.values());
+    // Final uniqueness by normalized number
+    const finalMap = new Map();
+    for (const c of out){
+      const n = keyNum(c) || ('NO_NUM_'+(c._id||c.id||Math.random().toString(36).slice(2)));
+      if (finalMap.has(n)){
+        finalMap.set(n, mergeCert(finalMap.get(n), c));
+      } else {
+        finalMap.set(n, c);
+      }
+    }
+    return Array.from(finalMap.values());
+  }
+  // Wrap saveLocalCertificates
+  const __origSaveLocalCertificates = typeof saveLocalCertificates === 'function' ? saveLocalCertificates : function(x){ try{ localStorage.setItem('narap_certificates', JSON.stringify(x||[])); }catch(e){} };
+  window.saveLocalCertificates = function(certs){
+    try{
+      const cleaned = dedupeCertificates(Array.isArray(certs)?certs:[]);
+      return __origSaveLocalCertificates(cleaned);
+    }catch(e){
+      return __origSaveLocalCertificates(certs);
+    }
+  };
+  // Wrap getLocalCertificates to normalize/dedupe on read
+  const __origGetLocalCertificates = typeof getLocalCertificates === 'function' ? getLocalCertificates : function(){ try{ return JSON.parse(localStorage.getItem('narap_certificates')||'[]'); }catch(e){ return []; } };
+  window.getLocalCertificates = function(){
+    const list = __origGetLocalCertificates() || [];
+    return dedupeCertificates(list);
+  };
+  // One-off cleanup on load
+  try{
+    const current = __origGetLocalCertificates() || [];
+    const cleaned = dedupeCertificates(current);
+    __origSaveLocalCertificates(cleaned); // always normalize and save
+    if (Array.isArray(window.currentCertificates)) {
+      window.currentCertificates = dedupeCertificates(window.currentCertificates);
+    }
+  }catch(_){}
+  // Expose audit helper
+  window.auditCertificateDuplicates = function(){
+    const list = __origGetLocalCertificates()||[];
+    const seen = new Set();
+    const duplicates = [];
+    for (const c of list){
+      const n = norm(c && (c.certificateNumber||c.number));
+      if (!n) continue;
+      if (seen.has(n)) duplicates.push(c);
+      else seen.add(n);
+    }
+    console.table((duplicates||[]).map(c=>({id:c._id||c.id, number:c.certificateNumber||c.number, recipient:c.recipientName||c.recipient||c.name, title:c.title||c.certificateTitle, type:c.type||c.certificateType, updatedAt:c.updatedAt||c.createdAt})));
+    return duplicates;
+  };
+})();
+// === End Certificate Dedupe Patch ===
