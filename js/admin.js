@@ -10567,12 +10567,12 @@ function exportMembersPrompt() {
   box.querySelector('#exportStateCSV').onclick = async () => {
     const val = box.querySelector('#exportStateSelect').value || 'ALL';
     close();
-    await exportMembersFiltered('csv', val);
+    await exportMembersFiltered({ format: 'csv', state: val });
   };
   box.querySelector('#exportStateJSON').onclick = async () => {
     const val = box.querySelector('#exportStateSelect').value || 'ALL';
     close();
-    await exportMembersFiltered('json', val);
+    await exportMembersFiltered({ format: 'json', state: val });
   };
 }
 
