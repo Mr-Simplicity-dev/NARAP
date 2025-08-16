@@ -4001,96 +4001,122 @@ async function loadCertificates(
   try {
     const tableBody = document.getElementById('certificatesTableBody');
     if (tableBody) {
-      tableBody.innerHTML = `
-        <tr>
-          <td colspan="7" class="loading">Loading certificates...</td>
-        </tr>
-      `;
+      tableBody.innerHTML = (
+        '<tr>' +
+          '<td colspan="7" class="loading">Loading certificates...</td>' +
+        '</tr>'
+      );
     }
 
-    // Use your existing merger
-    const mergedCertificates = await getCertificates();
+    // Fetch/merge from your existing source
+    let mergedCertificates = [];
+    if (typeof getCertificates === 'function') {
+      try {
+        const res = await getCertificates();
+        if (Array.isArray(res)) mergedCertificates = res;
+        else if (res && Array.isArray(res.items)) mergedCertificates = res.items;
+      } catch (_) {}
+    }
+    if (!Array.isArray(mergedCertificates) || mergedCertificates.length === 0) {
+      if (typeof getLocalCertificates === 'function') {
+        try { mergedCertificates = getLocalCertificates() || []; } catch (_) {}
+      } else {
+        mergedCertificates = [];
+      }
+    }
 
     if (typeof window !== 'undefined') {
       window.currentCertificates = mergedCertificates;
     }
 
     // Normalize filters (case-insensitive compare)
-    const q = (searchTerm || '').toLowerCase().trim();
-    const statusF = (statusFilter || '').toLowerCase().trim();
-    const typeFUI = (typeFilterUI || '').toLowerCase().trim();
-    const stateF = (stateFilterUI || '').toLowerCase().trim();
+    const q = String(searchTerm || '').toLowerCase().trim();
+    const statusF = String(statusFilter || '').toLowerCase().trim();
+    const typeFUI = String(typeFilterUI || '').toLowerCase().trim();
+    const stateF = String(stateFilterUI || '').toLowerCase().trim();
 
-    // Map UI type → stored type if needed (adjust if your DB uses 'award' for 'achievement', etc.)
+    // Map UI type → stored type if needed
     const typeMap = {
       membership: 'membership',
-      achievement: 'achievement',   // change to 'award' if that"s what you store
+      achievement: 'achievement', // change to 'award' if that's what you store
       training: 'training',
       recognition: 'recognition',
       service: 'service'
     };
     const typeF = typeFUI ? (typeMap[typeFUI] || typeFUI) : '';
 
-    const getCertState = (c) => (c.state || c.userId?.state || '').toString().toLowerCase();
+    const getCertState = function (c) {
+      var user = (c && c.userId) ? c.userId : {};
+      var st = (c && c.state) ? c.state : (user.state || '');
+      return String(st).toLowerCase();
+    };
 
     // Apply filters
-    let filtered = mergedCertificates.filter(c => {
-      const num = (c.certificateNumber || c.number || '').toLowerCase();
-      const recipient = (c.recipientName || c.recipient || '').toLowerCase();
-      const email = (c.email || '').toLowerCase();
-      const title = (c.certificateTitle || c.title || '').toLowerCase();
-      const type = (c.type || '').toLowerCase();
-      const status = (c.status || '').toLowerCase();
-      const issuedBy = (c.issuedBy || '').toLowerCase();
+    var filtered = (mergedCertificates || []).filter(function (c) {
+      var num = String((c && (c.certificateNumber || c.number)) || '').toLowerCase();
+      var recipient = String((c && (c.recipientName || c.recipient)) || '').toLowerCase();
+      var email = String((c && c.email) || '').toLowerCase();
+      var title = String((c && (c.certificateTitle || c.title)) || '').toLowerCase();
+      var type = String((c && c.type) || '').toLowerCase();
+      var status = String((c && c.status) || '').toLowerCase();
+      var issuedBy = String((c && c.issuedBy) || '').toLowerCase();
 
-      // Normalize dates to ISO
-      const issueISO = toISODate(issueDate);
-      const validISO = toISODate(validUntil);
-      if (!issueISO) {
-        errors.push('Row ' + rowNumber + ': Invalid Issue Date "' + issueDate + '". Use YYYY-MM-DD.');
-        continue;
-      }
-      const userName = (c.userId?.name || '').toLowerCase();
-      const userEmail = (c.userId?.email || '').toLowerCase();
-      const userCode = (c.userId?.code || '').toLowerCase();
-      const certState = getCertState(c);
+      var user = (c && c.userId) ? c.userId : {};
+      var userName = String(user.name || '').toLowerCase();
+      var userEmail = String(user.email || '').toLowerCase();
+      var userCode = String(user.code || '').toLowerCase();
+      var certState = getCertState(c);
 
-      const haystack = [num, recipient, email, title, type, status, issuedBy, userName, userEmail, userCode].join(' ');
-      const matchSearch = !q || haystack.includes(q);
-      const matchStatus = !statusF || status === statusF;
-      const matchType = !typeF || type === typeF;
-      const matchState = !stateF || certState === stateF;
+      var haystack = [num, recipient, email, title, type, status, issuedBy, userName, userEmail, userCode].join(' ');
+      var matchSearch = !q || haystack.indexOf(q) !== -1;
+      var matchStatus = !statusF || status === statusF;
+      var matchType = !typeF || type === typeF;
+      var matchState = !stateF || certState === stateF;
 
       return matchSearch && matchStatus && matchType && matchState;
     });
 
     // Pagination
     const totalItems = filtered.length;
-    const totalPages = Math.ceil(totalItems / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
+    const totalPages = Math.max(1, Math.ceil(totalItems / Math.max(1, limit)));
+    const currentPage = Math.min(Math.max(1, page), totalPages);
+    const startIndex = (currentPage - 1) * Math.max(1, limit);
+    const endIndex = startIndex + Math.max(1, limit);
     const paginated = filtered.slice(startIndex, endIndex);
 
     // Store pagination state
-    window.certificatesPaginationState = {
-      currentPage: page,
-      totalPages,
-      totalItems,
-      itemsPerPage: limit
-    };
+    if (typeof window !== 'undefined') {
+      window.certificatesPaginationState = {
+        currentPage,
+        totalPages,
+        totalItems,
+        itemsPerPage: limit
+      };
+    }
 
     if (typeof displayCertificates === 'function') {
-      displayCertificates(paginated, totalItems, page, totalPages, limit);
+      displayCertificates(paginated, totalItems, currentPage, totalPages, limit);
     }
 
     if (typeof renderPagination === 'function') {
-      renderPagination(page, totalPages, totalItems, limit, 'certificates');
+      renderPagination(currentPage, totalPages, totalItems, limit, 'certificates');
     }
   } catch (error) {
-    showMessage('Error loading certificates: ' + error.message, 'error');
+    if (typeof showMessage === 'function') {
+      showMessage('Error loading certificates: ' + (error && error.message ? error.message : String(error)), 'error');
+    }
 
-    const localCertificates = getLocalCertificates();
-localCertificates = sortCertificatesAlpha(localCertificates);
+    // Fallback to local
+    let localCertificates = [];
+    try {
+      if (typeof getLocalCertificates === 'function') {
+        localCertificates = getLocalCertificates() || [];
+      }
+      if (typeof sortCertificatesAlpha === 'function') {
+        localCertificates = sortCertificatesAlpha(localCertificates) || localCertificates;
+      }
+    } catch (_) {}
+
     if (typeof window !== 'undefined') {
       window.currentCertificates = localCertificates;
     }
