@@ -1,3 +1,100 @@
+/* ==================== COMPATIBILITY SHIMS (safety nets) ==================== */
+(function initCompatibilityShims(){
+  try {
+    // Backend base URL (used by server status checks, etc.)
+    if (typeof window.backendUrl === 'undefined' || !window.backendUrl) {
+      window.backendUrl = 'https://narap-backend.onrender.com';
+    }
+
+    // Simple message/toast helper
+    if (typeof window.showMessage !== 'function') {
+      window.showMessage = function(msg, type) {
+        try {
+          console[(type === 'danger' || type === 'error') ? 'error' : (type === 'warning' ? 'warn' : 'log')]('[MSG]', msg);
+          // Create a lightweight toast if not present
+          var host = document.getElementById('toastHost');
+          if (!host) {
+            host = document.createElement('div');
+            host.id = 'toastHost';
+            host.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;';
+            document.body.appendChild(host);
+          }
+          var el = document.createElement('div');
+          var bg = '#198754', fg = '#fff';
+          if (type === 'warning') { bg = '#ffc107'; fg = '#000'; }
+          if (type === 'danger' || type === 'error') { bg = '#dc3545'; fg = '#fff'; }
+          el.style.cssText = 'background:'+bg+';color:'+fg+';padding:10px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.15);font-family:system-ui,Arial,sans-serif;';
+          el.textContent = String(msg || '');
+          host.appendChild(el);
+          setTimeout(function(){ el.remove(); }, 3500);
+        } catch (e) { /* no-op */ }
+      };
+    }
+
+    // Password strength checker
+    if (typeof window.checkPasswordStrength !== 'function') {
+      window.checkPasswordStrength = function (pwd) {
+        var s = String(pwd || '');
+        var score = 0;
+        if (s.length >= 8) score++;
+        if (/[A-Z]/.test(s)) score++;
+        if (/[a-z]/.test(s)) score++;
+        if (/\d/.test(s)) score++;
+        if (/[^A-Za-z0-9]/.test(s)) score++;
+        var label = 'Very Weak';
+        if      (score >= 5) label = 'Strong';
+        else if (score === 4) label = 'Good';
+        else if (score === 3) label = 'Fair';
+        else if (score === 2) label = 'Weak';
+        return { score: score, label: label };
+      };
+    }
+
+    // Local members getter (for analytics & fallbacks)
+    if (typeof window.getLocalMembers !== 'function') {
+      window.getLocalMembers = function () {
+        try {
+          var candidates = ['narap_members', 'members', 'localMembers'];
+          for (var i = 0; i < candidates.length; i++) {
+            var raw = localStorage.getItem(candidates[i]);
+            if (!raw) continue;
+            try {
+              var arr = JSON.parse(raw);
+              if (Array.isArray(arr)) return arr;
+            } catch (e) {}
+          }
+          // if window.members exists and is array
+          if (Array.isArray(window.members)) return window.members;
+        } catch (e) {}
+        return [];
+      };
+    }
+
+    // Minimal CSV/Download helpers (fallbacks)
+    if (typeof window.downloadFile !== 'function') {
+      window.downloadFile = function (content, filename, contentType) {
+        try {
+          var blob = new Blob([content], {type: contentType || 'text/plain;charset=utf-8'});
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url; a.download = filename || 'download.txt';
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+        } catch (e) { console.error('downloadFile failed:', e); }
+      };
+    }
+
+    if (typeof window.tryJson !== 'function') {
+      window.tryJson = async function (resp) {
+        try { return await resp.json(); } catch (e) { return null; }
+      };
+    }
+  } catch (e) {
+    console.warn('initCompatibilityShims error:', e);
+  }
+})();
+/* ================== END COMPATIBILITY SHIMS ================== */
+
 // ==================== UTILITY CLASSES ====================
 
 // Performance Monitor Class
