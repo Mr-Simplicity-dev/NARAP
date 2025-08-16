@@ -10381,7 +10381,8 @@ async function getAllMembersForExport() {
 }
 
 // Drop-in replacement: guarantees alphabetical export order
-async function exportMembersFiltered(options = {}) {
+// Drop-in replacement: guarantees alphabetical export order and avoids await/blob
+function exportMembersFiltered(options = {}) {
   try {
     // 1) Resolve source data
     const source = Array.isArray(window.members) ? window.members : [];
@@ -10429,11 +10430,10 @@ async function exportMembersFiltered(options = {}) {
 
     if (isAll) {
       if (typeof sortMembersAlpha === 'function') {
-        rows = sortMembersAlpha(rows); // your State→Name sorter
+        rows = sortMembersAlpha(rows); // State → Name
       } else if (typeof compareByStateThenName === 'function') {
         rows = rows.slice().sort(compareByStateThenName);
       } else {
-        // Fallback: State (normalized) then Name
         rows = rows.slice().sort((a, b) => {
           const sa = norm(a.state || a.State);
           const sb = norm(b.state || b.State);
@@ -10442,8 +10442,7 @@ async function exportMembersFiltered(options = {}) {
         });
       }
     } else {
-      // Single state: Name A→Z
-      rows = rows.slice().sort(byName);
+      rows = rows.slice().sort(byName); // single state: Name A→Z
     }
 
     // 5) Build filename
@@ -10451,19 +10450,16 @@ async function exportMembersFiltered(options = {}) {
     const ts = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     const filename = `members_${safeState}_${ts}.${format === 'json' ? 'json' : 'csv'}`;
 
-    // 6) Serialize (prefer your existing helpers)
-    let blob, mime = 'text/csv;charset=utf-8';
-
+    // 6) Serialize (NO blobs/await here)
+    let content, contentType = 'text/csv;charset=utf-8';
     if (format === 'json') {
-      mime = 'application/json;charset=utf-8';
-      blob = new Blob([JSON.stringify(rows, null, 2)], { type: mime });
+      contentType = 'application/json;charset=utf-8';
+      content = JSON.stringify(rows, null, 2);
     } else {
-      // CSV
       let csvText;
       if (typeof convertToCSV === 'function') {
-        csvText = convertToCSV(rows); // use your existing converter
+        csvText = convertToCSV(rows);
       } else {
-        // Minimal CSV fallback (keeps common fields)
         const cols = ['name','email','code','position','state','zone'];
         const esc = (v) => {
           const s = (v == null ? '' : String(v));
@@ -10473,14 +10469,14 @@ async function exportMembersFiltered(options = {}) {
         const lines = rows.map(r => cols.map(k => esc(r[k] ?? r[k?.toUpperCase?.()] ?? '')).join(','));
         csvText = [header, ...lines].join('\n');
       }
-      blob = new Blob([csvText], { type: mime });
+      content = csvText;
     }
 
-    // 7) Download (prefer your existing downloader)
+    // 7) Download using your helper signature: (content, filename, contentType)
     if (typeof downloadFile === 'function') {
-      const text = await blob.text();
-      downloadFile(filename, text, mime);
+      downloadFile(content, filename, contentType);
     } else {
+      const blob = new Blob([content], { type: contentType });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = filename;
