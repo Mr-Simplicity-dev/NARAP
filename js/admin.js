@@ -1279,12 +1279,12 @@ async function syncPendingChanges() {
     // ---- Feedback + status
     if (syncedCount > 0) {
       if (typeof showMessage === 'function') {
-        showMessage(`Synced ${syncedCount} pending change${syncedCount === 1 ? '' : 's'}` + (stillPendingTotal ? ` • ${stillPendingTotal} still pending` : ''), 'success');
+        showMessage(`Synced ${syncedCount} pending change${syncedCount === 1 ? '' : 's'}` + (stillPendingTotal ? ` - ${stillPendingTotal} still pending` : ''), 'success');
       }
       if (typeof updateSyncStatus === 'function') updateSyncStatus();
     } else if (stillPendingTotal > 0) {
       if (typeof showMessage === 'function') {
-        showMessage(`No changes synced • ${stillPendingTotal} pending`, 'warning');
+        showMessage(`No changes synced - ${stillPendingTotal} pending`, 'warning');
       }
       if (typeof updateSyncStatus === 'function') updateSyncStatus();
     } else {
@@ -2092,12 +2092,12 @@ async function loadRecentActivity() {
     list.style.padding = '6px 0';
 
     const fmt = (e) => {
-      const when = (e.date && e.time) ? `${e.date} • ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
+      const when = (e.date && e.time) ? `${e.date} - ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
       let who = '';
       if (e.entity === 'member') who = e.data?.name || e.data?.code || 'Member';
       if (e.entity === 'certificate') who = e.data?.number || e.data?.member || 'Certificate';
       const badge = `<span class="badge badge-${e.action}" style="background:#eee;color:#333;border-radius:10px;padding:2px 8px;margin-right:8px;text-transform:capitalize;">${e.action}</span>`;
-      const label = `<strong style="text-transform:capitalize;">${e.entity}</strong> — ${who || ''}`;
+      const label = `<strong style="text-transform:capitalize;">${e.entity}</strong> - ${who || ''}`;
       return `<div class="ra-item" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">
         <div>${badge}${label}</div>
         <div style="color:#6c757d;font-size:12px;">${when}</div>
@@ -2136,7 +2136,7 @@ function getActivityIcon(type) {
     switch (type) {
         case 'member': return '👤';
         case 'certificate': return '📜';
-        case 'sync': return '🔄';
+        case 'sync': return 'Loading';
         default: return '📝';
     }
 }
@@ -3239,7 +3239,7 @@ function getSystemActivities() {
 function getSystemActivityIcon(type) {
     switch (type) {
         case 'backup': return '💾';
-        case 'sync': return '🔄';
+        case 'sync': return 'Loading';
         case 'member': return '👤';
         case 'pending': return '⏳';
         default: return '📝';
@@ -4830,7 +4830,7 @@ async function editMember(event) {
         return;
     }
     
-    console.log('🔄 Starting member update for ID:', memberId);
+    console.log('Loading Starting member update for ID:', memberId);
     
     // Get form elements with error checking
     const nameField = form.querySelector('#editMemberName');
@@ -4951,7 +4951,7 @@ async function editMember(event) {
         let backendResponse = null;
         if (isOnline && originalMember._id && !originalMember._id.startsWith('local_')) {
             try {
-                console.log('🔄 Updating member in backend:', memberId);
+                console.log('Loading Updating member in backend:', memberId);
                 console.log('📤 FormData contents:', Array.from(formDataObj.entries()));
                 
                 const response = /* queued update instead of direct PUT during import */ (queueMemberUpdate(row), { ok: true });
@@ -7170,7 +7170,7 @@ function updateImportProgress(done, total, label) {
   if (!inner || !txt) return;
   var pct = total ? Math.floor((done/total)*100) : 0;
   inner.style.width = pct + '%';
-  txt.textContent = (label ? label + ' — ' : '') + pct + '% (' + done + '/' + total + ')';
+  txt.textContent = (label ? label + ' - ' : '') + pct + '% (' + done + '/' + total + ')';
 }
 
 function resetImportProgress() {
@@ -7803,7 +7803,7 @@ async function importCertificateData(parsedData, withProgress=false) {
               return '';
             }
 
-  console.log('🔄 Importing certificate data...');
+  console.log('Loading Importing certificate data...');
 
   const created = [];
   const errors = [];
@@ -7902,31 +7902,6 @@ const row = parsedData[i];
 
 
 function downloadSampleCSV() {
-    const importType = document.getElementById('importType')?.value || 'members';
-    
-    if (importType === 'members') {
-        const sampleData = [
-            { Name: 'John Doe', Email: 'john@example.com', Code: 'NARAP001', Position: 'MEMBER', State: 'Lagos', Zone: 'South West', Password: 'password123' },
-            { Name: 'Jane Smith', Email: 'jane@example.com', Code: 'NARAP002', Position: 'SECRETARY', State: 'Abuja', Zone: 'North Central', Password: 'password123' },
-            { Name: 'Mike Johnson', Email: 'mike@example.com', Code: 'NARAP003', Position: 'TREASURER', State: 'Kano', Zone: 'North West', Password: 'password123' }
-        ];
-        
-        const csvContent = convertToCSV(sampleData);
-        downloadFile(csvContent, 'sample_members.csv', 'text/csv');
-        showMessage('Sample members CSV downloaded!', 'success');
-    } else if (importType === 'certificates') {
-        const sampleData = [
-            { CertificateID: 'CERT001', MemberID: 'NARAP001', Type: 'Standard', IssueDate: '2024-01-15', ExpiryDate: '2025-01-15', Status: 'Active' },
-            { CertificateID: 'CERT002', MemberID: 'NARAP002', Type: 'Premium', IssueDate: '2024-02-20', ExpiryDate: '2025-02-20', Status: 'Active' }
-        ];
-        
-        const csvContent = convertToCSV(sampleData);
-        downloadFile(csvContent, 'sample_certificates.csv', 'text/csv');
-        showMessage('Sample certificates CSV downloaded!', 'success');
-    }
-}
-
-function downloadSampleCSV() {
   const importType = document.getElementById('importType')?.value || 'certificatess';
   
   if (importType === 'members') {
@@ -7988,26 +7963,78 @@ function generateDefaultPassword() {
     return 'NARAP' + Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-function updateCsvFormat() {
-    const importType = document.getElementById('importType')?.value || 'members';
-    const helpDiv = document.getElementById('csvFormatHelp');
-    
-    if (!helpDiv) return;
-    
-    if (importType === 'members') {
-        helpDiv.innerHTML = `
-            <strong>Required columns:</strong> Name, Code, State, Zone<br/>
-            <strong>Optional columns:</strong> Email, Position, Password (auto-generated if missing)<br/>
-            <strong>Valid positions:</strong> MEMBER, PRESIDENT, SECRETARY, TREASURER, etc. (must be uppercase)<br/>
-            <strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password
-        `;
-    } else if (importType === 'certificates') {
-        helpDiv.innerHTML = `Certificate Number,Recipient,Email,Position,Code,State,Issue Date,Valid Until,Type,Status\nN/001/KWA/001,John Doe,john@example.com,Engineer,NARAP001,Kwara,2025-01-15,2026-01-15,membership,active`;
+function downloadSampleCSV() {
+  var sel = document.getElementById('importType');
+  var importType = (sel && sel.value) ? sel.value : 'members';
+
+  if (importType === 'members') {
+    var sampleMembers = [
+      { Name: 'John Doe', Email: 'john@example.com', Code: 'NARAP001', Position: 'MEMBER', State: 'LAGOS', Zone: 'South West', Password: 'Password@123' },
+      { Name: 'Jane Smith', Email: 'jane@example.com', Code: 'NARAP002', Position: 'PRESIDENT', State: 'FCT', Zone: 'North Central', Password: 'Password@123' }
+    ];
+    var csv1 = convertToCSV(sampleMembers);
+    downloadFile(csv1, 'sample_members.csv', 'text/csv');
+    if (typeof showMessage === 'function') showMessage('Sample members CSV downloaded!', 'success');
+    return;
+  }
+
+  // certificates
+  var sampleCerts = [
+    {
+      "Certificate Number": "NARAP-CERT-0001",
+      "Recipient": "John Doe",
+      "Email": "john@example.com",
+      "Title": "Membership Certificate",
+      "Type": "membership",
+      "Status": "active",
+      "Issue Date": "2025-08-16",
+      "Valid Until": "",
+      "Issued By": "NARAP Authority"
+    },
+    {
+      "Certificate Number": "NARAP-CERT-0002",
+      "Recipient": "Jane Smith",
+      "Email": "jane@example.com",
+      "Title": "Membership Certificate",
+      "Type": "membership",
+      "Status": "active",
+      "Issue Date": "2025-09-01",
+      "Valid Until": "",
+      "Issued By": "NARAP Authority"
     }
+  ];
+  var csv2 = convertToCSV(sampleCerts);
+  downloadFile(csv2, 'sample_certificates.csv', 'text/csv');
+  if (typeof showMessage === 'function') showMessage('Sample certificates CSV downloaded!', 'success');
+}
+
+function updateCsvFormat() {
+  var sel = document.getElementById('importType');
+  var importType = (sel && sel.value) ? sel.value : 'members';
+  var helpDiv = document.getElementById('csvFormatHelp');
+  if (!helpDiv) return;
+
+  if (importType === 'members') {
+    helpDiv.innerHTML =
+      '<strong>Required columns:</strong> Name, Code, State, Zone<br/>' +
+      '<strong>Optional columns:</strong> Email, Position, Password (auto-generated if missing)<br/>' +
+      '<strong>Valid positions:</strong> MEMBER, PRESIDENT, SECRETARY, TREASURER, etc. (must be uppercase)<br/>' +
+      '<strong>Example:</strong> Name,Email,Code,Position,State,Zone,Password';
+  } else {
+    helpDiv.innerHTML =
+      '<strong>Required columns:</strong> Certificate Number, Recipient, Issue Date<br/>' +
+      '<strong>Optional columns:</strong> Email, Title, Type, Status, Valid Until, Issued By<br/>' +
+      '<strong>Date format:</strong> YYYY-MM-DD (ISO). Example: 2025-08-16<br/>' +
+      '<strong>Type:</strong> membership (default)<br/>' +
+      '<strong>Status:</strong> active (default)<br/>' +
+      '<strong>Example:</strong><br/>' +
+      'Certificate Number,Recipient,Email,Title,Type,Status,Issue Date,Valid Until,Issued By<br/>' +
+      'NARAP-CERT-0001,John Doe,john@example.com,Membership Certificate,membership,active,2025-08-16,,NARAP Authority';
+  }
 }
 
 async function importCertificateData(parsedData, withProgress=false) {
-  console.log('🔄 Importing certificate data...');
+  console.log('Loading Importing certificate data...');
 
   const created = [];
   const errors = [];
@@ -8119,7 +8146,7 @@ function showImportErrors(errors) {
     modalBody.appendChild(box);
   }
   box.innerHTML = `<strong>Import Errors (${errors.length}):</strong><br>` +
-    errors.map(e => `<div>• ${e}</div>`).join('');
+    errors.map(e => `<div>- ${e}</div>`).join('');
 }
 
 
@@ -8773,7 +8800,7 @@ function handleMemberTableImageError(img, originalUrl, alternativeUrls) {
         }
         
         const testUrl = alternativeUrls[currentIndex];
-        console.log(`🔄 Trying alternative URL ${currentIndex + 1}:`, testUrl);
+        console.log(`Loading Trying alternative URL ${currentIndex + 1}:`, testUrl);
         
         const testImg = new Image();
         testImg.onload = function() {
@@ -9379,7 +9406,7 @@ window.testMemberUpdate = async function(memberId) {
   formData.append('zone', member.zone);
   
   try {
-    console.log('🔄 Sending update request...');
+    console.log('Loading Sending update request...');
     const response = /* queued update instead of direct PUT during import */ (queueMemberUpdate(row), { ok: true });
     
     if (response.ok) {
@@ -9763,7 +9790,7 @@ function updateCertificatesSelectionUI() {
     updateSelectionForTbody(tbody);
   }, false);
 
-  // Row click toggler — use CAPTURE to run before other handlers and avoid double toggling
+  // Row click toggler - use CAPTURE to run before other handlers and avoid double toggling
   document.addEventListener('click', function(e) {
     if (e.target.closest('button, a, input, select, label, textarea')) return;
 
@@ -10048,7 +10075,7 @@ function updateCertificatesSelectionUI() {
   // ---------- Tunables (easy to tweak) ----------
   const STATE_LABEL_FONT_PX = 9;   // y-axis state labels (smaller = less overlap)
   const VALUE_FONT_PX       = 9;   // value text size
-  const BAR_THICKNESS_PX    = 6;  // bar thickness for Chart.js and fallback (try 8–12)
+  const BAR_THICKNESS_PX    = 6;  // bar thickness for Chart.js and fallback (try 8-12)
   const BAR_CATEGORY_PCT    = 0.60; // squeeze category slot (Chart.js)
   const BAR_PCT             = 0.80; // squeeze bar within slot (Chart.js)
   const PER_ROW_PX          = 20;  // canvas height per state row (raise if labels feel tight)
@@ -10239,9 +10266,9 @@ function updateCertificatesSelectionUI() {
 
 
 /* ================== NARAP: System Load Normalization (Analytics) ==================
-   Converts backend metrics into a correct 0–100% value:
+   Converts backend metrics into a correct 0-100% value:
    - UNIX load averages (load1/load5/load15) → percent of total CPU capacity based on core count
-   - Summed CPU% across cores (e.g., 730 on 8 cores) → normalized to 0–100%
+   - Summed CPU% across cores (e.g., 730 on 8 cores) → normalized to 0-100%
    The wrapper updates common UI selectors if present and leaves originals intact.
 ============================================================================= */
 (function fixSystemLoadDisplay(){
@@ -10253,7 +10280,7 @@ function updateCertificatesSelectionUI() {
 
   // Accepts:
   //  - { load1, load5, load15 }    // UNIX load averages
-  //  - { cpuPercent }              // may be 0–100 OR 0–(100*cores)
+  //  - { cpuPercent }              // may be 0-100 OR 0-(100*cores)
   function normalizeSystemLoad(metrics) {
     const cores = coreCount();
 
@@ -10762,7 +10789,7 @@ async function loadSystemActivityLogs() {
     list.style.padding = '6px 0';
 
     const item = (e)=>{
-      const when = (e.date && e.time) ? `${e.date} • ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
+      const when = (e.date && e.time) ? `${e.date} - ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
       let title = `[${e.entity}] ${e.action}`;
       let sub = '';
       if (e.entity === 'member') sub = e.data?.name || e.data?.code || '';
@@ -10801,7 +10828,7 @@ const getList1 = () => (ra && (ra.querySelector('.recent-activity-list') || ra))
 const getList2 = () => (sa && (sa.querySelector('.system-activity-list') || sa)) || null;
 const getTarget = () => active || getList1() || getList2();
 
-// TOP wrapper (▲) — directly before Recent Activity
+// TOP wrapper (▲) - directly before Recent Activity
 let topWrap = document.getElementById('raArrowTopWrap');
 if (!topWrap) {
   topWrap = document.createElement('div');
@@ -10810,7 +10837,7 @@ if (!topWrap) {
   (ra?.parentElement || document.body).insertBefore(topWrap, ra || null);
 }
 
-// BOTTOM wrapper (▼) — directly after Recent Activity (visually above footer)
+// BOTTOM wrapper (▼) - directly after Recent Activity (visually above footer)
 let bottomWrap = document.getElementById('raArrowBottomWrap');
 if (!bottomWrap) {
   bottomWrap = document.createElement('div');
@@ -10857,7 +10884,7 @@ dn.onclick = () => scrollBy(getTarget(),  220);
 function update() {
   const el = getTarget();
   if (!el) {
-    // no target yet — hide everything
+    // no target yet - hide everything
     topWrap.style.display = 'none';
     bottomWrap.style.display = 'none';
     up.style.display = 'none';
