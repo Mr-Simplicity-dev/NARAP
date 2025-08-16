@@ -10380,9 +10380,8 @@ async function getAllMembersForExport() {
   return Array.isArray(window.members) ? window.members : [];
 }
 
-async 
 // Drop-in replacement: guarantees alphabetical export order
-function exportMembersFiltered(options = {}) {
+async function exportMembersFiltered(options = {}) {
   try {
     // 1) Resolve source data
     const source = Array.isArray(window.members) ? window.members : [];
@@ -10479,7 +10478,7 @@ function exportMembersFiltered(options = {}) {
 
     // 7) Download (prefer your existing downloader)
     if (typeof downloadFile === 'function') {
-      const text = format === 'json' ? await blob.text() : await blob.text();
+      const text = await blob.text();
       downloadFile(filename, text, mime);
     } else {
       const link = document.createElement('a');
@@ -10500,6 +10499,7 @@ function exportMembersFiltered(options = {}) {
     if (typeof showMessage === 'function') showMessage('Export failed. See console for details.', 'danger');
   }
 }
+
 
 
 function exportMembersPrompt() {
