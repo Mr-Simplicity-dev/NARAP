@@ -31,115 +31,98 @@ class PerformanceMonitor {
 }
 
 // Notification Manager Class
+// Notification Manager Class (ghost box safe)
+// Notification Manager Class (fixed: no ghost box, no duplicates)
 class NotificationManager {
-    constructor() {
+  constructor() {
+    this.container = null;
+    this._ensureStyles();
+  }
+
+  _ensureStyles() {
+    try {
+      if (document.getElementById('notification-styles')) return;
+      const style = document.createElement('style');
+      style.id = 'notification-styles';
+      style.textContent = `
+        #notification-container { position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px; }
+        #notification-container:empty { display: none !important; }
+        .notification { border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; color: #fff; }
+        .notification-info    { background: #17a2b8; }
+        .notification-success { background: #28a745; }
+        .notification-error   { background: #dc3545; }
+        .notification-warning { background: #ffc107; color: #222; }
+        .notification button { background: none; border: none; cursor: pointer; font-size: 18px; margin-left: 8px; color: inherit; }
+      `;
+      document.head.appendChild(style);
+    } catch (_) {}
+  }
+
+  _getContainer() {
+    if (this.container && document.body.contains(this.container)) return this.container;
+    const div = document.createElement('div');
+    div.id = 'notification-container';
+    document.body.appendChild(div);
+    this.container = div;
+    return div;
+  }
+
+  _destroyIfEmpty() {
+    try {
+      if (this.container && this.container.childElementCount === 0) {
+        this.container.remove();
         this.container = null;
+      }
+    } catch (_) {}
+  }
+
+  show(message, type = 'info', duration = 5000) {
+    // Ignore empty/whitespace messages to avoid ghost pill
+    if (message == null || String(message).trim() === '') {
+      this._destroyIfEmpty();
+      return;
     }
 
-    createContainer() {
-        if (this.container) return;
-        
-        if (!document.body) {
-            setTimeout(() => this.createContainer(), 100);
-            return;
-        }
-        
-        this.container = document.createElement('div');
-        this.container.id = 'notification-container';
-        this.container.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 400px;
-        `;
-        document.body.appendChild(this.container);
-    }
+    this._ensureStyles();
+    const container = this._getContainer();
 
-    show(message, type = 'info', duration = 5000) {
-        this.createContainer();
-        
-        if (!this.container) {
-            this.showFallback(message, type, duration);
-            return;
-        }
-        
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.style.cssText = `
-            background: ${this.getBackgroundColor(type)};
-            color: white;
-            padding: 12px 16px;
-            margin-bottom: 8px;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            animation: slideIn 0.3s ease-out;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        `;
-        
-        notification.innerHTML = `
-            <span>${message}</span>
-            <button onclick="this.parentElement.remove()" style="
-                background: none;
-                border: none;
-                color: white;
-                cursor: pointer;
-                font-size: 18px;
-                margin-left: 8px;
-            ">&times;</button>
-        `;
-        
-        this.container.appendChild(notification);
-        
-        if (duration > 0) {
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, duration);
-        }
-    }
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+      <span>${String(message)}</span>
+      <button aria-label="Close notification" title="Close">&times;</button>
+    `;
 
-    showFallback(message, type = 'info', duration = 5000) {
-        const style = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${this.getBackgroundColor(type)};
-            color: white;
-            padding: 12px 16px;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            z-index: 9999;
-            max-width: 400px;
-            font-family: Arial, sans-serif;
-        `;
-        
-        const notification = document.createElement('div');
-        notification.style.cssText = style;
-        notification.textContent = message;
-        document.body.appendChild(notification);
-        
-        if (duration > 0) {
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, duration);
-        }
-    }
+    notification.querySelector('button').addEventListener('click', () => {
+      if (notification.parentNode) notification.remove();
+      this._destroyIfEmpty();
+    });
 
-    getBackgroundColor(type) {
-        switch (type) {
-            case 'success': return '#28a745';
-            case 'error': return '#dc3545';
-            case 'warning': return '#ffc107';
-            case 'info': 
-            default: return '#17a2b8';
-        }
+    container.appendChild(notification);
+
+    if (duration > 0 && Number.isFinite(duration)) {
+      setTimeout(() => {
+        if (notification.parentNode) notification.remove();
+        this._destroyIfEmpty();
+      }, duration);
     }
+  }
+
+  // Back-compat: keep this alias
+  showFallback(message, type = 'info', duration = 5000) {
+    this.show(message, type, duration);
+  }
+
+  // Back-compat helper (not used when CSS classes apply)
+  getBackgroundColor(type) {
+    switch (type) {
+      case 'success': return '#28a745';
+      case 'error':   return '#dc3545';
+      case 'warning': return '#ffc107';
+      case 'info':
+      default:        return '#17a2b8';
+    }
+  }
 }
 
 // Data Cache Class
