@@ -194,181 +194,494 @@ class DataCache {
 // ==================== GLOBAL CONSTANTS AND STATE ====================
 
 
-
 // ==================== ACTIVITY LOGGING (Members & Certificates) ====================
 // Persisted in localStorage key: 'narap_activity_log'
-
-(function () {
+(function(){
   if (window.ActivityLogger) return; // don't redefine
 
-  function detectActor() {
-    try {
-      // Prefer explicit setter
-      if (window.__activityActor && (window.__activityActor.name || window.__activityActor.email)) {
-        return window.__activityActor;
-      }
-      // Common localStorage keys your app might use
-      const keys = ['narap_admin', 'adminUser', 'currentUser', 'admin', 'user', 'authUser'];
-      for (const k of keys) {
-        const raw = localStorage.getItem(k);
-        if (!raw) continue;
-        try {
-          const obj = JSON.parse(raw);
-          if (obj && (obj.name || obj.email)) {
-            return { name: obj.name, email: obj.email, id: obj.id || obj._id };
-          }
-        } catch {}
-      }
-      // Plain strings
-      const sKeys = ['adminName', 'adminEmail', 'currentAdmin', 'admin_username'];
-      const a = {};
-      for (const k of sKeys) {
-        const v = localStorage.getItem(k);
-        if (v) {
-          if (/mail/i.test(k)) a.email = v;
-          else a.name = v;
-        }
-      }
-      if (a.name || a.email) return a;
-      // From DOM
-      const el = document.getElementById('adminName') || document.querySelector('[data-admin-name]');
-      if (el && el.textContent) return { name: el.textContent.trim() };
-    } catch (_){}
-    return {};
-  }
-
   class ActivityLogger {
-    constructor(key = 'narap_activity_log', max = 5000) {
+    constructor(key='narap_activity_log', max=5000){
       this.key = key;
       this.max = max;
     }
-    _read() {
+    _read(){
       try {
         const raw = localStorage.getItem(this.key);
         const arr = raw ? JSON.parse(raw) : [];
         return Array.isArray(arr) ? arr : [];
-      } catch (_) { return []; }
+      } catch(_) { return []; }
     }
-    _write(list) {
+    _write(list){
       try {
         const arr = Array.isArray(list) ? list.slice(-this.max) : [];
         localStorage.setItem(this.key, JSON.stringify(arr));
-      } catch (e) { console.warn('ActivityLogger write failed:', e); }
+      } catch(e){ console.warn('ActivityLogger write failed:', e); }
     }
-    all() { return this._read().slice().sort((a, b) => new Date(b.ts) - new Date(a.ts)); }
-    clear() { localStorage.removeItem(this.key); }
-    log(entry) {
+    all(){ return this._read().slice().sort((a,b)=>new Date(b.ts)-new Date(a.ts)); }
+    clear(){ localStorage.removeItem(this.key); }
+    log(entry){
       try {
         const now = new Date();
-        const actor = detectActor();
         const e = Object.assign({
           ts: now.toISOString(),
           date: now.toLocaleDateString(),
           time: now.toLocaleTimeString(),
-          actor: actor && (actor.name || actor.email) ? actor : undefined
         }, entry || {});
         const list = this._read();
         list.push(e);
         this._write(list);
         return e;
-      } catch (err) {
+      } catch (err){
         console.warn('ActivityLogger.log failed:', err);
         return null;
       }
     }
     // Convenience API
-    member(action, data) { return this.log({ entity: 'member', action, data }); }
-    certificate(action, data) { return this.log({ entity: 'certificate', action, data }); }
-    system(action, data) { return this.log({ entity: 'system', action, data }); }
+    member(action, data){ return this.log({entity:'member', action, data}); }
+    certificate(action, data){ return this.log({entity:'certificate', action, data}); }
+    system(action, data){ return this.log({entity:'system', action, data}); }
   }
 
   window.ActivityLogger = ActivityLogger;
   window.activityLogger = new ActivityLogger();
 
-  // Public setter to override actor explicitly
-  window.setActivityActor = function (actor) {
-    try { window.__activityActor = actor || {}; } catch (_){}
-  };
-
   // Simple utilities
-  window.getActivityLog = () => (window.activityLogger ? window.activityLogger.all() : []);
-  window.logMemberAdd = (m) => activityLogger.member('added', { id: m?._id || m?.id, code: m?.code, name: m?.name || m?.fullName, state: m?.state || m?.State });
-  window.logMemberUpdate = (m) => activityLogger.member('updated', { id: m?._id || m?.id, code: m?.code, name: m?.name || m?.fullName, state: m?.state || m?.State });
-  window.logMemberDelete = (m) => activityLogger.member('deleted', { id: m?._id || m?.id, code: m?.code, name: m?.name || m?.fullName });
-  window.logCertificateAdd = (c) => activityLogger.certificate('added', { id: c?._id || c?.id, number: c?.certificateNumber || c?.number, member: c?.memberName || c?.recipientName });
-  window.logCertificateUpdate = (c) => activityLogger.certificate('updated', { id: c?._id || c?.id, number: c?.certificateNumber || c?.number, member: c?.memberName || c?.recipientName });
-  window.logCertificateDelete = (c) => activityLogger.certificate('deleted', { id: c?._id || c?.id, number: c?.certificateNumber || c?.number, member: c?.memberName || c?.recipientName });
+  window.getActivityLog = () => activityLogger.all();
+  window.logMemberAdd = (m)=>activityLogger.member('added', {id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName, state: m?.state||m?.State});
+  window.logMemberUpdate = (m)=>activityLogger.member('updated', {id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName, state: m?.state||m?.State});
+  window.logMemberDelete = (m)=>activityLogger.member('deleted', {id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName});
+  window.logCertificateAdd = (c)=>activityLogger.certificate('added', {id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName});
+  window.logCertificateUpdate = (c)=>activityLogger.certificate('updated', {id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName});
+  window.logCertificateDelete = (c)=>activityLogger.certificate('deleted', {id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName});
 
   // Hook upsertMemberFormData if present (to capture create/update)
   const _origUpsert = window.upsertMemberFormData;
   if (typeof _origUpsert === 'function') {
-    window.upsertMemberFormData = async function (mm, formData) {
-      const existed = (() => {
-        try {
-          const locals = (typeof getLocalMembers === 'function' ? getLocalMembers() : []) || [];
-          const key =
-            (mm?._id || mm?.id) ||
-            (mm?.code ? 'c:' + String(mm.code).toLowerCase() :
-            (mm?.email ? 'e:' + String(mm.email).toLowerCase() : null));
+    window.upsertMemberFormData = async function(mm, formData){
+      const existed = (()=>{
+        try{
+          const locals = (typeof getLocalMembers==='function' ? getLocalMembers() : []) || [];
+          const key = (mm?._id||mm?.id) || (mm?.code ? 'c:'+String(mm.code).toLowerCase() : (mm?.email ? 'e:'+String(mm.email).toLowerCase() : null));
           if (!key) return false;
-          return locals.some(m =>
-            (m._id && mm._id && m._id === mm._id) ||
-            (m.id && mm.id && m.id === mm.id) ||
-            (mm.code && String(m.code || '').toLowerCase() === String(mm.code).toLowerCase()) ||
-            (mm.email && String(m.email || '').toLowerCase() === String(mm.email).toLowerCase())
-          );
-        } catch (_){ return false; }
+          return locals.some(m=> (m._id&&mm._id&&m._id===mm._id) ||
+                                 (m.id&&mm.id&&m.id===mm.id) ||
+                                 (mm.code && String(m.code||'').toLowerCase()===String(mm.code).toLowerCase()) ||
+                                 (mm.email && String(m.email||'').toLowerCase()===String(mm.email).toLowerCase()));
+        }catch(_){ return false; }
       })();
       const res = await _origUpsert.apply(this, arguments);
       try {
         if (res && res.ok) {
           existed ? logMemberUpdate(mm) : logMemberAdd(mm);
         }
-      } catch (_){}
+      } catch(_){}
       return res;
-    };
+    }
   }
 
   // Expose a helper to log deletions when UI deletes locally
-  window.logDeletionIfOk = function (entity, original, response) {
-    try {
+  window.logDeletionIfOk = function(entity, original, response){
+    try{
       if (response === true || (response && response.ok) || response === 'ok') {
         if (entity === 'member') logMemberDelete(original);
         if (entity === 'certificate') logCertificateDelete(original);
       }
-    } catch (_){}
+    } catch(_){}
   };
 
-  // ✅ Fixed: the stray code that referenced `merged` is now a safe helper
-  // Call this after you compute a `merged` array of members.
-  if (typeof window.hardenCommitMembers !== 'function') {
-    window.hardenCommitMembers = function (merged) {
-      try {
-        if (!Array.isArray(merged)) throw new Error('merged must be an array');
-
-        if (typeof saveLocalMembers === 'function') saveLocalMembers(merged);
-        window.members = merged;
-        window.currentMembers = merged;
-
-        if (typeof refreshMembersUI === 'function') {
-          refreshMembersUI();
-        } else if (typeof loadMembers === 'function') {
-          const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
-          loadMembers(1, per);
-        }
-
-        const count = merged.length;
-        ['totalMembers', 'membersCount'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.textContent = String(count);
-        });
-      } catch (e) {
-        console.error('hardenCommitMembers failed:', e);
-      }
-    };
-  }
 })();
 
+
+    
+// ---- Pagination: persistent values & defaults (DROP-IN, safe) ----
+let membersPerPage = parseInt(localStorage.getItem('narap_members_per_page') || '10', 10);
+let certificatesPerPage = parseInt(localStorage.getItem('narap_certificates_per_page') || '10', 10);
+
+// Guard current page vars if not present
+if (typeof window.membersCurrentPage !== 'number') window.membersCurrentPage = 1;
+if (typeof window.certificatesCurrentPage !== 'number') window.certificatesCurrentPage = 1;
+
+// Keep per-page dropdowns in sync with current values
+function syncPerPageDropdowns() {
+  const savedM = parseInt(localStorage.getItem('narap_members_per_page') || '10', 10);
+  const savedC = parseInt(localStorage.getItem('narap_certificates_per_page') || '10', 10);
+  const mSel = document.getElementById('membersPerPage');
+  if (mSel && String(mSel.value) !== String(savedM)) mSel.value = String(savedM);
+  const cSel = document.getElementById('certificatesPerPage');
+  if (cSel && String(cSel.value) !== String(savedC)) cSel.value = String(savedC);
+}
+window.syncPerPageDropdowns = syncPerPageDropdowns;
+
+
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K';
+
+// ---- Alphabetical sort helpers (safe, non-breaking) ----
+function compareByStateThenName(a, b) {
+    const sa = (a && a.state ? String(a.state) : '').trim().toLowerCase();
+    const sb = (b && b.state ? String(b.state) : '').trim().toLowerCase();
+    if (sa !== sb) return sa.localeCompare(sb);
+    const na = (a && a.name ? String(a.name) : (a.fullName ? String(a.fullName) : '')).trim().toLowerCase();
+    const nb = (b && b.name ? String(b.name) : (b.fullName ? String(b.fullName) : '')).trim().toLowerCase();
+    return na.localeCompare(nb);
+}
+
+function enforceMembersAlpha() {
+  if (!Array.isArray(window.members)) window.members = [];
+  window.members = sortMembersAlpha(window.members);
+  if (typeof saveLocalMembers === 'function') saveLocalMembers(window.members);
+}
+
+function sortMembersAlpha(list) {
+    if (!Array.isArray(list)) return list;
+    // Create a shallow copy to avoid mutating external arrays unexpectedly
+    return list.slice().sort(compareByStateThenName);
+}
+
+// ---- Certificates alphabetical sort (safe) ----
+function compareCertificatesAlpha(a, b) {
+    const ra = (a && (a.recipientName || a.memberName || a.name) ? String(a.recipientName || a.memberName || a.name) : '').trim().toLowerCase();
+    const rb = (b && (b.recipientName || b.memberName || b.name) ? String(b.recipientName || b.memberName || b.name) : '').trim().toLowerCase();
+    if (ra !== rb) return ra.localeCompare(rb);
+    const ca = (a && (a.certificateNumber || a.number) ? String(a.certificateNumber || a.number) : '').trim().toLowerCase();
+    const cb = (b && (b.certificateNumber || b.number) ? String(b.certificateNumber || b.number) : '').trim().toLowerCase();
+    return ca.localeCompare(cb);
+}
+
+function sortCertificatesAlpha(list) {
+    if (!Array.isArray(list)) return list;
+    return list.slice().sort(compareCertificatesAlpha);
+}
+
+
+// Global state
+window.appState = {
+    members: [],
+    certificates: [],
+    isAuthenticated: false
+};
+
+// ==================== BACKEND URL CONFIGURATION ====================
+
+function getBackendUrl() {
+    if (window.BACKEND_URL) {
+        return window.BACKEND_URL;
+    }
+    
+    const customBackendUrl = localStorage.getItem('narap_backend_url');
+    if (customBackendUrl) {
+        return customBackendUrl;
+    }
+    
+    // Always use production backend by default
+    return 'https://narap-backend.onrender.com';
+}
+
+const backendUrl = getBackendUrl();
+
+// ---- Safe JSON helper: never throws on empty/invalid JSON bodies ----
+async function tryJson(res) { try { return await res.json(); } catch (_) { return null; } }
+
+window.backendUrl = backendUrl;
+function updateBackendUrl(newUrl) {
+    if (!newUrl || typeof newUrl !== 'string') {
+        
+        return false;
+    }
+    
+    try {
+        new URL(newUrl);
+    } catch (error) {
+        
+        return false;
+    }
+    
+    window.backendUrl = newUrl;
+    localStorage.setItem('narap_backend_url', newUrl);
+    
+    testBackendConnection(newUrl);
+    return true;
+}
+
+async function testBackendConnection(url = backendUrl) {
+    try {
+        
+        
+        const response = await fetch(`${url}/api/health`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 5000
+        });
+        
+        if (response.ok) {
+            
+            return true;
+        } else {
+            
+            return false;
+        }
+    } catch (error) {
+        
+        return false;
+    }
+}
+
+// Add after the checkServerStatus function
+async function testCorsConnectivity() {
+    console.log('🔍 Testing CORS connectivity...');
+    
+    try {
+        const response = await fetch(`${backendUrl}/api/health/cors-test`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                test: true,
+                timestamp: new Date().toISOString()
+            })
+        });
+        
+        if (response.ok) {
+            const data = await tryJson(response);
+            console.log('✅ CORS test successful:', data);
+            return { success: true, data };
+        } else {
+            console.log('❌ CORS test failed with status:', response.status);
+            return { success: false, status: response.status };
+        }
+    } catch (error) {
+        console.log('❌ CORS test error:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+async function testBackendConnectivity() {
+    console.log('🔍 Testing backend connectivity...');
+    
+    const tests = [
+        { name: 'Health Check', url: '/api/health' },
+        { name: 'Connection Test', url: '/api/health/connection' },
+        { name: 'CORS Test', url: '/api/health/cors-test', method: 'POST' }
+    ];
+    
+    const results = {};
+    
+    for (const test of tests) {
+        try {
+            const response = await fetch(`${backendUrl}${test.url}`, {
+                method: test.method || 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                ...(test.method === 'POST' && {
+                    body: JSON.stringify({ test: true })
+                })
+            });
+            
+            if (response.ok) {
+                const data = await tryJson(response);
+                results[test.name] = { success: true, data };
+                console.log(`✅ ${test.name} successful`);
+            } else {
+                results[test.name] = { success: false, status: response.status };
+                console.log(`❌ ${test.name} failed with status:`, response.status);
+            }
+        } catch (error) {
+            results[test.name] = { success: false, error: error.message };
+            console.log(`❌ ${test.name} error:`, error.message);
+        }
+    }
+    
+    console.log('📊 Connectivity test results:', results);
+    return results;
+}
+
+// Add to window object
+window.testCorsConnectivity = testCorsConnectivity;
+window.testBackendConnectivity = testBackendConnectivity;
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function showMessage(message, type = 'info') {
+    if (notificationManager) {
+        notificationManager.show(message, type);
+    } else {
+        // Fallback to alert if notification manager is not available
+        alert(`${type.toUpperCase()}: ${message}`);
+    }
+}
+
+function convertToCSV(data) {
+    // Validate input data
+    if (!data) {
+        
+        return '';
+    }
+    
+    if (!Array.isArray(data)) {
+        
+        return '';
+    }
+    
+    if (data.length === 0) {
+        
+        return '';
+    }
+    
+    // Ensure first item is an object
+    if (!data[0] || typeof data[0] !== 'object') {
+        
+        return '';
+    }
+    
+    const headers = Object.keys(data[0]);
+    if (headers.length === 0) {
+        
+        return '';
+    }
+    
+    const csvRows = [headers.join(',')];
+    
+    for (const row of data) {
+        if (!row || typeof row !== 'object') {
+            
+            continue;
+        }
+        
+        const values = headers.map(header => {
+            const value = row[header];
+            if (value === null || value === undefined) {
+                return '';
+            }
+            return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
+        });
+        csvRows.push(values.join(','));
+    }
+    
+    return csvRows.join('\n');
+}
+
+function downloadFile(content, filename, contentType) {
+    const blob = new Blob([content], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function checkPasswordStrength(password) {
+    if (!password) return { strength: 0, message: 'No password entered' };
+    
+    let strength = 0;
+    let message = '';
+    
+    if (password.length >= 8) strength += 1;
+    if (password.length >= 12) strength += 1;
+    if (/[a-z]/.test(password)) strength += 1;
+    if (/[A-Z]/.test(password)) strength += 1;
+    if (/[0-9]/.test(password)) strength += 1;
+    if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+    
+    if (strength <= 2) {
+        message = 'Weak password';
+    } else if (strength <= 4) {
+        message = 'Fair password';
+    } else if (strength <= 5) {
+        message = 'Good password';
+    } else {
+        message = 'Strong password';
+    }
+    
+    return { strength, message };
+}
+
+// ==================== LOCAL STORAGE FUNCTIONS ====================
+
+function getLocalCertificates() {
+    try {
+        const certificates = localStorage.getItem('narap_certificates');
+        if (certificates) {
+            return JSON.parse(certificates);
+        }
+    } catch (error) {
+        
+    }
+    return [];
+}
+
+function saveLocalCertificates(certificates) {
+    try {
+        localStorage.setItem('narap_certificates', JSON.stringify(certificates));
+    } catch (error) {
+        
+    }
+}
+
+function getLocalMembers() {
+  try {
+    const raw = localStorage.getItem('narap_members');
+    if (!raw) return [];
+    const arr = JSON.parse(raw) || [];
+    return sortMembersAlpha(arr);
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveLocalMembers(members) {
+  try {
+    const arr = Array.isArray(members) ? members : [];
+    const sorted = sortMembersAlpha(arr);
+    localStorage.setItem('narap_members', JSON.stringify(sorted));
+  } catch (error) {
+    // ignore write errors (quota, privacy mode, etc.)
+  }
+}
+
+
+// --- UI refresh helper for members (safe) ---
+
+// --- Commit members to localStorage + refresh the UI ---
+function hardenCommitMembers(list) {
+  try {
+    const arr = Array.isArray(list) ? list.slice() : [];
+    const keyOf = (m) => {
+      const id = m && (m._id || m.id);
+      if (id) return 'id:' + id;
+      const c = String(m?.code || '').trim().toLowerCase();
+      if (c) return 'c:' + c;
+      const e = String(m?.email || '').trim().toLowerCase();
+      if (e) return 'e:' + e;
+      return null;
+    };
+    const byKey = new Map();
+    arr.forEach(m => { const k = keyOf(m); if (!k) return; const prev = byKey.get(k); byKey.set(k, prev ? { ...prev, ...m } : m); });
+    const merged = Array.from(byKey.values());
+    if (typeof saveLocalMembers === 'function') saveLocalMembers(merged);
+    window.members = merged;
+    window.currentMembers = merged;
+
+    if (typeof refreshMembersUI === 'function') refreshMembersUI();
+    else if (typeof loadMembers === 'function') {
+      const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
+      loadMembers(1, per);
+    }
+
+    const count = merged.length;
+    ['totalMembers','membersCount'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(count);
+    });
+  } catch (e) {
+    console.error('hardenCommitMembers failed:', e);
+  }
+}
 
 function refreshMembersUI() {
   try {
@@ -1754,8 +2067,6 @@ async function loadDashboard() {
         
     await loadSystemActivityLogs();
         if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
-        await loadSystemActivityLogs();
-        if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
         } catch (error) {
         
         showMessage('Failed to load dashboard: ' + error.message, 'error');
@@ -1763,29 +2074,10 @@ async function loadDashboard() {
 }
 
 
-
 async function loadRecentActivity() {
   try {
     const container = document.getElementById('recentActivity');
     if (!container) return;
-
-    // Build filters toolbar (once)
-    let toolbar = document.getElementById('activityFiltersBar');
-    if (!toolbar) {
-      toolbar = document.createElement('div');
-      toolbar.id = 'activityFiltersBar';
-      toolbar.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:6px;flex-wrap:wrap';
-      toolbar.innerHTML = ''
-        + '<input id="afSearch" type="search" placeholder="Search name/code/number..." '
-        + 'style="flex:1 1 220px;min-width:200px;padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
-        + '<select id="afEntity" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
-        + '  <option value="">All Entities</option><option value="member">Members</option><option value="certificate">Certificates</option><option value="system">System</option>'
-        + '</select>'
-        + '<select id="afAction" style="padding:8px 10px;border:1px solid #dee2e6;border-radius:6px;">'
-        + '  <option value="">All Actions</option><option value="added">Added</option><option value="updated">Edited</option><option value="deleted">Deleted</option><option value="pending">Pending</option>'
-        + '</select>';
-      container.parentElement && container.parentElement.insertBefore(toolbar, container);
-    }
 
     // read persisted logs
     const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
@@ -1807,26 +2099,6 @@ async function loadRecentActivity() {
       }
     }
 
-    // Filters
-    const afSearch = document.getElementById('afSearch');
-    const afEntity = document.getElementById('afEntity');
-    const afAction = document.getElementById('afAction');
-    const q = (afSearch?.value || '').toLowerCase().trim();
-    const ent = (afEntity?.value || '').toLowerCase().trim();
-    const act = (afAction?.value || '').toLowerCase().trim();
-
-    const matches = (e) => {
-      if (ent && String(e.entity).toLowerCase() !== ent) return false;
-      if (act && String(e.action).toLowerCase() !== act) return false;
-      if (!q) return true;
-      const hay = [
-        e.entity, e.action, e.date, e.time,
-        e.data?.name, e.data?.code, e.data?.number, e.data?.member,
-        e.actor?.name, e.actor?.email
-      ].filter(Boolean).join(' ').toLowerCase();
-      return hay.indexOf(q) !== -1;
-    };
-
     // Render
     container.innerHTML = '';
     const list = document.createElement('div');
@@ -1842,28 +2114,18 @@ async function loadRecentActivity() {
       if (e.entity === 'certificate') who = e.data?.number || e.data?.member || 'Certificate';
       const badge = `<span class="badge badge-${e.action}" style="background:#eee;color:#333;border-radius:10px;padding:2px 8px;margin-right:8px;text-transform:capitalize;">${e.action}</span>`;
       const label = `<strong style="text-transform:capitalize;">${e.entity}</strong> — ${who || ''}`;
-      const actor = e.actor ? `<span style="color:#6c757d;margin-left:8px;">by ${e.actor.name || e.actor.email}</span>` : '';
       return `<div class="ra-item" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">
-        <div>${badge}${label}${actor}</div>
+        <div>${badge}${label}</div>
         <div style="color:#6c757d;font-size:12px;">${when}</div>
       </div>`;
     };
 
-    const subset = logs.filter(matches);
-    if (!subset.length) {
+    if (!logs || !logs.length) {
       list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No recent activity</div>`;
     } else {
-      list.innerHTML = subset.map(fmt).join('');
+      list.innerHTML = logs.map(fmt).join('');
     }
     container.appendChild(list);
-
-    // Listeners (debounced) to live-update
-    const rerender = () => loadRecentActivity();
-    ['keyup','change','search','input'].forEach(ev => {
-      afSearch && afSearch.addEventListener(ev, rerender, { once: true });
-      afEntity && afEntity.addEventListener(ev, rerender, { once: true });
-      afAction && afAction.addEventListener(ev, rerender, { once: true });
-    });
 
     // Activate scroll arrows for this container
     if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
@@ -1871,7 +2133,6 @@ async function loadRecentActivity() {
     console.error('loadRecentActivity failed:', err);
   }
 }
-
 
 
 function getTimeAgo(date) {
@@ -3572,8 +3833,6 @@ async function addMember(event) {
         }
         if (typeof loadRecentActivity === 'function') {
             await loadRecentActivity();
-        await loadSystemActivityLogs();
-        if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
         }
         
     } catch (error) {
@@ -4402,8 +4661,6 @@ async function deleteMember(memberId) {
         }
         if (typeof loadRecentActivity === 'function') {
             await loadRecentActivity();
-        await loadSystemActivityLogs();
-        if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
         }
         
     } catch (error) {
@@ -4787,8 +5044,6 @@ async function editMember(event) {
         }
         if (typeof loadRecentActivity === 'function') {
             await loadRecentActivity();
-        await loadSystemActivityLogs();
-        if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
         }
         
     } catch (error) {
@@ -10443,32 +10698,16 @@ async function upsertMemberFormData(member, formData) {
 
 
 
-
 async function loadSystemActivityLogs() {
   try {
     const container = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
     if (!container) return;
 
     const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
-
-    // Use the same filters UI if present
-    const afSearch = document.getElementById('afSearch');
-    const q = (afSearch?.value || '').toLowerCase().trim();
-
-    // Filter only 'system' entries plus critical member/certificate events (updated/deleted)
-    const sysAll = logs.filter(e => e.entity === 'system')
-                    .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 200))
+    // Filter only 'system' entries plus critical member/certificate events to show a subset
+    const sys = logs.filter(e => e.entity === 'system')
+                    .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 50))
                     .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
-
-    const matches = (e) => {
-      if (!q) return true;
-      const hay = [
-        e.entity, e.action, e.date, e.time,
-        e.data?.name, e.data?.code, e.data?.number, e.data?.member,
-        e.actor?.name, e.actor?.email
-      ].filter(Boolean).join(' ').toLowerCase();
-      return hay.indexOf(q) !== -1;
-    };
 
     container.innerHTML = '';
     const list = document.createElement('div');
@@ -10484,14 +10723,12 @@ async function loadSystemActivityLogs() {
       if (e.entity === 'member') sub = e.data?.name || e.data?.code || '';
       if (e.entity === 'certificate') sub = e.data?.number || e.data?.member || '';
       if (e.entity === 'system') sub = (e.data && e.data.totalPending!=null) ? `${e.data.totalPending} change(s) pending` : (e.data?.message||'');
-      const actor = e.actor ? `<span style="color:#6c757d;margin-left:8px;">by ${e.actor.name || e.actor.email}</span>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f6f6f6;">
-        <div><strong>${title}</strong> <span style="color:#6c757d;">${sub}</span>${actor}</div>
+        <div><strong>${title}</strong> <span style="color:#6c757d;">${sub}</span></div>
         <div style="color:#6c757d;font-size:12px;">${when}</div>
       </div>`;
     };
 
-    const sys = sysAll.filter(matches);
     if (!sys.length) {
       list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No system activity</div>`;
     } else {
@@ -10504,7 +10741,6 @@ async function loadSystemActivityLogs() {
     console.error('loadSystemActivityLogs failed:', err);
   }
 }
-
 
 
 
