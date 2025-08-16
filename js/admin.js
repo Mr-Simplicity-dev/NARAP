@@ -10382,114 +10382,114 @@ async function getAllMembersForExport() {
 
 // Drop-in replacement: guarantees alphabetical export order
 // Drop-in replacement: guarantees alphabetical export order and avoids await/blob
-function exportMembersFiltered(options = {}) {
+
+// === Robust state-filtered export (sorted & proper CSV/JSON) ===
+// Usage stays compatible with your UI: exportMembersFiltered('csv', 'Lagos')
+async function exportMembersFiltered(format = 'csv', stateFilter = 'ALL') {
   try {
-    // 1) Resolve source data
-    const source = Array.isArray(window.members) ? window.members : [];
-    if (!source.length) {
-      console.warn('Export aborted: no members in memory.');
-      if (typeof showMessage === 'function') showMessage('No members to export.', 'warning');
+    // 1) Get all members (prefer in-memory, fallback to local)
+    const source = Array.isArray(window.members) && window.members.length
+      ? window.members
+      : (typeof getLocalMembers === 'function' ? getLocalMembers() : []);
+
+    if (!Array.isArray(source) || source.length === 0) {
+      if (typeof showMessage === 'function') showMessage('No members to export', 'warning');
       return;
     }
 
-    // 2) Resolve selected state & format from options or DOM
-    const selectedStateRaw =
-      (options && options.state != null ? options.state : undefined) ??
-      document.getElementById('exportStateSelect')?.value ??
-      document.getElementById('stateFilter')?.value ??
-      'ALL';
-
-    const format = ((options && options.format) || 'csv').toLowerCase();
-
+    // 2) Normalizer compatible with your project
     const norm = (s) => (typeof normalizeStateForExport === 'function'
       ? normalizeStateForExport(s)
-      : (s ?? '').toString().trim());
+      : String(s ?? '').trim());
 
-    const selectedState = selectedStateRaw?.toString().trim();
-    const isAll = !selectedState || selectedState.toUpperCase() === 'ALL';
-
-    // 3) Filter by state when needed (use robust normalizer)
+    // 3) Filter by state
+    const isAll = !stateFilter || String(stateFilter).toUpperCase() === 'ALL';
     let rows = isAll
       ? source.slice()
-      : source.filter(m => norm(m.state || m.State) === norm(selectedState));
+      : source.filter(m => norm(m.state || m.State) === norm(stateFilter));
 
     if (!rows.length) {
-      const msg = isAll
-        ? 'No members found to export.'
-        : `No members found for state: ${selectedState}`;
-      console.warn(msg);
-      if (typeof showMessage === 'function') showMessage(msg, 'warning');
+      const label = isAll ? 'all states' : String(stateFilter);
+      if (typeof showMessage === 'function') showMessage(`No members found for ${label}`, 'warning');
       return;
     }
 
-    // 4) Sort (guaranteed alphabetical)
+    // 4) Sort
     const byName = (a, b) =>
-      String(a?.name || a?.fullName || '')
+      String(a?.name ?? a?.fullName ?? '')
         .trim()
-        .localeCompare(String(b?.name || b?.fullName || '').trim(), undefined, { sensitivity: 'base' });
+        .localeCompare(String(b?.name ?? b?.fullName ?? '').trim(), undefined, { sensitivity: 'base' });
 
     if (isAll) {
-      if (typeof sortMembersAlpha === 'function') {
-        rows = sortMembersAlpha(rows); // State → Name
-      } else if (typeof compareByStateThenName === 'function') {
-        rows = rows.slice().sort(compareByStateThenName);
-      } else {
-        rows = rows.slice().sort((a, b) => {
-          const sa = norm(a.state || a.State);
-          const sb = norm(b.state || b.State);
-          const sCmp = sa.localeCompare(sb, undefined, { sensitivity: 'base' });
-          return sCmp !== 0 ? sCmp : byName(a, b);
-        });
-      }
+      rows.sort((a, b) => {
+        const sa = norm(a.state || a.State);
+        const sb = norm(b.state || b.State);
+        const sCmp = sa.localeCompare(sb, undefined, { sensitivity: 'base' });
+        return sCmp !== 0 ? sCmp : byName(a, b);
+      });
     } else {
-      rows = rows.slice().sort(byName); // single state: Name A→Z
+      rows.sort(byName);
     }
 
     // 5) Build filename
-    const safeState = isAll ? 'all_states' : norm(selectedState).replace(/\s+/g, '_');
-    const ts = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const filename = `members_${safeState}_${ts}.${format === 'json' ? 'json' : 'csv'}`;
+    const stamp = new Date().toISOString().slice(0, 10);
+    const slug = isAll ? 'all_states' : norm(stateFilter).replace(/\s+/g, '_').toLowerCase();
+    const want = String(format || 'csv').toLowerCase();
 
-    // 6) Serialize (NO blobs/await here)
-    let content, contentType = 'text/csv;charset=utf-8';
-    if (format === 'json') {
+    // 6) Serialize (prefer your convertToCSV if present; fallback with fixed columns)
+    const toCSV = (arr) => {
+      if (typeof convertToCSV === 'function') return convertToCSV(arr);
+      const cols = ['name','email','code','position','state','zone'];
+      const esc = (v) => {
+        const s = v == null ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const header = cols.join(',');
+      const lines = arr.map(m => {
+        const row = {
+          name: m.name ?? m.Name ?? '',
+          email: m.email ?? m.Email ?? '',
+          code: m.code ?? m.Code ?? '',
+          position: String(m.position ?? m.Position ?? '').toUpperCase(),
+          state: norm(m.state ?? m.State ?? ''),
+          zone: m.zone ?? m.Zone ?? ''
+        };
+        return cols.map(k => esc(row[k])).join(',');
+      });
+      return header + (lines.length ? '\n' + lines.join('\n') : '');
+    };
+
+    let content, filename, contentType;
+    if (want === 'json') {
       contentType = 'application/json;charset=utf-8';
+      filename = `members_${slug}_${stamp}.json`;
       content = JSON.stringify(rows, null, 2);
     } else {
-      let csvText;
-      if (typeof convertToCSV === 'function') {
-        csvText = convertToCSV(rows);
-      } else {
-        const cols = ['name','email','code','position','state','zone'];
-        const esc = (v) => {
-          const s = (v == null ? '' : String(v));
-          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-        };
-        const header = cols.join(',');
-        const lines = rows.map(r => cols.map(k => esc(r[k] ?? r[k?.toUpperCase?.()] ?? '')).join(','));
-        csvText = [header, ...lines].join('\n');
-      }
-      content = csvText;
+      contentType = 'text/csv;charset=utf-8';
+      filename = `members_${slug}_${stamp}.csv`;
+      content = '\uFEFF' + toCSV(rows); // BOM so Excel opens UTF‑8 cleanly
     }
 
-    // 7) Download using your helper signature: (content, filename, contentType)
+    // 7) Download (use existing helper if present; else fallback)
     if (typeof downloadFile === 'function') {
+      // Signature in your file is (content, filename, contentType)
       downloadFile(content, filename, contentType);
     } else {
       const blob = new Blob([content], { type: contentType });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      setTimeout(() => {
-        URL.revokeObjectURL(link.href);
-        link.remove();
-      }, 0);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     }
 
-    console.log(`✅ Exported ${rows.length} record(s) → ${filename}`);
-    if (typeof showMessage === 'function') showMessage(`Exported ${rows.length} record(s).`, 'success');
+    if (typeof showMessage === 'function') {
+      const label = isAll ? 'all states' : norm(stateFilter);
+      showMessage(`Exported ${rows.length} member(s) for ${label}.`, 'success');
+    }
   } catch (err) {
     console.error('Export failed:', err);
     if (typeof showMessage === 'function') showMessage('Export failed. See console for details.', 'danger');
