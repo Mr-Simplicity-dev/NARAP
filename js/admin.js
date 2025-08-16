@@ -10851,182 +10851,108 @@ async function upsertMemberFormData(member, formData) {
   return { ok: false, status: p.status, message: (await _safeJson(p))?.message || 'Create failed' };
 }
 
-
-
-
-
+// Loads the System Activity panel
 async function loadSystemActivityLogs() {
   try {
-    const container = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
+    var container = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
     if (!container) return;
 
-    const logs = (typeof getActivityLog === 'function') ? getActivityLog() : [];
-    // Filter only 'system' entries plus critical member/certificate events to show a subset
-    const sys = logs.filter(e => e.entity === 'system')
-                    .concat(logs.filter(e => e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated')).slice(0, 50))
-                    .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+    var logs = (typeof getActivityLog === 'function') ? (getActivityLog() || []) : [];
+    if (!Array.isArray(logs)) logs = [];
 
+    // Keep all 'system' entries + recent critical non-system (deleted/updated), then sort by ts desc
+    var sysOnly = logs.filter(function (e) { return e && e.entity === 'system'; });
+    var critical = logs.filter(function (e) {
+      return e && e.entity !== 'system' && (e.action === 'deleted' || e.action === 'updated');
+    }).slice(0, 50);
+    var sys = sysOnly.concat(critical).sort(function (a, b) {
+      var ta = new Date(a && a.ts || 0).getTime();
+      var tb = new Date(b && b.ts || 0).getTime();
+      return tb - ta;
+    });
+
+    // Build UI
     container.innerHTML = '';
-    const list = document.createElement('div');
+    var list = document.createElement('div');
     list.className = 'system-activity-list';
     list.style.maxHeight = '320px';
     list.style.overflow = 'auto';
     list.style.padding = '6px 0';
 
-    const item = (e)=>{
-      const when = (e.date && e.time) ? `${e.date} - ${e.time}` : new Date(e.ts || Date.now()).toLocaleString();
-      let title = `[${e.entity}] ${e.action}`;
-      let sub = '';
-      if (e.entity === 'member') sub = e.data?.name || e.data?.code || '';
-      if (e.entity === 'certificate') sub = e.data?.number || e.data?.member || '';
-      if (e.entity === 'system') sub = (e.data && e.data.totalPending!=null) ? `${e.data.totalPending} change(s) pending` : (e.data?.message||'');
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f6f6f6;">
-        <div><strong>${title}</strong> <span style="color:#6c757d;">${sub}</span></div>
-        <div style="color:#6c757d;font-size:12px;">${when}</div>
-      </div>`;
-    };
+    function renderItem(e) {
+      var when = (e && e.date && e.time)
+        ? (String(e.date) + ' - ' + String(e.time))
+        : new Date((e && e.ts) || Date.now()).toLocaleString();
+
+      var title = '[' + String(e && e.entity || '').toLowerCase() + '] ' + String(e && e.action || '').toLowerCase();
+      var sub = '';
+
+      if (e && e.entity === 'member') {
+        var d = e.data || {};
+        sub = String(d.name || d.code || d.email || '');
+      } else if (e && e.entity === 'certificate') {
+        var c = e.data || {};
+        sub = String(c.number || c.certificateNumber || c.member || c.recipient || '');
+      } else if (e && e.entity === 'system') {
+        var s = e.data || {};
+        if (s && s.totalPending != null) sub = String(s.totalPending) + ' change(s) pending';
+        else sub = String(s.message || '');
+      }
+
+      return '' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f6f6f6;">' +
+          '<div><strong>' + title + '</strong> ' +
+            '<span style="color:#6c757d;">' + sub + '</span></div>' +
+          '<div style="color:#6c757d;font-size:12px;">' + when + '</div>' +
+        '</div>';
+    }
 
     if (!sys.length) {
-      list.innerHTML = `<div style="text-align:center;color:#6c757d;padding:16px;">No system activity</div>`;
+      list.innerHTML = '<div style="text-align:center;color:#6c757d;padding:16px;">No system activity</div>';
     } else {
-      list.innerHTML = sys.map(item).join('');
+      list.innerHTML = sys.map(renderItem).join('');
     }
     container.appendChild(list);
-
-    if (typeof initLogScrollArrows === 'function') initLogScrollArrows();
-    if (typeof updateActivityOverlayVisibility === 'function') updateActivityOverlayVisibility();
-  } catch (err) {
-    console.error('loadSystemActivityLogs failed:', err);
-  }
-}
-
-
-
-
-// Floating scroll arrows centered above activity sections
-// remove the old centered overlay if it exists
-let legacy = document.getElementById('activityScrollOverlay');
-if (legacy) legacy.remove();
-
-// helpers to find the actual scrollable lists
-const getList1 = () => (ra && (ra.querySelector('.recent-activity-list') || ra)) || null;
-const getList2 = () => (sa && (sa.querySelector('.system-activity-list') || sa)) || null;
-const getTarget = () => active || getList1() || getList2();
-
-// TOP wrapper (▲) - directly before Recent Activity
-let topWrap = document.getElementById('raArrowTopWrap');
-if (!topWrap) {
-  topWrap = document.createElement('div');
-  topWrap.id = 'raArrowTopWrap';
-  topWrap.style.cssText = 'display:flex;justify-content:center;margin:4px 0 6px;';
-  (ra?.parentElement || document.body).insertBefore(topWrap, ra || null);
-}
-
-// BOTTOM wrapper (▼) - directly after Recent Activity (visually above footer)
-let bottomWrap = document.getElementById('raArrowBottomWrap');
-if (!bottomWrap) {
-  bottomWrap = document.createElement('div');
-  bottomWrap.id = 'raArrowBottomWrap';
-  bottomWrap.style.cssText = 'display:flex;justify-content:center;margin:6px 0 4px;';
-  if (ra?.parentElement) {
-    if (ra.nextSibling) ra.parentElement.insertBefore(bottomWrap, ra.nextSibling);
-    else ra.parentElement.appendChild(bottomWrap);
-  } else {
-    document.body.appendChild(bottomWrap);
-  }
-}
-
-// ▲ button
-let up = document.getElementById('activityArrowUp');
-if (!up) {
-  up = document.createElement('button');
-  up.id = 'activityArrowUp';
-  up.textContent = '▲';
-  up.title = 'Scroll up';
-  up.style.cssText = 'border:none;background:#fff;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.06);';
-  topWrap.innerHTML = '';
-  topWrap.appendChild(up);
-}
-
-// ▼ button
-let dn = document.getElementById('activityArrowDown');
-if (!dn) {
-  dn = document.createElement('button');
-  dn.id = 'activityArrowDown';
-  dn.textContent = '▼';
-  dn.title = 'Scroll down';
-  dn.style.cssText = 'border:none;background:#fff;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.06);';
-  bottomWrap.innerHTML = '';
-  bottomWrap.appendChild(dn);
-}
-
-// scrolling handlers
-const scrollBy = (el, dy) => { if (!el) return; el.scrollBy({ top: dy, left: 0, behavior: 'smooth' }); };
-up.onclick = () => scrollBy(getTarget(), -220);
-dn.onclick = () => scrollBy(getTarget(),  220);
-
-// show/hide depending on position & whether list can scroll
-function update() {
-  const el = getTarget();
-  if (!el) {
-    // no target yet - hide everything
-    topWrap.style.display = 'none';
-    bottomWrap.style.display = 'none';
-    up.style.display = 'none';
-    dn.style.display = 'none';
-    return;
-  }
-
-  const canScroll = (el.scrollHeight - el.clientHeight) > 2;
-  const atTop = el.scrollTop <= 1;
-  const atBottom = (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 1);
-
-  // hide wrappers entirely if there"s nothing to scroll (prevents ghost pill)
-  topWrap.style.display = canScroll ? 'flex' : 'none';
-  bottomWrap.style.display = canScroll ? 'flex' : 'none';
-
-  // hide/disable buttons when at ends
-  up.disabled = !canScroll || atTop;
-  dn.disabled = !canScroll || atBottom;
-  up.style.display = (!canScroll || atTop) ? 'none' : 'inline-flex';
-  dn.style.display = (!canScroll || atBottom) ? 'none' : 'inline-flex';
-}
-window.updateArrows = update;
-
-// wire listeners to the actual scrollable lists
-const list1 = getList1();
-const list2 = getList2();
-[list1, list2].forEach(el => {
-  if (!el) return;
-  el.addEventListener('mouseenter', () => pickActive(el), { passive: true });
-  el.addEventListener('scroll', update, { passive: true });
-  if (!active) active = el; // seed initial target
-});
-
-// initial runs & keep in sync on resize
-window.addEventListener('resize', update, { passive: true });
-setTimeout(update, 100);
-setTimeout(update, 600);
-
-// ===== Ghost Popup Cleanup (defensive) =====
-(function ghostPopupCleanup(){
-  function isTrulyEmpty(el){
-    if (!el) return true;
-    const txt = (el.textContent || '').trim();
-    if (txt) return false;
-    // also consider if any child contains non-empty text
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
-    let node;
-    while ((node = walker.nextNode())) {
-      if ((node.nodeValue || '').trim()) return false;
-    }
-    return true;
-  }
-
-  function removeGhosts(){
+  } catch (error) {
     try {
-      // Specific known containers
-      const suspects = [
+      if (typeof showMessage === 'function') {
+        showMessage('Failed to load system activity: ' + (error && error.message ? error.message : String(error)), 'error');
+      } else {
+        console.error('Failed to load system activity:', error);
+      }
+    } catch (_) {}
+  }
+}
+
+/* ---------- Ghost popup cleanup (separate, safe IIFE) ---------- */
+(function ghostPopupCleanup() {
+  // Returns true only if the element has no visible text content and no visual media
+  function isTrulyEmpty(el) {
+    try {
+      if (!el) return true;
+      // quick text check
+      if ((el.textContent || '').trim()) return false;
+
+      // check text nodes
+      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+      var node;
+      while ((node = walker.nextNode())) {
+        if ((node.nodeValue || '').trim()) return false;
+      }
+
+      // check for basic visible media
+      if (el.querySelector && el.querySelector('img, svg, video, canvas')) return false;
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function removeGhosts() {
+    try {
+      // Known containers that sometimes get left empty
+      var suspects = [
         '#notification-container',
         '.notification',
         '.toast',
@@ -11036,59 +10962,62 @@ setTimeout(update, 600);
         '.modal'
       ];
 
-      const smallFixed = Array.from(document.querySelectorAll('*')).filter(el => {
+      var smallFixed = Array.prototype.slice.call(document.querySelectorAll('*')).filter(function (el) {
         try {
-          const cs = window.getComputedStyle(el);
+          var cs = window.getComputedStyle(el);
           if (!cs) return false;
-          if (!(cs.position in {fixed:1, absolute:1, sticky:1})) return false;
-          const w = el.offsetWidth, h = el.offsetHeight;
+          if (!(cs.position && (cs.position === 'fixed' || cs.position === 'absolute' || cs.position === 'sticky'))) return false;
+          var w = el.offsetWidth, h = el.offsetHeight;
           if (w === 0 && h === 0) return false;
-          // Treat tiny pill-like boxes as ghosts when empty
-          const tiny = (w <= 160 && h <= 80);
+          var tiny = (w <= 160 && h <= 80);
           return tiny && isTrulyEmpty(el);
-        } catch { return false; }
+        } catch (_) { return false; }
       });
 
-      const found = new Set();
-      suspects.forEach(sel => document.querySelectorAll(sel).forEach(el => { if (isTrulyEmpty(el)) found.add(el); }));
-      smallFixed.forEach(el => found.add(el));
+      var found = new Set();
+      suspects.forEach(function (sel) {
+        var nodes = document.querySelectorAll(sel);
+        Array.prototype.forEach.call(nodes, function (el) {
+          if (isTrulyEmpty(el)) found.add(el);
+        });
+      });
+      smallFixed.forEach(function (el) { found.add(el); });
 
-      let removed = 0;
-      found.forEach(el => {
+      var removed = 0;
+      found.forEach(function (el) {
         try {
-          // Don't remove if it has role="status" or aria-live and is in use
-          const live = el.getAttribute('aria-live') || '';
+          var live = el.getAttribute('aria-live') || '';
           if (/polite|assertive/i.test(live)) {
-            // If empty, just hide
             el.style.display = 'none';
             return;
           }
-          el.remove();
-          removed++;
-        } catch {}
+          if (el.parentNode) {
+            el.parentNode.removeChild(el);
+            removed++;
+          }
+        } catch (_) {}
       });
 
       if (removed > 0) {
-        try { console.log('🧹 Removed ghost popups:', removed); } catch {}
+        try { console.log('Removed ghost popups:', removed); } catch (_) {}
       }
     } catch (e) {
-      try { console.warn('Ghost cleanup failed:', e); } catch {}
+      try { console.warn('Ghost cleanup failed:', e); } catch (_) {}
     }
   }
 
   // CSS safeguard (hide empty notification containers)
   try {
     if (!document.getElementById('ghost-popup-styles')) {
-      const style = document.createElement('style');
+      var style = document.createElement('style');
       style.id = 'ghost-popup-styles';
-      style.textContent = `
-        #notification-container:empty { display: none !important; }
-        #notification-container .notification:empty { display: none !important; }
-        .toast:empty, .snackbar:empty, .alert:empty { display: none !important; }
-      `;
+      style.textContent =
+        '#notification-container:empty { display: none !important; }' +
+        '#notification-container .notification:empty { display: none !important; }' +
+        '.toast:empty, .snackbar:empty, .alert:empty { display: none !important; }';
       document.head.appendChild(style);
     }
-  } catch {}
+  } catch (_) {}
 
   // Run now (if DOM ready) and on next ticks
   if (document.readyState === 'loading') {
@@ -11096,9 +11025,9 @@ setTimeout(update, 600);
   } else {
     removeGhosts();
   }
-  setTimeout(removeGhosts, 100);   // after initial components mount
-  setTimeout(removeGhosts, 600);   // after async UI
-  setTimeout(removeGhosts, 2000);  // after lazy loaders
+  setTimeout(removeGhosts, 100);
+  setTimeout(removeGhosts, 600);
+  setTimeout(removeGhosts, 2000);
 })();
 
 
@@ -11355,3 +11284,155 @@ try {
     try { console.warn('replaceScrollArrows failed:', e); } catch {}
   }
 })();
+
+
+// ===== Replaced Scroll Arrows: Top above Recent Activity, Bottom before Footer (FIXED) =====
+(function setupRecentActivityArrows() {
+  function onReady(fn) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', fn, { once: true });
+    } else {
+      fn();
+    }
+  }
+
+  onReady(function run() {
+    // Helpers re-query DOM so there are no stale/undefined globals
+    function getRA() { return document.getElementById('recentActivity'); }
+    function getSA() { return document.getElementById('systemActivityLogs') || document.getElementById('systemActivity'); }
+    function getList1() {
+      var ra = getRA();
+      if (!ra) return null;
+      return ra.querySelector('.recent-activity-list') || ra;
+    }
+    function getList2() {
+      var sa = getSA();
+      if (!sa) return null;
+      return sa.querySelector('.system-activity-list') || sa;
+    }
+    function getFooterEl() {
+      return document.getElementById('mainFooter') || document.getElementById('footer') || document.querySelector('footer');
+    }
+
+    // Remove any legacy centered overlay if present
+    var legacy = document.getElementById('activityScrollOverlay');
+    if (legacy && legacy.parentNode) legacy.parentNode.removeChild(legacy);
+
+    // Ensure CSS (idempotent)
+    if (!document.getElementById('ra-scroll-arrows-css')) {
+      var css = document.createElement('style');
+      css.id = 'ra-scroll-arrows-css';
+      css.textContent =
+        '#raArrowTopWrap, #raArrowBottomWrap { display:flex; justify-content:center; pointer-events:none; }' +
+        '#raArrowTopWrap { margin: 6px 0 8px; }' +
+        '#raArrowBottomWrap { margin: 8px 0 6px; }' +
+        '.ra-arrow-btn { pointer-events:auto; border:none; background:#fff; border-radius:9999px; width:28px; height:28px; cursor:pointer; font-size:14px; line-height:1; box-shadow:0 4px 12px rgba(0,0,0,.08); }' +
+        '.ra-arrow-btn:disabled { opacity:.35; cursor:default; }';
+      document.head.appendChild(css);
+    }
+
+    // Create wrappers relative to RA and Footer
+    function ensureTopWrap() {
+      var topWrap = document.getElementById('raArrowTopWrap');
+      if (!topWrap) {
+        topWrap = document.createElement('div');
+        topWrap.id = 'raArrowTopWrap';
+        var ra = getRA();
+        if (ra && ra.parentElement) {
+          ra.parentElement.insertBefore(topWrap, ra);
+        } else {
+          document.body.appendChild(topWrap);
+        }
+      }
+      return topWrap;
+    }
+
+    function ensureBottomWrap() {
+      var bottomWrap = document.getElementById('raArrowBottomWrap');
+      if (!bottomWrap) {
+        bottomWrap = document.createElement('div');
+        bottomWrap.id = 'raArrowBottomWrap';
+        var footer = getFooterEl();
+        if (footer && footer.parentElement) {
+          footer.parentElement.insertBefore(bottomWrap, footer);
+        } else {
+          // fallback: after RA
+          var ra = getRA();
+          if (ra && ra.parentElement) {
+            if (ra.nextSibling) ra.parentElement.insertBefore(bottomWrap, ra.nextSibling);
+            else ra.parentElement.appendChild(bottomWrap);
+          } else {
+            document.body.appendChild(bottomWrap);
+          }
+        }
+      }
+      return bottomWrap;
+    }
+
+    function makeBtn(id, label) {
+      var btn = document.getElementById(id);
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.id = id;
+        btn.className = 'ra-arrow-btn';
+        btn.type = 'button';
+        btn.textContent = label;
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          var el = active || getList1() || getList2();
+          if (!el) return;
+          var dy = (id === 'activityArrowUp') ? -220 : 220;
+          el.scrollBy({ top: dy, left: 0, behavior: 'smooth' });
+        });
+      }
+      return btn;
+    }
+
+    var topWrap = ensureTopWrap();
+    var bottomWrap = ensureBottomWrap();
+
+    // Clear & mount to avoid duplicates
+    topWrap.innerHTML = '';
+    bottomWrap.innerHTML = '';
+    topWrap.appendChild(makeBtn('activityArrowUp', '▲'));
+    bottomWrap.appendChild(makeBtn('activityArrowDown', '▼'));
+
+    var active = null;
+    function update() {
+      var el = active || getList1() || getList2();
+      var upBtn = document.getElementById('activityArrowUp');
+      var dnBtn = document.getElementById('activityArrowDown');
+      if (!el || !upBtn || !dnBtn) return;
+      var atTop = el.scrollTop <= 0;
+      var atBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
+      upBtn.disabled = atTop;
+      dnBtn.disabled = atBottom;
+    }
+
+    // Bind hover/scroll
+    var l1 = getList1();
+    var l2 = getList2();
+    if (l1) {
+      l1.addEventListener('mouseenter', function () { active = l1; update(); }, { passive: true });
+      l1.addEventListener('scroll', update, { passive: true });
+    }
+    if (l2) {
+      l2.addEventListener('mouseenter', function () { active = l2; update(); }, { passive: true });
+      l2.addEventListener('scroll', update, { passive: true });
+    }
+
+    // Keep visibility manager in sync if available
+    if (typeof window !== 'undefined' && typeof window.updateActivityOverlayVisibility === 'function') {
+      try {
+        window.updateActivityOverlayVisibility();
+        window.addEventListener('resize', window.updateActivityOverlayVisibility, { passive: true });
+      } catch (_) {}
+    }
+
+    // Initial state
+    update();
+    setTimeout(update, 200);
+    setTimeout(update, 800);
+  });
+})();
+
