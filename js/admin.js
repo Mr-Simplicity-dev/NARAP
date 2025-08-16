@@ -4045,6 +4045,26 @@ async function loadCertificates(
     };
     const typeF = typeFUI ? (typeMap[typeFUI] || typeFUI) : '';
 
+// --- Helper: state name ↔ 3-letter code mapping used in certificate numbers ---
+const normalizeStateName = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+const stateToCode = (name) => {
+  const s = normalizeStateName(name);
+  if (!s) return '';
+  if (s === 'fct' || s === 'abuja' || s === 'abujafct') return 'FCT';
+  return s.slice(0, 3).toUpperCase();
+};
+const extractCodeFromCertNumber = (num) => {
+  const raw = String(num || '').toUpperCase();
+  if (!raw) return '';
+  const parts = raw.split('/').map(p => p.replace(/[^A-Z]/g, ''));
+  // Prefer the 3rd segment if it looks like a code
+  if (parts.length >= 3 && /^[A-Z]{3}$/.test(parts[2])) return parts[2];
+  // Otherwise, return the first 3-letter segment we find
+  for (const p of parts) { if (/^[A-Z]{3}$/.test(p)) return p; }
+  return '';
+};
+
+
     const getCertState = function (c) {
       var user = (c && c.userId) ? c.userId : {};
       var st = (c && c.state) ? c.state : (user.state || '');
@@ -4071,7 +4091,9 @@ async function loadCertificates(
       var matchSearch = !q || haystack.indexOf(q) !== -1;
       var matchStatus = !statusF || status === statusF;
       var matchType = !typeF || type === typeF;
-      var matchState = !stateF || certState === stateF;
+      var wantedCode = stateToCode(stateF);
+      var certCode = extractCodeFromCertNumber(num);
+      var matchState = !stateF || certState === stateF || (wantedCode && (certCode === wantedCode || num.indexOf('/' + wantedCode + '/') !== -1));
 
       return matchSearch && matchStatus && matchType && matchState;
     });
