@@ -10385,10 +10385,31 @@ async function getAllMembersForExport() {
 
 // === Robust state-filtered export (sorted & proper CSV/JSON) ===
 // Usage stays compatible with your UI: exportMembersFiltered('csv', 'Lagos')
-async function exportMembersFiltered(format = 'csv', stateFilter = 'ALL') {
+// === Robust state-filtered export (filters correctly, sorted, proper CSV/JSON) ===
+// Accepts both styles: exportMembersFiltered('csv','Lagos') OR exportMembersFiltered({format:'csv', state:'Lagos'})
+async function exportMembersFiltered(a = 'csv', b = 'ALL') {
   try {
-    // 1) Get all members (prefer in-memory, fallback to local)
-    const source = Array.isArray(window.members) && window.members.length
+    // ---- Resolve args (format/state), tolerating different call signatures ----
+    function isFmt(x){ return typeof x === 'string' && /^(csv|json)$/i.test(x); }
+    let format = 'csv';
+    let stateFilter = 'ALL';
+
+    if (a && typeof a === 'object') { // legacy object: {format, state}
+      if (isFmt(a.format)) format = a.format.toLowerCase();
+      if (a.state != null) stateFilter = String(a.state);
+    } else {
+      if (isFmt(a)) format = a.toLowerCase(); else if (a != null) stateFilter = String(a);
+      if (isFmt(b)) format = b.toLowerCase(); else if (b != null) stateFilter = String(b);
+    }
+
+    // If still ALL and there is a DOM select, read it
+    if ((!stateFilter || String(stateFilter).toUpperCase() === 'ALL') && typeof document !== 'undefined') {
+      const sel = document.getElementById('exportStateSelect') || document.getElementById('stateFilter');
+      if (sel && sel.value) stateFilter = sel.value;
+    }
+
+    // ---- Source data: prefer in-memory, fallback to local storage ----
+    const source = (Array.isArray(window.members) && window.members.length)
       ? window.members
       : (typeof getLocalMembers === 'function' ? getLocalMembers() : []);
 
@@ -10397,16 +10418,21 @@ async function exportMembersFiltered(format = 'csv', stateFilter = 'ALL') {
       return;
     }
 
-    // 2) Normalizer compatible with your project
+    // ---- Normalizer (project’s existing function if available) ----
     const norm = (s) => (typeof normalizeStateForExport === 'function'
       ? normalizeStateForExport(s)
       : String(s ?? '').trim());
 
-    // 3) Filter by state
+    // ---- Filter by state (accept multiple possible field names) ----
     const isAll = !stateFilter || String(stateFilter).toUpperCase() === 'ALL';
-    let rows = isAll
-      ? source.slice()
-      : source.filter(m => norm(m.state || m.State) === norm(stateFilter));
+    let rows = source.filter(Boolean);
+    if (!isAll) {
+      const wanted = norm(stateFilter);
+      rows = rows.filter(m => {
+        const raw = m && (m.state ?? m.State ?? m['State of Residence'] ?? m.residenceState ?? m.memberState);
+        return norm(raw || '') === wanted;
+      });
+    }
 
     if (!rows.length) {
       const label = isAll ? 'all states' : String(stateFilter);
@@ -10414,16 +10440,17 @@ async function exportMembersFiltered(format = 'csv', stateFilter = 'ALL') {
       return;
     }
 
-    // 4) Sort
-    const byName = (a, b) =>
-      String(a?.name ?? a?.fullName ?? '')
-        .trim()
-        .localeCompare(String(b?.name ?? b?.fullName ?? '').trim(), undefined, { sensitivity: 'base' });
+    // ---- Sort: ALL -> by state (normalized) then name; single state -> by name ----
+    const byName = (a, b) => {
+      const an = String(a?.name ?? a?.fullName ?? a?.Name ?? '').trim();
+      const bn = String(b?.name ?? b?.fullName ?? b?.Name ?? '').trim();
+      return an.localeCompare(bn, undefined, { sensitivity: 'base' });
+    };
 
     if (isAll) {
       rows.sort((a, b) => {
-        const sa = norm(a.state || a.State);
-        const sb = norm(b.state || b.State);
+        const sa = norm(a?.state ?? a?.State ?? '');
+        const sb = norm(b?.state ?? b?.State ?? '');
         const sCmp = sa.localeCompare(sb, undefined, { sensitivity: 'base' });
         return sCmp !== 0 ? sCmp : byName(a, b);
       });
@@ -10431,34 +10458,12 @@ async function exportMembersFiltered(format = 'csv', stateFilter = 'ALL') {
       rows.sort(byName);
     }
 
-    // 5) Build filename
+    // ---- Build filename ----
     const stamp = new Date().toISOString().slice(0, 10);
     const slug = isAll ? 'all_states' : norm(stateFilter).replace(/\s+/g, '_').toLowerCase();
     const want = String(format || 'csv').toLowerCase();
 
-    // 6) Serialize (prefer your convertToCSV if present; fallback with fixed columns)
-    const toCSV = (arr) => {
-      if (typeof convertToCSV === 'function') return convertToCSV(arr);
-      const cols = ['name','email','code','position','state','zone'];
-      const esc = (v) => {
-        const s = v == null ? '' : String(v);
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      };
-      const header = cols.join(',');
-      const lines = arr.map(m => {
-        const row = {
-          name: m.name ?? m.Name ?? '',
-          email: m.email ?? m.Email ?? '',
-          code: m.code ?? m.Code ?? '',
-          position: String(m.position ?? m.Position ?? '').toUpperCase(),
-          state: norm(m.state ?? m.State ?? ''),
-          zone: m.zone ?? m.Zone ?? ''
-        };
-        return cols.map(k => esc(row[k])).join(',');
-      });
-      return header + (lines.length ? '\n' + lines.join('\n') : '');
-    };
-
+    // ---- Serialize (use your convertToCSV if present; add BOM for Excel) ----
     let content, filename, contentType;
     if (want === 'json') {
       contentType = 'application/json;charset=utf-8';
@@ -10467,22 +10472,38 @@ async function exportMembersFiltered(format = 'csv', stateFilter = 'ALL') {
     } else {
       contentType = 'text/csv;charset=utf-8';
       filename = `members_${slug}_${stamp}.csv`;
-      content = '\uFEFF' + toCSV(rows); // BOM so Excel opens UTF‑8 cleanly
+      const csvText = (typeof convertToCSV === 'function') ? convertToCSV(rows) : (function(arr){
+        const cols = ['name','email','code','position','state','zone'];
+        const esc = (v) => {
+          const s = v == null ? '' : String(v);
+          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const header = cols.join(',');
+        const lines = arr.map(m => {
+          const row = {
+            name: m.name ?? m.Name ?? '',
+            email: m.email ?? m.Email ?? '',
+            code: m.code ?? m.Code ?? '',
+            position: String(m.position ?? m.Position ?? '').toUpperCase(),
+            state: norm(m.state ?? m.State ?? ''),
+            zone: m.zone ?? m.Zone ?? ''
+          };
+          return cols.map(k => esc(row[k])).join(',');
+        });
+        return header + (lines.length ? '\n' + lines.join('\n') : '');
+      })(rows);
+      content = '\uFEFF' + csvText; // BOM
     }
 
-    // 7) Download (use existing helper if present; else fallback)
+    // ---- Download (use your helper if present) ----
     if (typeof downloadFile === 'function') {
-      // Signature in your file is (content, filename, contentType)
       downloadFile(content, filename, contentType);
     } else {
       const blob = new Blob([content], { type: contentType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     }
 
