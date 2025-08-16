@@ -10732,86 +10732,109 @@ async function loadSystemActivityLogs() {
 
 
 // Floating scroll arrows centered above activity sections
-function initLogScrollArrows(){
-  try{
-    const ra = document.getElementById('recentActivity');
-    const sa = document.getElementById('systemActivityLogs') || document.getElementById('systemActivity');
-    if (!ra && !sa) return;
+// remove the old centered overlay if it exists
+let legacy = document.getElementById('activityScrollOverlay');
+if (legacy) legacy.remove();
 
-    let active = null;
-    const pickActive = (el)=>{ active = el; updateArrows(); };
+// helpers to find the actual scrollable lists
+const getList1 = () => (ra && (ra.querySelector('.recent-activity-list') || ra)) || null;
+const getList2 = () => (sa && (sa.querySelector('.system-activity-list') || sa)) || null;
+const getTarget = () => active || getList1() || getList2();
 
-    // create overlay once
-    let overlay = document.getElementById('activityScrollOverlay');
-    if (!overlay){
-      overlay = document.createElement('div');
-      overlay.id = 'activityScrollOverlay';
-      overlay.style.cssText = 'position:relative;width:100%;display:flex;justify-content:center;margin:8px 0;';
-      // Inner wrapper centered
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'display:flex;gap:12px;background:rgba(248,249,250,.9);border:1px solid #e9ecef;border-radius:999px;padding:6px 10px;box-shadow:0 4px 12px rgba(0,0,0,.06);';
-      // up button
-      const up = document.createElement('button');
-      up.id = 'activityArrowUp';
-      up.textContent = '▲';
-      up.title = 'Scroll up';
-      up.style.cssText = 'border:none;background:#fff;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;';
-      // down button
-      const dn = document.createElement('button');
-      dn.id = 'activityArrowDown';
-      dn.textContent = '▼';
-      dn.title = 'Scroll down';
-      dn.style.cssText = 'border:none;background:#fff;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;';
+// TOP wrapper (▲) — directly before Recent Activity
+let topWrap = document.getElementById('raArrowTopWrap');
+if (!topWrap) {
+  topWrap = document.createElement('div');
+  topWrap.id = 'raArrowTopWrap';
+  topWrap.style.cssText = 'display:flex;justify-content:center;margin:4px 0 6px;';
+  (ra?.parentElement || document.body).insertBefore(topWrap, ra || null);
+}
 
-      wrap.appendChild(up); wrap.appendChild(dn);
-      overlay.appendChild(wrap);
-
-      // Insert above the two sections' common parent if possible; else place before recentActivity
-      const parent = (ra && ra.parentElement && ra.parentElement.parentElement) || (sa && sa.parentElement && sa.parentElement.parentElement) || document.body;
-      if (parent && parent.insertBefore) {
-        parent.insertBefore(overlay, parent.firstChild);
-      } else {
-        (ra || sa).parentElement.insertBefore(overlay, (ra || sa));
-      }
-
-      // handlers
-      const scrollBy = (el, dy)=>{ if (!el) return; el.scrollBy({top: dy, left:0, behavior:'smooth'}); };
-      up.addEventListener('click', ()=> scrollBy(active || ra || sa, -220));
-      dn.addEventListener('click', ()=> scrollBy(active || ra || sa,  220));
-
-      // show/hide depending on position
-      function update(){
-        const el = active || ra || sa;
-        const upBtn = document.getElementById('activityArrowUp');
-        const dnBtn = document.getElementById('activityArrowDown');
-        if (!el || !upBtn || !dnBtn) return;
-        const atTop = el.scrollTop <= 0;
-        const atBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
-        upBtn.style.visibility = atTop ? 'hidden' : 'visible';
-        dnBtn.style.visibility = atBottom ? 'hidden' : 'visible';
-      }
-      window.updateArrows = update;
-    }
-
-    const list1 = ra && ra.querySelector('.recent-activity-list');
-    const list2 = sa && sa.querySelector('.system-activity-list');
-
-    [list1, list2].forEach(el=>{
-      if (!el) return;
-      el.addEventListener('mouseenter', ()=>pickActive(el), {passive:true});
-      el.addEventListener('scroll', ()=>updateArrows(), {passive:true});
-      // initial state
-      if (!active) active = el;
-    });
-
-    // initial
-    setTimeout(()=>updateArrows && updateArrows(), 100);
-  }catch(e){
-    console.warn('initLogScrollArrows failed:', e);
+// BOTTOM wrapper (▼) — directly after Recent Activity (visually above footer)
+let bottomWrap = document.getElementById('raArrowBottomWrap');
+if (!bottomWrap) {
+  bottomWrap = document.createElement('div');
+  bottomWrap.id = 'raArrowBottomWrap';
+  bottomWrap.style.cssText = 'display:flex;justify-content:center;margin:6px 0 4px;';
+  if (ra?.parentElement) {
+    if (ra.nextSibling) ra.parentElement.insertBefore(bottomWrap, ra.nextSibling);
+    else ra.parentElement.appendChild(bottomWrap);
+  } else {
+    document.body.appendChild(bottomWrap);
   }
 }
 
+// ▲ button
+let up = document.getElementById('activityArrowUp');
+if (!up) {
+  up = document.createElement('button');
+  up.id = 'activityArrowUp';
+  up.textContent = '▲';
+  up.title = 'Scroll up';
+  up.style.cssText = 'border:none;background:#fff;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.06);';
+  topWrap.innerHTML = '';
+  topWrap.appendChild(up);
+}
 
+// ▼ button
+let dn = document.getElementById('activityArrowDown');
+if (!dn) {
+  dn = document.createElement('button');
+  dn.id = 'activityArrowDown';
+  dn.textContent = '▼';
+  dn.title = 'Scroll down';
+  dn.style.cssText = 'border:none;background:#fff;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.06);';
+  bottomWrap.innerHTML = '';
+  bottomWrap.appendChild(dn);
+}
+
+// scrolling handlers
+const scrollBy = (el, dy) => { if (!el) return; el.scrollBy({ top: dy, left: 0, behavior: 'smooth' }); };
+up.onclick = () => scrollBy(getTarget(), -220);
+dn.onclick = () => scrollBy(getTarget(),  220);
+
+// show/hide depending on position & whether list can scroll
+function update() {
+  const el = getTarget();
+  if (!el) {
+    // no target yet — hide everything
+    topWrap.style.display = 'none';
+    bottomWrap.style.display = 'none';
+    up.style.display = 'none';
+    dn.style.display = 'none';
+    return;
+  }
+
+  const canScroll = (el.scrollHeight - el.clientHeight) > 2;
+  const atTop = el.scrollTop <= 1;
+  const atBottom = (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 1);
+
+  // hide wrappers entirely if there’s nothing to scroll (prevents ghost pill)
+  topWrap.style.display = canScroll ? 'flex' : 'none';
+  bottomWrap.style.display = canScroll ? 'flex' : 'none';
+
+  // hide/disable buttons when at ends
+  up.disabled = !canScroll || atTop;
+  dn.disabled = !canScroll || atBottom;
+  up.style.display = (!canScroll || atTop) ? 'none' : 'inline-flex';
+  dn.style.display = (!canScroll || atBottom) ? 'none' : 'inline-flex';
+}
+window.updateArrows = update;
+
+// wire listeners to the actual scrollable lists
+const list1 = getList1();
+const list2 = getList2();
+[list1, list2].forEach(el => {
+  if (!el) return;
+  el.addEventListener('mouseenter', () => pickActive(el), { passive: true });
+  el.addEventListener('scroll', update, { passive: true });
+  if (!active) active = el; // seed initial target
+});
+
+// initial runs & keep in sync on resize
+window.addEventListener('resize', update, { passive: true });
+setTimeout(update, 100);
+setTimeout(update, 600);
 
 // ===== Ghost Popup Cleanup (defensive) =====
 (function ghostPopupCleanup(){
@@ -11053,5 +11076,110 @@ try {
     document.addEventListener('DOMContentLoaded', bind, { once: true });
   } else {
     bind();
+  }
+})();
+
+
+
+// ===== Replaced Scroll Arrows: Top above Recent Activity, Bottom before Footer =====
+(function replaceScrollArrows(){
+  try {
+    // CSS (idempotent)
+    if (!document.getElementById('ra-scroll-arrows-css')) {
+      const css = document.createElement('style');
+      css.id = 'ra-scroll-arrows-css';
+      css.textContent = `
+        #raArrowTopWrap, #raArrowBottomWrap { display:flex; justify-content:center; pointer-events:none; }
+        #raArrowTopWrap { margin: 4px 0 6px; }
+        #raArrowBottomWrap { margin: 6px 0 4px; }
+        .ra-arrow-btn { pointer-events:auto; border:none; background:#fff; border-radius:9999px; width:28px; height:28px; cursor:pointer; font-size:14px; line-height:1; box-shadow:0 4px 12px rgba(0,0,0,.08); }
+        .ra-arrow-btn:disabled { opacity:.35; cursor:default; }
+      `;
+      document.head.appendChild(css);
+    }
+
+    // New behavior for initLogScrollArrows
+    window.initLogScrollArrows = function(){
+      const ra = document.getElementById('recentActivity');
+      if (!ra) return;
+
+      // Remove legacy overlay if it exists
+      const old = document.getElementById('activityScrollOverlay');
+      if (old) old.remove();
+
+      // Ensure wrappers exist and are placed correctly
+      let topWrap = document.getElementById('raArrowTopWrap');
+      if (!topWrap) {
+        topWrap = document.createElement('div');
+        topWrap.id = 'raArrowTopWrap';
+        // place directly BEFORE the recentActivity box
+        (ra.parentElement || document.body).insertBefore(topWrap, ra);
+      }
+
+      let bottomWrap = document.getElementById('raArrowBottomWrap');
+      if (!bottomWrap) {
+        bottomWrap = document.createElement('div');
+        bottomWrap.id = 'raArrowBottomWrap';
+        // place directly AFTER the recentActivity box (will visually sit just before the footer)
+        if (ra.parentElement) {
+          if (ra.nextSibling) ra.parentElement.insertBefore(bottomWrap, ra.nextSibling);
+          else ra.parentElement.appendChild(bottomWrap);
+        } else {
+          document.body.appendChild(bottomWrap);
+        }
+      }
+
+      // Create/attach buttons (idempotent)
+      let upBtn = document.getElementById('raArrowUp');
+      if (!upBtn) {
+        upBtn = document.createElement('button');
+        upBtn.id = 'raArrowUp';
+        upBtn.className = 'ra-arrow-btn';
+        upBtn.title = 'Scroll up';
+        upBtn.textContent = '▲';
+        topWrap.innerHTML = ''; // ensure single button
+        topWrap.appendChild(upBtn);
+      }
+
+      let downBtn = document.getElementById('raArrowDown');
+      if (!downBtn) {
+        downBtn = document.createElement('button');
+        downBtn.id = 'raArrowDown';
+        downBtn.className = 'ra-arrow-btn';
+        downBtn.title = 'Scroll down';
+        downBtn.textContent = '▼';
+        bottomWrap.innerHTML = ''; // ensure single button
+        bottomWrap.appendChild(downBtn);
+      }
+
+      const scrollBy = (dy) => ra.scrollBy({ top: dy, left: 0, behavior: 'smooth' });
+
+      upBtn.onclick = () => scrollBy(-220);
+      downBtn.onclick = () => scrollBy(220);
+
+      const update = () => {
+        // Show wrappers only when list can scroll
+        const canScroll = (ra.scrollHeight - ra.clientHeight) > 2;
+        topWrap.style.display = canScroll ? 'flex' : 'none';
+        bottomWrap.style.display = canScroll ? 'flex' : 'none';
+
+        if (!canScroll) return;
+
+        // Enable/disable based on position
+        upBtn.disabled = ra.scrollTop <= 1;
+        downBtn.disabled = (ra.scrollTop + ra.clientHeight) >= (ra.scrollHeight - 1);
+      };
+
+      ra.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update, { passive: true });
+
+      // Initial checks
+      update();
+      setTimeout(update, 100);
+      setTimeout(update, 600);
+      setTimeout(update, 1500);
+    };
+  } catch (e) {
+    try { console.warn('replaceScrollArrows failed:', e); } catch {}
   }
 })();
