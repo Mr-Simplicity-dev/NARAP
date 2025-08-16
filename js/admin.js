@@ -1,26 +1,24 @@
+/* NARAP Admin Build
+ * Version: v12
+ * Built: 2025-08-16T07:16:39.428529Z
+ * Notes: Includes compatibility shims for getLocalCertificates/saveLocalMembers and others.
+ */
 
+window.NARAP_BUILD_VERSION='v12';console.log('NARAP build',window.NARAP_BUILD_VERSION);
 /* ==================== COMPATIBILITY SHIMS (safety nets) ==================== */
 (function initCompatibilityShims(){
   try {
-    // Backend base URL + getter
+    // Backend base URL (used by server status checks, etc.)
     if (typeof window.backendUrl === 'undefined' || !window.backendUrl) {
-      window.backendUrl = (localStorage.getItem('narap_backend_url') || 'https://narap-backend.onrender.com');
-    }
-    if (typeof window.getBackendUrl !== 'function') {
-      window.getBackendUrl = function () {
-        try {
-          return (localStorage.getItem('narap_backend_url') || window.backendUrl || 'https://narap-backend.onrender.com');
-        } catch (e) {
-          return window.backendUrl || 'https://narap-backend.onrender.com';
-        }
-      };
+      window.backendUrl = 'https://narap-backend.onrender.com';
     }
 
-    // Toast/message helper
+    // Simple message/toast helper
     if (typeof window.showMessage !== 'function') {
       window.showMessage = function(msg, type) {
         try {
           console[(type === 'danger' || type === 'error') ? 'error' : (type === 'warning' ? 'warn' : 'log')]('[MSG]', msg);
+          // Create a lightweight toast if not present
           var host = document.getElementById('toastHost');
           if (!host) {
             host = document.createElement('div');
@@ -36,14 +34,15 @@
           el.textContent = String(msg || '');
           host.appendChild(el);
           setTimeout(function(){ el.remove(); }, 3500);
-        } catch (e) {}
+        } catch (e) { /* no-op */ }
       };
     }
 
-    // Password strength
+    // Password strength checker
     if (typeof window.checkPasswordStrength !== 'function') {
       window.checkPasswordStrength = function (pwd) {
-        var s = String(pwd || ''), score = 0;
+        var s = String(pwd || '');
+        var score = 0;
         if (s.length >= 8) score++;
         if (/[A-Z]/.test(s)) score++;
         if (/[a-z]/.test(s)) score++;
@@ -58,79 +57,27 @@
       };
     }
 
-    // Local members getters/setters
+    // Local members getter (for analytics & fallbacks)
     if (typeof window.getLocalMembers !== 'function') {
       window.getLocalMembers = function () {
         try {
-          var keys = ['narap_members','members','localMembers'];
-          for (var i=0;i<keys.length;i++) {
-            var raw = localStorage.getItem(keys[i]);
+          var candidates = ['narap_members', 'members', 'localMembers'];
+          for (var i = 0; i < candidates.length; i++) {
+            var raw = localStorage.getItem(candidates[i]);
             if (!raw) continue;
-            try { var arr = JSON.parse(raw); if (Array.isArray(arr)) return arr; } catch (e) {}
+            try {
+              var arr = JSON.parse(raw);
+              if (Array.isArray(arr)) return arr;
+            } catch (e) {}
           }
+          // if window.members exists and is array
           if (Array.isArray(window.members)) return window.members;
         } catch (e) {}
         return [];
       };
     }
-    if (typeof window.saveLocalMembers !== 'function') {
-      window.saveLocalMembers = function (arr) {
-        try {
-          var list = Array.isArray(arr) ? arr : [];
-          localStorage.setItem('narap_members', JSON.stringify(list));
-          window.members = list;
-          window.currentMembers = list;
-        } catch (e) { console.warn('saveLocalMembers failed:', e); }
-      };
-    }
 
-    // Certificates getters/setters
-    if (typeof window.getLocalCertificates !== 'function') {
-      window.getLocalCertificates = function () {
-        try {
-          var keys = ['narap_certificates','certificates','localCertificates'];
-          for (var i=0;i<keys.length;i++) {
-            var raw = localStorage.getItem(keys[i]);
-            if (!raw) continue;
-            try { var arr = JSON.parse(raw); if (Array.isArray(arr)) return arr; } catch (e) {}
-          }
-        } catch (e) {}
-        return [];
-      };
-    }
-    if (typeof window.saveLocalCertificates !== 'function') {
-      window.saveLocalCertificates = function (arr) {
-        try {
-          var list = Array.isArray(arr) ? arr : [];
-          localStorage.setItem('narap_certificates', JSON.stringify(list));
-          window.certificates = list;
-          window.currentCertificates = list;
-        } catch (e) { console.warn('saveLocalCertificates failed:', e); }
-      };
-    }
-    if (typeof window.getCertificates !== 'function') {
-      window.getCertificates = async function () {
-        try { return window.getLocalCertificates(); } catch (e) { return []; }
-      };
-    }
-
-    // CSV / download / JSON helpers
-    if (typeof window.convertToCSV !== 'function') {
-      window.convertToCSV = function (arr) {
-        try {
-          var data = Array.isArray(arr) ? arr : [];
-          if (!data.length) return 'data:[]';
-          var cols = Object.keys(data.reduce(function (acc, o){ Object.keys(o||{}).forEach(function(k){ acc[k]=true; }); return acc; }, {}));
-          var esc = function (v){ var s = (v==null?'':String(v)); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
-          var header = cols.join(',');
-          var lines = data.map(function (row){ return cols.map(function (k){ return esc(row[k]); }).join(','); });
-          return header + '\n' + lines.join('\n');
-        } catch (e) {
-          console.warn('convertToCSV failed:', e);
-          return '';
-        }
-      };
-    }
+    // Minimal CSV/Download helpers (fallbacks)
     if (typeof window.downloadFile !== 'function') {
       window.downloadFile = function (content, filename, contentType) {
         try {
@@ -143,11 +90,52 @@
         } catch (e) { console.error('downloadFile failed:', e); }
       };
     }
+
     if (typeof window.tryJson !== 'function') {
       window.tryJson = async function (resp) {
         try { return await resp.json(); } catch (e) { return null; }
       };
     }
+  
+    // Certificates getters/setters (for dashboard, analytics, certificates tab)
+    if (typeof window.getLocalCertificates !== 'function') {
+      window.getLocalCertificates = function () {
+        try {
+          var keys = ['narap_certificates','certificates','localCertificates'];
+          for (var i = 0; i < keys.length; i++) {
+            var raw = localStorage.getItem(keys[i]);
+            if (!raw) continue;
+            try {
+              var arr = JSON.parse(raw);
+              if (Array.isArray(arr)) return arr;
+            } catch (e) {}
+          }
+        } catch (e) {}
+        return [];
+      };
+    }
+    if (typeof window.saveLocalCertificates !== 'function') {
+      window.saveLocalCertificates = function (arr) {
+        try {
+          var list = Array.isArray(arr) ? arr : [];
+          localStorage.setItem('narap_certificates', JSON.stringify(list));
+          window.certificates = list;
+        } catch (e) { console.warn('saveLocalCertificates failed:', e); }
+      };
+    }
+
+    // Members setter (some flows call this after fetch)
+    if (typeof window.saveLocalMembers !== 'function') {
+      window.saveLocalMembers = function (arr) {
+        try {
+          var list = Array.isArray(arr) ? arr : [];
+          localStorage.setItem('narap_members', JSON.stringify(list));
+          window.members = list;
+          window.currentMembers = list;
+        } catch (e) { console.warn('saveLocalMembers failed:', e); }
+      };
+    }
+
   } catch (e) {
     console.warn('initCompatibilityShims error:', e);
   }
@@ -368,7 +356,7 @@ class DataCache {
         try {
           const obj = JSON.parse(raw);
           if (obj && (obj.name || obj.email)) return { name: obj.name, email: obj.email, id: obj.id || obj._id };
-        } catch (e) {}
+        } catch{}
       }
       // Plain strings
       const sKeys = ['adminName','adminEmail','currentAdmin','admin_username'];
