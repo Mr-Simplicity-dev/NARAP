@@ -11998,3 +11998,128 @@ try {
     }
   };
 })();
+
+/* ===== NARAP - EditMember Harden (handles 'row is not defined' gracefully) ===== */
+(function(){
+  const orig = window.editMember;
+  if (typeof orig !== 'function') return;
+
+  function getValByIds(ids){
+    for (const id of ids){
+      const el = document.getElementById(id);
+      if (el && typeof el.value !== 'undefined') return el.value;
+    }
+    // name selector fallback
+    for (const id of ids){
+      const el = document.querySelector(`[name="${id}"]`);
+      if (el && typeof el.value !== 'undefined') return el.value;
+    }
+    return '';
+  }
+
+  async function safeBackendUpdate(memberId, payload){
+    const url = `/api/users/${memberId}`;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(()=>'');
+      throw new Error(`Backend ${res.status}: ${t || res.statusText}`);
+    }
+    return await res.json();
+  }
+
+  function getEditingMemberId(){
+    const hidden = document.getElementById('editMemberId');
+    if (hidden && hidden.value) return hidden.value;
+    const modal = document.getElementById('editMemberModal');
+    if (modal && modal.dataset && modal.dataset.memberId) return modal.dataset.memberId;
+    if (window.__editingMemberId) return window.__editingMemberId;
+    return '';
+  }
+
+  function uppercase(s){ return (s||'').toString().trim().toUpperCase(); }
+
+  function afterSuccessApply(updated){
+    try{
+      // Update caches
+      const id = updated._id || updated.id || getEditingMemberId();
+      const newState = uppercase(updated.state || updated.State);
+      const coll = (window.currentMembers || window.members || []);
+      const m = coll.find(mm => mm && (mm._id === id || mm.id === id));
+      const prevState = m ? uppercase(m.state || m.State) : null;
+      if (m){
+        // copy common fields
+        if (updated.name) m.name = updated.name;
+        if (updated.code) m.code = updated.code;
+        if (updated.position) m.position = updated.position;
+        if (newState) { m.state = newState; m.State = newState; }
+        if (updated.zone) m.zone = updated.zone;
+      }
+      if (typeof window.filterMembers === 'function') window.filterMembers();
+      else if (typeof window.renderMembers === 'function') window.renderMembers(coll);
+
+      // Activity + toast
+      if (prevState && newState && prevState !== newState) {
+        if (typeof window.activityLogger?.member === 'function') {
+          window.activityLogger.member('state_moved', { id, name: m?.name, code: m?.code, from: prevState, to: newState });
+        }
+        if (typeof window.showMessage === 'function')
+          window.showMessage(`Member moved to ${newState} from ${prevState}`, 'success');
+      } else {
+        if (typeof window.showMessage === 'function')
+          window.showMessage('Member updated', 'success');
+      }
+    }catch(_){}
+  }
+
+  function doFallback(ev){
+    try{ if (ev && typeof ev.preventDefault==='function') ev.preventDefault(); }catch(_){}
+
+    const id = getEditingMemberId();
+
+    // Gather values from modal fields (IDs or name attributes)
+    const name = getValByIds(['editMemberName','name']);
+    const code = getValByIds(['editMemberCode','code']);
+    const position = getValByIds(['editMemberPosition','position']);
+    const state = uppercase(getValByIds(['editMemberState','state']));
+    const zone = getValByIds(['editMemberZone','zone']);
+
+    const payload = { name, code, position, state, zone };
+
+    // Submit to backend via JSON (server override handles normalization + cert sync)
+    return safeBackendUpdate(id, payload)
+      .then(updated => { afterSuccessApply(updated); return updated; })
+      .catch(err => {
+        console.error('Fallback editMember backend error:', err);
+        if (typeof window.showMessage === 'function')
+          window.showMessage('Failed to update member: ' + (err.message || err), 'danger');
+        throw err;
+      });
+  }
+
+  window.editMember = function(ev){
+    let ret;
+    try {
+      ret = orig.apply(this, arguments);
+    } catch(e){
+      if (e && /row is not defined|memberToDelete is not defined/i.test(String(e.message||''))) {
+        return doFallback(ev);
+      } else {
+        throw e;
+      }
+    }
+
+    if (ret && typeof ret.then === 'function') {
+      return ret.catch(e => {
+        if (e && /row is not defined|memberToDelete is not defined/i.test(String(e.message||''))) {
+          return doFallback(ev);
+        }
+        throw e;
+      });
+    }
+    return ret;
+  };
+})();
