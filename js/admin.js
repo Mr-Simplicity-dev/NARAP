@@ -6396,52 +6396,15 @@ function refreshCertificates() {
 }
 
 function clearCertificateFilters() {
-    // Inputs used by certificate filtering UI
-    const searchBoxes = [
-      document.getElementById('certificateSearch')
-    ];
-    const statusBoxes = [
-      document.getElementById('certificateStatusFilter'),
-      document.getElementById('statusFilter') // legacy id (fallback)
-    ];
-    const typeBoxes = [
-      document.getElementById('certificateTypeFilter'),
-      document.getElementById('typeFilter'), // legacy fallback
-      document.getElementById('typeFilterUI') // if present
-    ];
-    const stateBoxes = [
-      document.getElementById('certificateStateFilter'),
-      document.getElementById('stateFilter'), // legacy fallback
-      document.getElementById('stateFilterUI') // if present
-    ];
-    const dateBoxes = [
-      document.getElementById('dateFilter')
-    ];
-
-    // Reset values
-    for (const el of [...searchBoxes, ...statusBoxes, ...typeBoxes, ...stateBoxes, ...dateBoxes]) {
-      if (!el) continue;
-      if ('value' in el) el.value = '';
-      // If it's a <select>, also reset to the first option if 'All...' exists
-      if (el.tagName === 'SELECT') {
-        const idx = Array.from(el.options || []).findIndex(o => (/all/i.test(o.text) || o.value === '' ));
-        el.selectedIndex = idx !== -1 ? idx : 0;
-      }
-      // Fire change/input for any listeners
-      try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
-      try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
-    }
-
-    // Reset pagination to page 1 and reload with blank filters
-    const per = parseInt(localStorage.getItem('narap_certificates_per_page')) || 10;
-    if (typeof loadCertificates === 'function') {
-      loadCertificates(1, per, '', '', '', '');
-    } else if (typeof refreshCertificates === 'function') {
-      refreshCertificates();
-    }
-
-    // Optional toast
-    try { showMessage('Certificate filters cleared', 'success'); } catch(_){}
+    const searchInput = document.getElementById('certificateSearch');
+    const statusFilter = document.getElementById('statusFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    
+    if (searchInput) searchInput.value = '';
+    if (statusFilter) statusFilter.value = '';
+    if (dateFilter) dateFilter.value = '';
+    
+    loadCertificates(1, 10);
 }
 
 function generateCertificatePreview() {
