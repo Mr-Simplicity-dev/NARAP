@@ -13256,3 +13256,138 @@ try {
   };
 })();
 // === [/Merged Injection] End ===
+
+
+// === [Injected] Ensure Recent Activity mirrors System Activity (backend + offline queue) ===
+(function(){
+  if (window.__activityBridgeApplied) return;
+  window.__activityBridgeApplied = true;
+
+  // ---- Queue helpers (idempotent) ----
+  const QUEUE_KEY = 'narap_activity_pending';
+  function __readPendingActivity(){
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]') || []; } catch { return []; }
+  }
+  function __writePendingActivity(list){
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(Array.isArray(list) ? list : [])); } catch {}
+  }
+  async function __postActivity(item){
+    if (!item) return;
+    // Normalize: ensure ts/date/time
+    try {
+      const now = new Date();
+      item.ts = item.ts || now.toISOString();
+      item.date = item.date || now.toLocaleDateString();
+      item.time = item.time || now.toLocaleTimeString();
+    } catch(_){}
+    // Try online first
+    if (navigator.onLine && typeof backendUrl === 'string' && backendUrl) {
+      try {
+        const resp = await fetch(`${backendUrl}/api/activity`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        if (resp.ok) return true;
+      } catch(_){/* fall through */}
+    }
+    // Queue for later
+    const list = __readPendingActivity();
+    list.push({ ...item, __attempts: (item.__attempts||0) });
+    __writePendingActivity(list);
+    return false;
+  }
+
+  if (typeof window.syncActivityPending !== 'function') {
+    window.syncActivityPending = async function syncActivityPending(){
+      if (!navigator.onLine) return;
+      let list = __readPendingActivity();
+      if (!list.length) return;
+      const remain = [];
+      for (const item of list) {
+        try {
+          const resp = await fetch(`${backendUrl}/api/activity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(item)
+          });
+          if (!resp.ok) {
+            const attempts = (item.__attempts||0) + 1;
+            if (attempts < 3) remain.push({ ...item, __attempts: attempts });
+          }
+        } catch(_) {
+          const attempts = (item.__attempts||0) + 1;
+          if (attempts < 3) remain.push({ ...item, __attempts: attempts });
+        }
+      }
+      __writePendingActivity(remain);
+    };
+  }
+
+  // ---- Wrap local log helpers so they also post/queue to backend ----
+  function wrapAndBridge(fnName, entity, actionKey='action'){
+    try {
+      const orig = window[fnName];
+      if (typeof orig !== 'function' || orig.__bridged) return;
+      window[fnName] = async function bridged(item){
+        // Call original (keeps local System Activity in sync)
+        const res = orig.apply(this, arguments);
+        try {
+          const e = { entity: entity, [actionKey]: (fnName.toLowerCase().includes('add') ? 'added' : fnName.toLowerCase().includes('update') ? 'updated' : 'deleted') };
+          // Build compact data payload
+          if (entity === 'member') {
+            e.data = {
+              id: item?._id || item?.id,
+              code: item?.code,
+              name: item?.name || item?.fullName,
+              state: item?.state || item?.State,
+              email: item?.email || null
+            };
+          } else if (entity === 'certificate') {
+            e.data = {
+              id: item?._id || item?.id,
+              number: item?.certificateNumber || item?.number,
+              member: item?.memberName || item?.recipientName || item?.name
+            };
+          } else {
+            e.data = item || {};
+          }
+          await __postActivity(e);
+          if (navigator.onLine && typeof window.reloadRecentActivity === 'function') {
+            try { window.reloadRecentActivity(50); } catch(_){}
+          }
+        } catch(_){}
+        return res;
+      };
+      window[fnName].__bridged = true;
+    } catch(_){}
+  }
+
+  // Bridge member & certificate helpers
+  wrapAndBridge('logMemberAdd', 'member');
+  wrapAndBridge('logMemberUpdate', 'member');
+  wrapAndBridge('logMemberDelete', 'member');
+  wrapAndBridge('logCertificateAdd', 'certificate');
+  wrapAndBridge('logCertificateUpdate', 'certificate');
+  wrapAndBridge('logCertificateDelete', 'certificate');
+
+  // Also bridge generic ActivityLogger.log if present, to catch any direct logs
+  try {
+    if (window.activityLogger && typeof activityLogger.log === 'function' && !activityLogger.log.__bridged) {
+      const _origLog = activityLogger.log.bind(activityLogger);
+      activityLogger.log = async function(entry){
+        const e = _origLog(entry);
+        try { await __postActivity(e); } catch(_){}
+        return e;
+      };
+      activityLogger.log.__bridged = true;
+    }
+  } catch(_){}
+
+  // Kick a sync when back online
+  window.addEventListener('online', async () => {
+    try { await window.syncActivityPending(); } catch(_){}
+    try { if (typeof window.reloadRecentActivity === 'function') await window.reloadRecentActivity(50); } catch(_){}
+  });
+})();
+// === [/Injected] End ===
