@@ -12937,3 +12937,124 @@ try {
   }
 })();
 /* === end injected === */
+
+
+// === [Injected] Recent Activity: backend-first display with offline fallback & sync ===
+// Keeps your existing ActivityLogger (localStorage) intact, adds backend-first fetch for display,
+// and queues local logs for backend sync when online. All guards prevent double registration.
+(function(){
+  if (window.__activityBackendFirstBound) return;
+  window.__activityBackendFirstBound = true;
+
+  // Local storage queue for unsent activity items
+  const QUEUE_KEY = 'narap_activity_pending';
+
+  function readPendingActivity(){
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]') || []; } catch { return []; }
+  }
+  function writePendingActivity(list){
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(Array.isArray(list) ? list : [])); } catch {}
+  }
+  function queueActivity(entry){
+    const list = readPendingActivity();
+    list.push({...entry, __attempts: (entry.__attempts||0)});
+    writePendingActivity(list);
+  }
+
+  // Wrap logger to also queue to backend (without breaking the original behavior)
+  try {
+    const _origLog = activityLogger && activityLogger.log ? activityLogger.log.bind(activityLogger) : null;
+    if (_origLog && !activityLogger.__wrappedForBackend) {
+      activityLogger.log = function(entry){
+        const e = _origLog(entry);
+        try { queueActivity(e); } catch(_){}
+        // Fire-and-forget sync if online
+        if (navigator.onLine) { try { window.syncActivityPending && window.syncActivityPending(); } catch(_){} }
+        return e;
+      };
+      activityLogger.__wrappedForBackend = true;
+    }
+  } catch(_){}
+
+  // Backend-first fetch (UI can call this to show Recent Activity)
+  if (typeof window.getRecentActivity !== 'function') {
+    window.getRecentActivity = async function getRecentActivity(limit = 50) {
+      // Try backend first when online
+      if (navigator.onLine) {
+        try {
+          const url = `${backendUrl}/api/activity?limit=${encodeURIComponent(limit)}`;
+          const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+          if (resp.ok) {
+            const body = await (typeof tryJson === 'function' ? tryJson(resp) : resp.json().catch(()=>null));
+            // Accept common shapes: [], {data:[]}, {success:{data:[]}} 
+            let items = Array.isArray(body) ? body
+                      : (Array.isArray(body?.data) ? body.data
+                      : (Array.isArray(body?.success?.data) ? body.success.data : []));
+            if (Array.isArray(items) && items.length) {
+              return items.slice(0, limit);
+            }
+          }
+        } catch(_) { /* fall back to local */ }
+      }
+      // Local fallback (uses your ActivityLogger)
+      try {
+        const local = (typeof getActivityLog === 'function') ? getActivityLog() : [];
+        return Array.isArray(local) ? local.slice(0, limit) : [];
+      } catch { return []; }
+    };
+  }
+
+  // Sync pending local activity logs to backend when online
+  if (typeof window.syncActivityPending !== 'function') {
+    window.syncActivityPending = async function syncActivityPending(){
+      if (!navigator.onLine) return;
+      let list = readPendingActivity();
+      if (!list.length) return;
+
+      const remain = [];
+      for (const item of list) {
+        try {
+          const resp = await fetch(`${backendUrl}/api/activity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(item)
+          });
+          if (!resp.ok) {
+            // Keep and increment attempts up to 3
+            const attempts = (item.__attempts||0) + 1;
+            if (attempts < 3) remain.push({...item, __attempts: attempts});
+          }
+        } catch(_) {
+          const attempts = (item.__attempts||0) + 1;
+          if (attempts < 3) remain.push({...item, __attempts: attempts});
+        }
+      }
+      writePendingActivity(remain);
+    };
+  }
+
+  // Helper to refresh any UI that shows activity if present
+  if (typeof window.reloadRecentActivity !== 'function') {
+    window.reloadRecentActivity = async function reloadRecentActivity(limit=50){
+      const items = await window.getRecentActivity(limit);
+      // If your UI has a specific renderer, call it here if present.
+      if (typeof window.renderRecentActivity === 'function') {
+        try { window.renderRecentActivity(items); } catch(_){}
+      }
+      return items;
+    };
+  }
+
+  // On page load: try to sync any pending and then show backend-first activity
+  document.addEventListener('DOMContentLoaded', async () => {
+    try { await window.syncActivityPending(); } catch(_) {}
+    try { await window.reloadRecentActivity(50); } catch(_) {}
+  });
+
+  // When back online: sync and reload
+  window.addEventListener('online', async () => {
+    try { await window.syncActivityPending(); } catch(_) {}
+    try { await window.reloadRecentActivity(50); } catch(_) {}
+  });
+})();
+// === [/Injected] End ===
