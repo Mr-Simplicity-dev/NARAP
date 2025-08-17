@@ -12656,13 +12656,9 @@ try {
     const bases = deriveBases();
     const rels = [
       (b)=>`${b}/api/users/${id}`,
-      (b)=>`${b}/users/${id}`,
-      (b)=>`${b}/api/users/update`,
-      (b)=>`${b}/users/update`,
-      (b)=>`${b}/api/users`,
-      (b)=>`${b}/users`
+      (b)=>`${b}/api/users/update`
     ];
-    const attempts = [reqPUTJSON, reqPUTFORM, reqPOSTOvJSON, reqPOSTOvFORM, reqPOSTJSON, reqPOSTFORM];
+    const attempts = [reqPUTJSON, reqPUTFORM, reqPOSTJSON, reqPOSTFORM];
 
     let updated=null, lastErr=null;
     for (const base of bases){
