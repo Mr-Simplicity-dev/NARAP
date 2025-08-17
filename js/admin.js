@@ -13106,8 +13106,6 @@ try {
   };
 })();
 
-
-
 // === [RECENT ACTIVITY v1 - single source of truth] ===
 (function(){
   // ---- Kill old intervals/EventSources and old functions ----
@@ -13326,108 +13324,4 @@ try {
   document.addEventListener('DOMContentLoaded', ()=> RA.start());
 })();
 // === [/RECENT ACTIVITY v1] End ===
-
-
-
-
-// === [RECENT ACTIVITY root fix: single visible container, remove nested duplicates] ===
-(function(){
-  if (window.__RA_rootfix_applied) return; window.__RA_rootfix_applied = true;
-
-  // Choose a single root container deterministically; prefer explicit marker if present
-  function pickRoot(){
-    // If dev marks a root explicitly, honor it
-    var marked = document.querySelector('[data-recent-activity-root]');
-    if (marked) return marked;
-
-    // Priority order
-    var order = [
-      '#recentActivity [data-role="activity-body"]',
-      '#recentActivity .ra-body',
-      '#recentActivityList',
-      '#recentActivity',
-      '.recent-activity',
-      '.activity-log'
-    ];
-    for (var i=0;i<order.length;i++){
-      var el = document.querySelector(order[i]);
-      if (el) return el;
-    }
-    return null;
-  }
-
-  function isAncestor(a, b){ try { return a && b && a !== b && a.contains(b); } catch(_) { return false; } }
-  function isDescendant(a, b){ return isAncestor(b, a); }
-
-  // Remove extra RA lists/containers while keeping header wrappers
-  function sanitizeAround(rootBody){
-    try {
-      if (!rootBody) return;
-      // If rootBody is not a body, create one inside
-      if (!(rootBody.getAttribute && (rootBody.getAttribute('data-role')==='activity-body' || rootBody.classList.contains('ra-body')))) {
-        var body = rootBody.querySelector('[data-role="activity-body"], .ra-body');
-        if (!body) {
-          body = document.createElement('div');
-          body.className = 'ra-body';
-          body.setAttribute('data-role','activity-body');
-          rootBody.appendChild(body);
-        }
-        rootBody = body;
-      }
-
-      // Find all potential RA containers
-      var cands = Array.from(document.querySelectorAll('#recentActivity, #recentActivityList, .recent-activity, .activity-log'));
-      // Hide any candidate that is neither the root body nor an ancestor of it
-      cands.forEach(function(el){
-        if (el === rootBody || isAncestor(el, rootBody)) {
-          // keep visible
-          el.style.display = '';
-        } else {
-          el.style.display = 'none';
-        }
-      });
-
-      // Inside the kept ancestor, remove duplicate RA lists outside the root body
-      var keepWrapper = rootBody.parentElement;
-      if (keepWrapper) {
-        var dupLists = Array.from(keepWrapper.querySelectorAll('.ra-list, .ra-item, [data-role="activity-body"], .ra-body'))
-          .filter(function(el){ return el !== rootBody && !isAncestor(el, rootBody) && !isDescendant(el, rootBody); });
-        dupLists.forEach(function(el){ try { el.remove(); } catch(_){} });
-      }
-
-      // Ensure scrollbars only on root body
-      rootBody.style.maxHeight = rootBody.style.maxHeight || '300px';
-      rootBody.style.overflowY = 'auto';
-      rootBody.style.webkitOverflowScrolling = 'touch';
-
-      // Expose chosen root for renderer
-      window.__RA_rootBody = rootBody;
-    } catch(_){}
-  }
-
-  // Hook into RA after it becomes available
-  function apply(){
-    try {
-      var root = pickRoot();
-      if (!root) return;
-      sanitizeAround(root);
-    } catch(_){}
-  }
-
-  document.addEventListener('DOMContentLoaded', apply);
-  setTimeout(apply, 300);
-  setTimeout(apply, 1200);
-  setTimeout(apply, 3000);
-
-  // Patch RA.findTarget (if present) to always use the chosen root
-  try {
-    if (window.RA) {
-      window.RA.findTarget = function(){
-        if (window.__RA_rootBody) return window.__RA_rootBody;
-        var r = pickRoot(); sanitizeAround(r); return window.__RA_rootBody || r;
-      };
-    }
-  } catch(_){}
-})();
-// === [/RECENT ACTIVITY root fix] ===
 
