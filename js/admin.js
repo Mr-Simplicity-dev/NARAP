@@ -4210,95 +4210,83 @@ function filterCertificates() {
 // ==================== TAB SWITCHING ====================
 
 function switchTab(tabName) {
-    
-    
-    const panels = document.querySelectorAll('.panel');
-    panels.forEach(panel => {
-        panel.classList.remove('active');
-    });
-    
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        item.classList.remove('active');
-    });
-    
-    const selectedPanel = document.getElementById('panel-' + tabName);
-    if (selectedPanel) {
-        selectedPanel.classList.add('active');
+  try {
+    // Show only the active panel
+    var ids = ['dashboard', 'members', 'certificates', 'analytics', 'system'];
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i];
+      var panel = document.getElementById('panel-' + id);
+      var link  = document.querySelector('[data-tab="' + id + '"]');
+      if (panel) {
+        var isActive = (id === tabName);
+        panel.style.display = isActive ? 'block' : 'none';
+        panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+        panel.classList.toggle('active', isActive);
+      }
+      if (link) {
+        var isActiveNav = (id === tabName);
+        link.classList.toggle('active', isActiveNav);
+        link.setAttribute('aria-current', isActiveNav ? 'page' : 'false');
+      }
     }
-    
-    const selectedNavItem = document.getElementById('btn-' + tabName);
-    if (selectedNavItem) {
-        selectedNavItem.classList.add('active');
-    }
-    
-    const headerTitle = document.getElementById('headerTitle');
-    if (headerTitle) {
-        headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
-    }
-    
-    // Show/hide pagination controls based on tab
-    const membersPaginationContainer = document.getElementById('membersPagination');
-    const certificatesPaginationContainer = document.getElementById('certificatesPagination');
-    
+
+    // Update sidebar button states (if you use #btn-*)
+    var navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(function (item) { item.classList.remove('active'); });
+    var selectedNavItem = document.getElementById('btn-' + tabName);
+    if (selectedNavItem) selectedNavItem.classList.add('active');
+
+    // Update page title
+    var headerTitle = document.getElementById('headerTitle');
+    if (headerTitle) headerTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+
+    // Show/hide pagination controls
+    var membersPaginationContainer = document.getElementById('membersPagination');
     if (membersPaginationContainer) {
-        if (tabName === 'members') {
-            membersPaginationContainer.style.display = 'flex';
-        } else {
-            membersPaginationContainer.style.display = 'none';
-        }
+      membersPaginationContainer.style.display = (tabName === 'members') ? 'flex' : 'none';
     }
-    
+    var certificatesPaginationContainer = document.getElementById('certificatesPagination');
     if (certificatesPaginationContainer) {
-        if (tabName === 'certificates') {
-            certificatesPaginationContainer.style.display = 'flex';
-        } else {
-            certificatesPaginationContainer.style.display = 'none';
-        }
+      certificatesPaginationContainer.style.display = (tabName === 'certificates') ? 'flex' : 'none';
     }
-    
-    // Auto-load data based on tab
+
+    // Auto-load data for the selected tab
     switch (tabName) {
-        case 'members':
-            if (!window.currentMembers || window.currentMembers.length === 0) {
-                
-                // Get user's saved pagination preference
-                const savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
-                loadMembers(1, savedMembersPerPage);
-            } else {
-                
-                displayMembers(window.currentMembers);
-            }
-            break;
-            
-        case 'certificates':
-            if (!window.currentCertificates || window.currentCertificates.length === 0) {
-                
-                loadCertificates(1, 10);
-            } else {
-                
-                displayCertificates(window.currentCertificates);
-            }
-            break;
-            
-        case 'dashboard':
-            
-            loadDashboard();
-            break;
-            
-        case 'analytics':
-            
-            loadAnalytics();
-            break;
-            
-        case 'system':
-            
-            loadSystemPage();
-            break;
+      case 'members': {
+        var savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
+        if (!Array.isArray(window.currentMembers) || window.currentMembers.length === 0) {
+          if (typeof loadMembers === 'function') loadMembers(1, savedMembersPerPage);
+        } else if (typeof displayMembers === 'function') {
+          displayMembers(window.currentMembers);
+        }
+        break;
+      }
+      case 'certificates': {
+        if (!Array.isArray(window.currentCertificates) || window.currentCertificates.length === 0) {
+          if (typeof loadCertificates === 'function') loadCertificates(1, 10);
+        } else if (typeof displayCertificates === 'function') {
+          displayCertificates(window.currentCertificates);
+        }
+        break;
+      }
+      case 'dashboard':
+        if (typeof loadDashboard === 'function') loadDashboard();
+        break;
+      case 'analytics':
+        if (typeof loadAnalytics === 'function') loadAnalytics();
+        break;
+      case 'system':
+        if (typeof loadSystemPage === 'function') loadSystemPage();
+        break;
     }
-    
-    
+
+    // Ensure the user lands at the top
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (_) { window.scrollTo(0, 0); }
+  } catch (e) {
+    // no-op
+  }
 }
+
 
 // ==================== SIDEBAR FUNCTIONS ====================
 
