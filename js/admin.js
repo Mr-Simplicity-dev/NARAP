@@ -1427,6 +1427,80 @@ async function syncWithBackend() {
 
 // ==================== BACKUP FUNCTIONS ====================
 
+// === [Injected] Members: backend-first fetch with offline fallback (DROP-IN) ===
+// This block makes the members list behave like certificates: backend-first for display when online,
+// but still supports offline entry and later sync. It is self-guarded to avoid double registration.
+if (typeof window.getMembers !== 'function') {
+  window.getMembers = async function getMembers(opts = {}) {
+    const forceRefresh = !!opts.forceRefresh;
+
+    // Prefer backend if we're online (or explicitly forced)
+    if (navigator.onLine || forceRefresh) {
+      try {
+        const resp = await fetch(`${backendUrl}/api/users/getUsers`, { method: 'GET' });
+        if (resp.ok) {
+          const body = await (typeof tryJson === 'function' ? tryJson(resp) : resp.json().catch(()=>null));
+          let members = Array.isArray(body) ? body
+                      : (Array.isArray(body?.data) ? body.data
+                      : (Array.isArray(body?.success?.data) ? body.success.data : []));
+          if (typeof sortMembersAlpha === 'function') members = sortMembersAlpha(members);
+          if (typeof saveLocalMembers === 'function') saveLocalMembers(members);
+          window.members = members;
+          window.currentMembers = members;
+          return members;
+        }
+      } catch (_) {
+        // fall through to local
+      }
+    }
+
+    // Offline or API failed → use local cache
+    const locals = (typeof getLocalMembers === 'function') ? getLocalMembers() : (window.members || []);
+    window.members = locals;
+    window.currentMembers = locals;
+    return locals;
+  };
+}
+
+if (typeof window.reloadMembersBackendFirst !== 'function') {
+  window.reloadMembersBackendFirst = async function reloadMembersBackendFirst(force = false) {
+    await window.getMembers({ forceRefresh: !!force });
+    if (typeof window.applyMemberFilters === 'function') {
+      window.applyMemberFilters();
+    } else if (typeof window.loadMembers === 'function') {
+      const per = Number(window.membersPerPage || localStorage.getItem('narap_members_per_page') || 10) || 10;
+      window.loadMembers(1, per);
+    } else if (typeof window.refreshMembersUI === 'function') {
+      window.refreshMembersUI();
+    }
+  };
+}
+
+// Ensure a backend pull on page load (guarded)
+(function(){
+  if (!window.__membersBackendFirstBound) {
+    window.__membersBackendFirstBound = true;
+    document.addEventListener('DOMContentLoaded', async () => {
+      try { await window.reloadMembersBackendFirst(true); } catch(_){}
+    });
+
+    window.addEventListener('online', async () => {
+      if (typeof showMessage === 'function') showMessage('Back online — fetching latest members and syncing changes…', 'info');
+      try { await window.reloadMembersBackendFirst(true); } catch(_){}
+      if (typeof syncPendingChanges === 'function') {
+        try { await syncPendingChanges(); } catch(_){}
+      }
+    });
+
+    window.addEventListener('offline', () => {
+      if (typeof showMessage === 'function') showMessage('You are offline. New changes will be stored locally and synced later.', 'warning');
+    });
+  }
+})();
+// === [/Injected] End ===
+
+
+
 async function createBackup() {
     try {
         showMessage('Creating backup...', 'info');
