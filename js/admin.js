@@ -13391,3 +13391,226 @@ try {
   });
 })();
 // === [/Injected] End ===
+
+
+// === [RECENT ACTIVITY v1 — single-source live module] ===
+(function(){
+  // Stop any legacy loops/listeners and override old APIs to avoid duplicates
+  try {
+    for (const k of Object.keys(window)) {
+      if (/^__recentPolling/.test(k)) { try { clearInterval(window[k]); } catch(_){}; try{ delete window[k]; }catch(_){} }
+    }
+    const esKeys = ['__recentES','__recentEventSource','__activityES','__RA_es'];
+    for (const k of esKeys) { try { window[k] && window[k].close && window[k].close(); } catch(_){}; try{ delete window[k]; }catch(_){} }
+  } catch(_) {}
+  try { delete window.renderRecentActivity; } catch(_) {}
+  try { delete window.getRecentActivity; } catch(_) {}
+  try { delete window.reloadRecentActivity; } catch(_) {}
+  try { delete window.__recentActivityPassFilter; } catch(_) {}
+
+  // Config
+  const FILTER_ENTS = ['member','certificate'];
+  const FILTER_ACTS = ['added','updated','deleted'];
+  const LIMIT = 50;
+
+  // Helpers
+  function pass(it){
+    if (!it) return false;
+    const e = String(it.entity||'').toLowerCase();
+    const a = String(it.action||'').toLowerCase();
+    return FILTER_ENTS.includes(e) && FILTER_ACTS.includes(a);
+  }
+  function keyOf(it){
+    if (!it) return 'null';
+    if (it._id) return 'id:'+it._id;
+    const e = String(it.entity||'').toLowerCase();
+    const a = String(it.action||'').toLowerCase();
+    const d = it.data || {};
+    const did = d.id || d._id || d.code || d.number || d.email || d.member || '';
+    let t = it.ts || it.time || '';
+    try { if (t) t = new Date(t).toISOString().slice(0,16); } catch(_) {}
+    return [e,a,String(did),String(t)].join('|');
+  }
+  function dedupe(list){
+    const map = new Map();
+    for (const it of (Array.isArray(list)?list:[])) {
+      const k = keyOf(it);
+      if (!map.has(k)) map.set(k, it);
+    }
+    return Array.from(map.values());
+  }
+  function actionText(it){
+    const e = String(it.entity||'').toLowerCase();
+    const a = String(it.action||'').toLowerCase();
+    const d = it.data || {};
+    if (e === 'member'){
+      const name = d.name || d.fullName || '';
+      const code = d.code ? ` (${d.code})` : '';
+      return `${a.charAt(0).toUpperCase()+a.slice(1)} member: ${`${name}${code}`.trim()}`;
+    } else if (e === 'certificate'){
+      const num = d.number || '';
+      const mem = d.member || d.recipient || '';
+      const who = `${num}${mem ? ' • ' + mem : ''}`.trim();
+      return `${a.charAt(0).toUpperCase()+a.slice(1)} certificate: ${who}`;
+    }
+    return `${a} ${e}`;
+  }
+  function whenText(it){
+    if (it.ts) { try { return new Date(it.ts).toLocaleString(); } catch(_){} }
+    return it.time || '';
+  }
+
+  // Find a single (deepest) target; do NOT create extra containers
+  function unique(arr){ const s=new Set(); const out=[]; for(const el of arr){ if(el && !s.has(el)){ s.add(el); out.push(el); } } return out; }
+  function depth(n){ let d=0; while(n && n.parentElement){ d++; n=n.parentElement; } return d; }
+  function findTarget(){
+    const candidates = unique([
+      document.querySelector('#recentActivity [data-role="activity-body"]'),
+      document.querySelector('#recentActivity .ra-body'),
+      document.getElementById('recentActivityList'),
+      document.getElementById('recentActivity'),
+      document.querySelector('.recent-activity'),
+      document.querySelector('.activity-log')
+    ].filter(Boolean));
+    if (!candidates.length) return null;
+    // Choose the deepest element so we never render inside a parent wrapper and again in a child
+    const leaves = candidates.filter(el => !candidates.some(other => el!==other && el.contains(other)));
+    leaves.sort((a,b)=> depth(a)-depth(b));
+    let target = leaves[leaves.length-1] || candidates[0];
+
+    // If target is not a body node, use/create a body inside it
+    if (!(target.getAttribute && (target.getAttribute('data-role')==='activity-body' || target.classList.contains('ra-body')))) {
+      let body = target.querySelector('[data-role="activity-body"], .ra-body');
+      if (!body) {
+        body = document.createElement('div');
+        body.className = 'ra-body';
+        body.setAttribute('data-role','activity-body');
+        target.appendChild(body);
+      }
+      target = body;
+    }
+
+    // Ensure header exists once (keep your existing title; add one if missing)
+    const parent = target.parentElement;
+    if (parent && !parent.querySelector('.ra-header, [data-role="activity-header"], .card-title, h3, h4, h5')) {
+      const header = document.createElement('div');
+      header.className = 'ra-header';
+      header.setAttribute('data-role','activity-header');
+      header.textContent = 'Recent Activity';
+      header.style.textAlign = 'center';
+      header.style.fontWeight = '600';
+      header.style.padding = '8px 10px';
+      parent.insertBefore(header, parent.firstChild);
+    }
+
+    // Enforce scrollbar on body only
+    target.style.maxHeight = target.style.maxHeight || '300px';
+    target.style.overflowY = 'auto';
+    target.style.webkitOverflowScrolling = 'touch';
+    return target;
+  }
+
+  // Rendering
+  function render(items){
+    const target = findTarget();
+    if (!target) return;
+    const filtered = dedupe((Array.isArray(items)?items:[]).filter(pass)).slice(0, LIMIT);
+    const html = filtered.map(it => `
+      <li class="ra-item" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.06);">
+        <button class="btn btn-sm btn-light ra-refresh" style="padding:2px 8px;font-size:12px;"
+                onclick="(function(e){e.preventDefault(); if(window.RA && RA.reload) RA.reload();})(event)">
+          Refresh
+        </button>
+        <span class="ra-entity" style="font-weight:600;">${String(it.entity||'').toLowerCase()}</span>
+        <span>-</span>
+        <span class="ra-text" style="flex:1 1 auto;">${actionText(it)}</span>
+        <span class="ra-meta" style="white-space:nowrap;opacity:.7;">${whenText(it)}</span>
+      </li>
+    `).join('');
+    const emptyHTML = `<li class="ra-empty" style="color:#6c757d;padding:8px 10px;">No recent member or certificate changes</li>`;
+    target.innerHTML = `<ul class="ra-list" style="list-style:none;padding-left:0;margin:0;">${html || emptyHTML}</ul>`;
+  }
+
+  // Data
+  async function getBackend(limit=LIMIT){
+    if (!navigator.onLine || !window.backendUrl) return [];
+    try {
+      const url = `${backendUrl}/api/activity?limit=${encodeURIComponent(limit)}&entities=${FILTER_ENTS.join(',')}&actions=${FILTER_ACTS.join(',')}`;
+      const resp = await fetch(url, { headers: { 'Accept':'application/json' } });
+      if (!resp.ok) return [];
+      const body = await (typeof tryJson==='function' ? tryJson(resp) : resp.json());
+      const items = Array.isArray(body) ? body : (Array.isArray(body?.data)? body.data : []);
+      return items || [];
+    } catch { return []; }
+  }
+  function getLocal(limit=LIMIT){
+    try {
+      if (typeof getActivityLog === 'function') {
+        const items = getActivityLog() || [];
+        return (items || []).slice(0, limit);
+      }
+    } catch {}
+    return [];
+  }
+
+  // Public API
+  const RA = {
+    buf: [], es: null, poll: null,
+    async reload(){
+      const net = await getBackend(LIMIT);
+      const local = (!net.length ? getLocal(LIMIT) : []);
+      const merged = dedupe([...(RA.buf||[]), ...net, ...local]);
+      RA.buf = merged.slice(0, 200);
+      render(RA.buf);
+      return RA.buf;
+    },
+    start(){
+      // Close previous
+      try { RA.es && RA.es.close && RA.es.close(); } catch(_) {}
+      try { RA.poll && clearInterval(RA.poll); } catch(_) {}
+
+      // SSE (filtered)
+      if (window.EventSource && window.backendUrl) {
+        try {
+          const url = `${backendUrl}/api/activity/stream?entities=${FILTER_ENTS.join(',')}&actions=${FILTER_ACTS.join(',')}`;
+          RA.es = new EventSource(url);
+          RA.es.onmessage = (ev)=>{
+            try {
+              const item = JSON.parse(ev.data);
+              if (!pass(item)) return;
+              RA.buf = dedupe([item, ...(RA.buf||[])]).slice(0, 200);
+              render(RA.buf);
+            } catch(_){}
+          };
+          RA.es.onerror = ()=>{ try{RA.es && RA.es.close();}catch(_){}; RA.es = null; setTimeout(()=>{RA.start();}, 5000); };
+        } catch(_){ RA.es = null; }
+      }
+
+      // Poll fallback
+      if (!RA.es) {
+        RA.poll = setInterval(()=>{ RA.reload(); }, 15000);
+      }
+
+      // Initial load
+      RA.reload();
+
+      // Refresh when back online
+      window.addEventListener('online', ()=> RA.reload());
+    },
+    stop(){
+      try { RA.es && RA.es.close && RA.es.close(); } catch(_) {}
+      RA.es = null;
+      try { RA.poll && clearInterval(RA.poll); } catch(_) {}
+      RA.poll = null;
+    }
+  };
+  window.RA = RA;
+  // Back-compat aliases
+  window.renderRecentActivity = render;
+  window.getRecentActivity = async (limit)=>{ const out = await RA.reload(); return out.slice(0, limit||LIMIT); };
+  window.reloadRecentActivity = ()=> RA.reload();
+
+  // Auto-start
+  document.addEventListener('DOMContentLoaded', ()=> RA.start());
+})();
+// === [/RECENT ACTIVITY v1] End ===
