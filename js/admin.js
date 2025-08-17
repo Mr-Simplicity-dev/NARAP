@@ -11849,6 +11849,14 @@ try {
     const orig = window.editMember;
     if (typeof orig !== 'function') return;
     window.editMember = function(ev){
+    // Capture memberId and previous state BEFORE calling original editMember
+    /* memberId captured earlier */
+    let prevState = null;
+    try {
+      const coll = (window.currentMembers || window.members || []);
+      const mm = coll.find(m => m && (m._id === memberId || m.id === memberId));
+      if (mm) prevState = (mm.state || mm.State || '').toString().trim().toUpperCase() || null;
+    } catch(_) {}
       ensureStateSelect();
       try{
         const el = document.getElementById('editMemberState');
@@ -11929,7 +11937,15 @@ try {
   if (typeof orig !== 'function') return;
 
   window.editMember = function(ev){
-    const memberId = getEditingMemberId();
+    // Capture memberId and previous state BEFORE calling original editMember
+    /* memberId captured earlier */
+    let prevState = null;
+    try {
+      const coll = (window.currentMembers || window.members || []);
+      const mm = coll.find(m => m && (m._id === memberId || m.id === memberId));
+      if (mm) prevState = (mm.state || mm.State || '').toString().trim().toUpperCase() || null;
+    } catch(_) {}
+    /* memberId captured earlier */
     // Ensure select is uppercase (harmonize with your existing patch)
     try {
       const sel = document.getElementById('editMemberState');
@@ -11940,11 +11956,33 @@ try {
 
     // When finished (sync or async), update caches and redraw
     const finalize = () => {
+      // After original edit completes, compare and log activity
+      let newState = null;
       try {
-        const newState = getNewStateValue();
+        newState = getNewStateValue();
         applyStateToCaches(memberId, newState);
+        try {
+          if (prevState && newState && prevState !== newState) {
+            // Build a minimal identity for the member
+            let meta = { id: memberId, from: prevState, to: newState };
+            try {
+              const coll2 = (window.currentMembers || window.members || []);
+              const mm2 = coll2.find(m => m && (m._id === memberId || m.id === memberId));
+              if (mm2) {
+                meta.code = mm2.code || undefined;
+                meta.name = mm2.name || mm2.fullName || undefined;
+              }
+            } catch(_){}
+            if (typeof window.activityLogger?.member === 'function') {
+              window.activityLogger.member('state_moved', meta);
+            } else if (typeof window.logMemberUpdate === 'function') {
+              // Fallback: still log as an update
+              window.logMemberUpdate({ _id: memberId, state: newState });
+            }
+          }
+        } catch (_){ }
         if (typeof window.showMessage === 'function' && newState) {
-          window.showMessage(`Member moved to ${newState}`, 'success');
+          window.showMessage(`Member moved to ${newState}` + (prevState?` from ${prevState}`:''), 'success');
         }
       } catch(_){}
     };
