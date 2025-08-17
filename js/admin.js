@@ -12581,18 +12581,8 @@ try {
     } catch(_){ return ''; }
   }
   function deriveBases(){
-    function unique(arr){ return Array.from(new Set(arr.filter(Boolean))); }
     const bases = [];
     try { if (window.API_BASE) bases.push(String(window.API_BASE)); } catch(_){}
-    // Prefer any backend that served /api/uploads on the page (points to your Render app)
-    try {
-      const discovered = (typeof discoverUploadOrigin === 'function') ? discoverUploadOrigin() : '';
-      if (discovered) bases.push(discovered);
-    } catch(_){}
-    // Always include the known Render backend as a final fallback
-    if (!bases.some(b => /narap-backend\.onrender\.com/i.test(b))) bases.push('https://narap-backend.onrender.com');
-    return unique(bases);
-  } catch(_){}
     bases.push(window.location.origin);
     const discovered = discoverUploadOrigin(); if (discovered) bases.push(discovered);
     if (!bases.some(b => /narap-backend\.onrender\.com/i.test(b))) bases.push('https://narap-backend.onrender.com');
@@ -12666,9 +12656,13 @@ try {
     const bases = deriveBases();
     const rels = [
       (b)=>`${b}/api/users/${id}`,
-      (b)=>`${b}/api/users/update`
+      (b)=>`${b}/users/${id}`,
+      (b)=>`${b}/api/users/update`,
+      (b)=>`${b}/users/update`,
+      (b)=>`${b}/api/users`,
+      (b)=>`${b}/users`
     ];
-    const attempts = [reqPUTJSON, reqPUTFORM, reqPOSTJSON, reqPOSTFORM];
+    const attempts = [reqPUTJSON, reqPUTFORM, reqPOSTOvJSON, reqPOSTOvFORM, reqPOSTJSON, reqPOSTFORM];
 
     let updated=null, lastErr=null;
     for (const base of bases){
@@ -13461,34 +13455,14 @@ try {
 
   function startSSE(){
     if (!window.EventSource || !window.backendUrl) return null;
-    const url = `${backendUrl}/api/activity/stream?entities=member,certificate`;
-    // Preflight: if the endpoint returns 404 (not deployed), disable SSE and fall back to polling
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(function(){ try{ctrl.abort();}catch(_){ } }, 1500);
-      fetch(url, { method: 'GET', headers: { 'Accept': 'text/event-stream' }, signal: ctrl.signal, mode: 'cors', cache: 'no-store' })
-        .then(function(r){
-          clearTimeout(timer);
-          if (!r || r.status === 404 || !r.ok){
-            window.__sseDisabled = true;
-            if (typeof startPolling === 'function') startPolling();
-          }
-        })
-        .catch(function(){
-          window.__sseDisabled = true;
-          if (typeof startPolling === 'function') startPolling();
-        });
-    } catch(_){
-      window.__sseDisabled = true;
-      try { if (typeof startPolling === 'function') startPolling(); } catch(__){}
-      return null;
-    }
-    try {
+      const url = `${backendUrl}/api/activity/stream?entities=member,certificate`;
       const es = new EventSource(url);
       es.onmessage = function(ev){
         try {
           const item = JSON.parse(ev.data);
           if (typeof window.__recentActivityPassFilter === 'function' && !window.__recentActivityPassFilter(item)) return;
+          // Keep a local rolling buffer and re-render
           const buf = (window.__recentLiveBuffer = Array.isArray(window.__recentLiveBuffer) ? window.__recentLiveBuffer : []);
           buf.unshift(item);
           window.__recentLiveBuffer = buf.slice(0, 200);
@@ -13497,13 +13471,6 @@ try {
       };
       es.onerror = function(){
         try { es.close(); } catch(_){}
-        // After a few retries, give up and fall back to polling
-        window.__sseRetryCount = (window.__sseRetryCount || 0) + 1;
-        if (window.__sseRetryCount > 2){
-          window.__sseDisabled = true;
-          if (typeof startPolling === 'function') startPolling();
-          return;
-        }
         setTimeout(startSSE, 5000);
       };
       return es;
@@ -13778,18 +13745,3 @@ try {
   };
 })();
 // === [/Injected Override] End ===
-
-
-// --- Neutralize method-override fallbacks (safe no-ops that delegate to normal POST) ---
-try{
-  if (typeof reqPOSTOvJSON === 'function') {
-    const _origPOSTJSON = (typeof reqPOSTJSON === 'function') ? reqPOSTJSON : null;
-    window.reqPOSTOvJSON = async function(url, body){ if (_origPOSTJSON) return _origPOSTJSON(url, body); throw new Error('reqPOSTJSON missing'); };
-  }
-} catch(_) {}
-try{
-  if (typeof reqPOSTOvFORM === 'function') {
-    const _origPOSTFORM = (typeof reqPOSTFORM === 'function') ? reqPOSTFORM : null;
-    window.reqPOSTOvFORM = async function(url, body){ if (_origPOSTFORM) return _origPOSTFORM(url, body); throw new Error('reqPOSTFORM missing'); };
-  }
-} catch(_) {}
