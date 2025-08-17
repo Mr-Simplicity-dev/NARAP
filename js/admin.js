@@ -13089,3 +13089,99 @@ try {
 // === [/Injected] End ===
 
 
+// === [Injected] Members Tab: Backend Refresh Button Handler ===
+(function(){
+  if (window.__membersRefreshBound) return;
+  window.__membersRefreshBound = true;
+
+  async function performMembersRefresh() {
+    try {
+      if (typeof showMessage === 'function') showMessage('Refreshing members from server…', 'info');
+
+      // Pull fresh members from backend and re-render
+      if (typeof window.reloadMembersBackendFirst === 'function') {
+        await window.reloadMembersBackendFirst(true);
+      } else if (typeof window.getMembers === 'function') {
+        await window.getMembers({ forceRefresh: true });
+        if (typeof window.refreshMembersUI === 'function') window.refreshMembersUI();
+      }
+
+      // Update counters explicitly (some UIs read from these IDs)
+      try {
+        const count = Array.isArray(window.members) ? window.members.length : 0;
+        const ids = ['totalMembers','membersCount'];
+        ids.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = String(count);
+        });
+      } catch(_){}
+
+      // Reload recent activity (backend-first)
+      try {
+        if (typeof window.reloadRecentActivity === 'function') await window.reloadRecentActivity(50);
+      } catch(_){}
+
+      // Optionally update any sync indicators/status if present
+      try {
+        if (typeof updateSyncStatus === 'function') updateSyncStatus();
+        if (typeof updateSyncIndicators === 'function') {
+          const pendingRaw = localStorage.getItem('narap_pending_sync');
+          let q = pendingRaw ? JSON.parse(pendingRaw) : {};
+          const pending = (q.memberCreations?.length||0) + (q.memberUpdates?.length||0) + (q.memberDeletions?.length||0);
+          updateSyncIndicators({ pending, synced: 0 });
+        }
+      } catch(_){}
+
+      // Log a system activity entry locally (will be queued to backend via wrapper)
+      try {
+        if (window.activityLogger && typeof activityLogger.system === 'function') {
+          const count = Array.isArray(window.members) ? window.members.length : 0;
+          activityLogger.system('refresh', { target:'members', count });
+        }
+      } catch(_){}
+
+      // Attempt syncing pending local changes (non-blocking)
+      try { if (typeof syncPendingChanges === 'function') syncPendingChanges(); } catch(_){}
+
+      if (typeof showMessage === 'function') showMessage('Members refreshed from server.', 'success');
+    } catch (err) {
+      if (typeof showMessage === 'function') showMessage('Failed to refresh members: ' + (err?.message || err), 'error');
+    }
+  }
+
+  // Bind to common selectors for a "Refresh" button
+  function bindMembersRefreshButtons(){
+    const selectors = [
+      '#refreshMembers',
+      '#refreshMembersBtn',
+      '[data-action="refresh-members"]',
+      'button.refresh-members',
+      '.members-toolbar .refresh-btn'
+    ];
+    for (const sel of selectors) {
+      try {
+        const btn = document.querySelector(sel);
+        if (btn && !btn.__membersRefreshBound) {
+          btn.addEventListener('click', (e)=>{ e.preventDefault(); performMembersRefresh(); });
+          btn.__membersRefreshBound = true;
+        }
+      } catch(_){}
+    }
+  }
+
+  // Event delegation as a fallback (if buttons are rendered later)
+  document.addEventListener('click', function(e){
+    const t = e.target;
+    if (!t) return;
+    if (t.matches?.('#refreshMembers, #refreshMembersBtn, [data-action="refresh-members"], button.refresh-members, .members-toolbar .refresh-btn')) {
+      e.preventDefault();
+      performMembersRefresh();
+    }
+  }, { capture: true });
+
+  document.addEventListener('DOMContentLoaded', bindMembersRefreshButtons);
+  // In case toolbar renders after DOMContentLoaded (SPA-ish), try again shortly
+  setTimeout(bindMembersRefreshButtons, 800);
+  setTimeout(bindMembersRefreshButtons, 3000);
+})();
+// === [/Injected] End ===
