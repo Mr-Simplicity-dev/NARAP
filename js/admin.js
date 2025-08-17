@@ -12124,19 +12124,84 @@ try {
   };
 })();
 
-/* ===== NARAP - EditMember Full Override (no-row) ===== */
+/* ===================== NARAP - All-in-One Edit + ID + Activity Override (v9) =====================
+   - Guarantees member ID is available for save (hidden input, modal dataset, button capture, code lookup)
+   - Replaces editMember with a robust version (no `row` usage) that PUTs JSON (with FormData fallback)
+   - Updates in-memory caches, re-renders, and logs `member • state_moved` in Recent Activity
+   - Compatible with earlier state-select patch; last override wins safely
+=================================================================================================== */
 (function(){
-  function q(id){ return document.getElementById(id); }
-  function val(id){ const el = q(id); return el && typeof el.value !== 'undefined' ? el.value : ''; }
-  function up(s){ return (s||'').toString().trim().toUpperCase(); }
+  // --- Helpers ---
+  const $ = (id) => document.getElementById(id);
+  const val = (id) => { const el = $(id); return el && typeof el.value !== 'undefined' ? el.value : ''; };
+  const up = (s) => (s||'').toString().trim().toUpperCase();
+
+  function ensureHiddenEditId(memberId){
+    let hid = $('editMemberId');
+    if (!hid) {
+      const form = $('editMemberForm') || document.querySelector('#editMemberModal form');
+      hid = document.createElement('input');
+      hid.type = 'hidden'; hid.id = 'editMemberId'; hid.name = 'memberId';
+      if (form) form.appendChild(hid); else document.body.appendChild(hid);
+    }
+    if (memberId) hid.value = memberId;
+    return hid;
+  }
+
+  function setModalDataset(memberId){
+    const modal = $('editMemberModal');
+    if (modal && memberId) {
+      if (!modal.dataset) modal.dataset = {};
+      modal.dataset.memberId = memberId;
+    }
+  }
+
+  // Capture last clicked edit triggers
+  document.addEventListener('click', (e) => {
+    try{
+      const t = e.target && e.target.closest('[data-member-id], [data-id], .edit-member, [data-action="edit"]');
+      if (!t) return;
+      const id = t.getAttribute('data-member-id') || t.getAttribute('data-id');
+      if (id) {
+        window.__editingMemberId = id;
+        ensureHiddenEditId(id);
+        setModalDataset(id);
+      }
+    }catch(_){}
+  }, true);
+
+  // Wrap showEditMemberModal to persist id
+  (function(){
+    const orig = window.showEditMemberModal;
+    if (typeof orig !== 'function') return;
+    window.showEditMemberModal = function(memberId){
+      try{
+        if (memberId) {
+          window.__editingMemberId = memberId;
+          ensureHiddenEditId(memberId);
+          setModalDataset(memberId);
+        }
+      }catch(_){}
+      return orig.apply(this, arguments);
+    };
+  })();
 
   function getEditingMemberId(){
-    const hid = q('editMemberId');
-    if (hid && hid.value) return hid.value;
-    const modal = q('editMemberModal');
-    if (modal && modal.dataset && modal.dataset.memberId) return modal.dataset.memberId;
-    if (window.__editingMemberId) return window.__editingMemberId;
-    return '';
+    const hid = $('editMemberId');
+    const modal = $('editMemberModal');
+    const form = $('editMemberForm') || (modal ? modal.querySelector('form') : null);
+    return (hid && hid.value)
+        || (modal && modal.dataset && modal.dataset.memberId)
+        || (form && form.dataset && (form.dataset.memberId || form.dataset.id))
+        || window.__editingMemberId
+        || '';
+  }
+
+  function findMemberIdByCode(code){
+    if (!code) return '';
+    const coll = (window.currentMembers || window.members || []);
+    const m = Array.isArray(coll) ? coll.find(mm => mm && (mm.code === code)) : null;
+    return m ? (m._id || m.id || '') : '';
   }
 
   function getMemberFromCaches(id){
@@ -12179,11 +12244,22 @@ try {
     return res.json();
   }
 
+  // --- Final override (last one wins) ---
   window.editMember = async function(ev){
     try{ if (ev && typeof ev.preventDefault==='function') ev.preventDefault(); }catch(_){}
 
-    const id = getEditingMemberId();
+    let id = getEditingMemberId();
+    const codeFromForm = (val('editMemberCode') || '').trim();
+    if (!id && codeFromForm) {
+      id = findMemberIdByCode(codeFromForm);
+      if (id) {
+        window.__editingMemberId = id;
+        ensureHiddenEditId(id);
+        setModalDataset(id);
+      }
+    }
     if (!id){
+      console.error('editMember(v9): missing member ID');
       if (typeof window.showMessage === 'function') window.showMessage('Missing member ID', 'danger');
       return false;
     }
@@ -12191,10 +12267,9 @@ try {
     const prev = getMemberFromCaches(id);
     const prevState = prev ? up(prev.state || prev.State) : null;
 
-    // Collect from modal inputs (IDs)
     const payload = {
       name: val('editMemberName') || prev?.name || '',
-      code: val('editMemberCode') || prev?.code || '',
+      code: codeFromForm || prev?.code || '',
       position: val('editMemberPosition') || prev?.position || '',
       state: up(val('editMemberState') || prev?.state || prev?.State || ''),
       zone: val('editMemberZone') || prev?.zone || ''
@@ -12205,11 +12280,10 @@ try {
     try {
       updated = await putJSON(url, payload);
     } catch (e1){
-      // fallback to FormData in case server expects multipart
       try {
         updated = await putForm(url, payload);
       } catch(e2){
-        console.error('editMember override: backend update failed', e1, e2);
+        console.error('editMember(v9): backend update failed', e1, e2);
         if (typeof window.showMessage === 'function')
           window.showMessage('Backend update failed: ' + (e2?.message || e1?.message || 'Unknown error'), 'danger');
         return false;
@@ -12238,4 +12312,6 @@ try {
 
     return false;
   };
+
+  console.log('✅ NARAP v9 override active (ID + edit + activity)');
 })();
