@@ -13391,3 +13391,103 @@ try {
   });
 })();
 // === [/Injected] End ===
+
+
+// === [Injected] Recent Activity: filtered renderer (members/certificates only) ===
+(function(){
+  function passFilter(it){
+    if (!it) return false;
+    const ent = String(it.entity||'').toLowerCase();
+    const act = String(it.action||'').toLowerCase();
+    if (!['member','certificate'].includes(ent)) return false;
+    if (!['added','updated','deleted'].includes(act)) return false;
+    return true;
+  }
+  function formatRow(it){
+    const ent = String(it.entity||'').toLowerCase();
+    const act = String(it.action||'').toLowerCase();
+    const when = (it.ts && (new Date(it.ts).toLocaleString?.() || it.ts)) || (it.time || '');
+    let who = '';
+    if (ent === 'member') {
+      const d = it.data || {};
+      const name = d.name || d.fullName || '';
+      const code = d.code ? ` (${d.code})` : '';
+      who = `${name}${code}`.trim();
+    } else if (ent === 'certificate') {
+      const d = it.data || {};
+      const number = d.number || '';
+      const member = d.member || d.recipient || '';
+      who = `${number}${member ? ' • ' + member : ''}`.trim();
+    }
+    const title = `${act.charAt(0).toUpperCase()+act.slice(1)} ${ent}: ${who}`.trim();
+    return `<li class="ra-item"><strong>${title}</strong><span class="ra-meta" style="float:right;opacity:.7;">${when}</span></li>`;
+  }
+
+  window.renderRecentActivity = function renderRecentActivity(items){
+    try {
+      const containers = [
+        document.getElementById('recentActivity'),
+        document.getElementById('recentActivityList'),
+        document.querySelector('.recent-activity'),
+        document.querySelector('.activity-log')
+      ].filter(Boolean);
+      if (!containers.length) return;
+
+      const filtered = (Array.isArray(items) ? items : []).filter(passFilter);
+      const html = (filtered.length ? filtered : []).slice(0, 50).map(formatRow).join('');
+      const emptyHTML = `<li class="ra-empty" style="color:#6c757d;">No recent member or certificate changes</li>`;
+      const listHTML = `<ul class="ra-list" style="list-style:none;padding-left:0;margin:0;">${html || emptyHTML}</ul>`;
+
+      for (const el of containers) el.innerHTML = listHTML;
+    } catch(e){ /* no-op */ }
+  };
+
+  // Expose filter for other code (optional)
+  window.__recentActivityPassFilter = passFilter;
+})();
+// === [/Injected] End ===
+
+
+// === [Injected] Recent Activity: Live updates via SSE (fallback to polling) ===
+(function(){
+  if (window.__activityLiveBound) return;
+  window.__activityLiveBound = true;
+
+  function startSSE(){
+    if (!window.EventSource || !window.backendUrl) return null;
+    try {
+      const url = `${backendUrl}/api/activity/stream?entities=member,certificate`;
+      const es = new EventSource(url);
+      es.onmessage = function(ev){
+        try {
+          const item = JSON.parse(ev.data);
+          if (typeof window.__recentActivityPassFilter === 'function' && !window.__recentActivityPassFilter(item)) return;
+          // Keep a local rolling buffer and re-render
+          const buf = (window.__recentLiveBuffer = Array.isArray(window.__recentLiveBuffer) ? window.__recentLiveBuffer : []);
+          buf.unshift(item);
+          window.__recentLiveBuffer = buf.slice(0, 200);
+          if (typeof window.renderRecentActivity === 'function') window.renderRecentActivity(window.__recentLiveBuffer);
+        } catch(_){}
+      };
+      es.onerror = function(){
+        try { es.close(); } catch(_){}
+        setTimeout(startSSE, 5000);
+      };
+      return es;
+    } catch(_){ return null; }
+  }
+
+  // Fallback polling (15s) if SSE is unavailable
+  function startPolling(){
+    if (window.__recentPolling) return;
+    window.__recentPolling = setInterval(function(){
+      if (typeof window.reloadRecentActivity === 'function') window.reloadRecentActivity(50);
+    }, 15000);
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const es = startSSE();
+    if (!es) startPolling();
+  });
+})();
+// === [/Injected] End ===
