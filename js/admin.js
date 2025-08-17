@@ -1935,7 +1935,17 @@ function login(event) {
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('adminSection').style.display = 'block';
         
-        localStorage.setItem('narap_logged_in', 'true');
+        
+  try {
+    ['panel-members','panel-certificates','panel-analytics','panel-system'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.style.display='none';
+    });
+    var dash=document.getElementById('panel-dashboard');
+    if(dash) dash.style.display='block';
+    if (typeof switchTab==='function') switchTab('dashboard');
+  } catch(_){}
+  Promise.resolve().then(function(){ if (typeof loadDashboard==='function') loadDashboard(); });
+localStorage.setItem('narap_logged_in', 'true');
         
         
         showMessage('Login successful! Welcome to NARAP Admin Panel.', 'success');
