@@ -12124,3 +12124,118 @@ try {
   };
 })();
 
+/* ===== NARAP - EditMember Full Override (no-row) ===== */
+(function(){
+  function q(id){ return document.getElementById(id); }
+  function val(id){ const el = q(id); return el && typeof el.value !== 'undefined' ? el.value : ''; }
+  function up(s){ return (s||'').toString().trim().toUpperCase(); }
+
+  function getEditingMemberId(){
+    const hid = q('editMemberId');
+    if (hid && hid.value) return hid.value;
+    const modal = q('editMemberModal');
+    if (modal && modal.dataset && modal.dataset.memberId) return modal.dataset.memberId;
+    if (window.__editingMemberId) return window.__editingMemberId;
+    return '';
+  }
+
+  function getMemberFromCaches(id){
+    const coll = (window.currentMembers || window.members || []);
+    return Array.isArray(coll) ? coll.find(m => m && (m._id === id || m.id === id)) : null;
+  }
+
+  function applyToCaches(updated){
+    try{
+      const id = updated._id || updated.id || getEditingMemberId();
+      const coll = (window.currentMembers || window.members || []);
+      const m = Array.isArray(coll) ? coll.find(mm => mm && (mm._id === id || mm.id === id)) : null;
+      if (m){
+        for (const k of ['name','code','position','zone','email','phone','title']) {
+          if (typeof updated[k] !== 'undefined') m[k] = updated[k];
+        }
+        const st = up(updated.state || updated.State);
+        if (st){ m.state = st; m.State = st; }
+      }
+      if (typeof window.filterMembers === 'function') window.filterMembers();
+      else if (typeof window.renderMembers === 'function') window.renderMembers(coll);
+    }catch(_){}
+  }
+
+  async function putJSON(url, payload){
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`PUT JSON ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
+    return res.json();
+  }
+
+  async function putForm(url, payload){
+    const fd = new FormData();
+    for (const [k,v] of Object.entries(payload)) fd.append(k, v==null?'':v);
+    const res = await fetch(url, { method: 'PUT', body: fd });
+    if (!res.ok) throw new Error(`PUT FORM ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
+    return res.json();
+  }
+
+  window.editMember = async function(ev){
+    try{ if (ev && typeof ev.preventDefault==='function') ev.preventDefault(); }catch(_){}
+
+    const id = getEditingMemberId();
+    if (!id){
+      if (typeof window.showMessage === 'function') window.showMessage('Missing member ID', 'danger');
+      return false;
+    }
+
+    const prev = getMemberFromCaches(id);
+    const prevState = prev ? up(prev.state || prev.State) : null;
+
+    // Collect from modal inputs (IDs)
+    const payload = {
+      name: val('editMemberName') || prev?.name || '',
+      code: val('editMemberCode') || prev?.code || '',
+      position: val('editMemberPosition') || prev?.position || '',
+      state: up(val('editMemberState') || prev?.state || prev?.State || ''),
+      zone: val('editMemberZone') || prev?.zone || ''
+    };
+
+    const url = `/api/users/${id}`;
+    let updated;
+    try {
+      updated = await putJSON(url, payload);
+    } catch (e1){
+      // fallback to FormData in case server expects multipart
+      try {
+        updated = await putForm(url, payload);
+      } catch(e2){
+        console.error('editMember override: backend update failed', e1, e2);
+        if (typeof window.showMessage === 'function')
+          window.showMessage('Backend update failed: ' + (e2?.message || e1?.message || 'Unknown error'), 'danger');
+        return false;
+      }
+    }
+
+    applyToCaches(updated);
+
+    const newState = up(updated.state || updated.State);
+    if (prevState && newState && prevState !== newState) {
+      try {
+        if (typeof window.activityLogger?.member === 'function') {
+          window.activityLogger.member('state_moved', {
+            id: updated._id || updated.id || id,
+            name: updated.name || prev?.name,
+            code: updated.code || prev?.code,
+            from: prevState,
+            to: newState
+          });
+        }
+      } catch(_){}
+      if (typeof window.showMessage === 'function') window.showMessage(`Member moved to ${newState} from ${prevState}`, 'success');
+    } else {
+      if (typeof window.showMessage === 'function') window.showMessage('Member updated', 'success');
+    }
+
+    return false;
+  };
+})();
