@@ -13185,3 +13185,74 @@ try {
   setTimeout(bindMembersRefreshButtons, 3000);
 })();
 // === [/Injected] End ===
+
+
+// === [Merged Injection] Backend-first refresh for Members & Certificates ===
+(function(){
+  // ----- Members: backend-first refresh -----
+  window.refreshMembers = async function refreshMembers(){
+    try {
+      if (typeof showMessage === 'function') showMessage('Refreshing members from server…', 'info');
+
+      if (typeof window.reloadMembersBackendFirst === 'function') {
+        await window.reloadMembersBackendFirst(true);
+      } else if (typeof window.getMembers === 'function') {
+        await window.getMembers({ forceRefresh: true });
+        if (typeof window.refreshMembersUI === 'function') window.refreshMembersUI();
+      }
+
+      // Update member counters
+      try {
+        var count = Array.isArray(window.members) ? window.members.length : 0;
+        ['totalMembers','membersCount'].forEach(function(id){
+          var el = document.getElementById(id);
+          if (el) el.textContent = String(count);
+        });
+      } catch(e){}
+
+      // Reload recent activity (backend-first)
+      try { if (typeof window.reloadRecentActivity === 'function') await window.reloadRecentActivity(50); } catch(e){}
+
+      // Attempt pending sync (non-blocking)
+      try { if (typeof window.syncPendingChanges === 'function') window.syncPendingChanges(); } catch(e){}
+
+      if (typeof showMessage === 'function') showMessage('Members refreshed from server.', 'success');
+    } catch (err) {
+      if (typeof showMessage === 'function') showMessage('Failed to refresh members: ' + (err && err.message || err), 'error');
+    }
+  };
+
+  // ----- Certificates: backend-first refresh -----
+  window.refreshCertificates = async function refreshCertificates(){
+    try {
+      if (typeof showMessage === 'function') showMessage('Refreshing certificates from server…', 'info');
+
+      if (typeof window.loadCertificates === 'function') {
+        var per = Number(window.certificatesPerPage || localStorage.getItem('narap_certificates_per_page') || 10) || 10;
+        await window.loadCertificates(1, per);
+      } else if (typeof window.getCertificates === 'function') {
+        const certs = await window.getCertificates({ forceRefresh: true });
+        if (typeof window.refreshCertificatesUI === 'function') window.refreshCertificatesUI();
+      }
+
+      // Update certificate counters
+      try {
+        var total = Array.isArray(window.currentCertificates) ? window.currentCertificates.length
+                 : (Array.isArray(window.certificates) ? window.certificates.length : 0);
+        var el = document.getElementById('certificatesCount');
+        if (el) el.textContent = String(total);
+      } catch(e){}
+
+      // Reload recent activity (backend-first)
+      try { if (typeof window.reloadRecentActivity === 'function') await window.reloadRecentActivity(50); } catch(e){}
+
+      // Attempt pending sync (non-blocking)
+      try { if (typeof window.syncPendingChanges === 'function') window.syncPendingChanges(); } catch(e){}
+
+      if (typeof showMessage === 'function') showMessage('Certificates refreshed from server.', 'success');
+    } catch (err) {
+      if (typeof showMessage === 'function') showMessage('Failed to refresh certificates: ' + (err && err.message || err), 'error');
+    }
+  };
+})();
+// === [/Merged Injection] End ===
