@@ -13491,3 +13491,69 @@ try {
   });
 })();
 // === [/Injected] End ===
+
+
+// === [Injected Override] Recent Activity: restore scrollbar + normal font weight ===
+(function(){
+  // keep the same filter if defined
+  var passFilter = (typeof window.__recentActivityPassFilter === 'function')
+    ? window.__recentActivityPassFilter
+    : function(it){
+        if (!it) return false;
+        var ent = String(it.entity||'').toLowerCase();
+        var act = String(it.action||'').toLowerCase();
+        return (ent==='member'||ent==='certificate') && (act==='added'||act==='updated'||act==='deleted');
+      };
+
+  function formatRow(it){
+    var ent = String(it.entity||'').toLowerCase();
+    var act = String(it.action||'').toLowerCase();
+    var when = (it.ts && (new Date(it.ts).toLocaleString?.() || it.ts)) || (it.time || '');
+    var who = '';
+    if (ent === 'member') {
+      var d = it.data || {};
+      var name = d.name || d.fullName || '';
+      var code = d.code ? ' ('+d.code+')' : '';
+      who = (name+code).trim();
+    } else if (ent === 'certificate') {
+      var d2 = it.data || {};
+      var number = d2.number || '';
+      var member = d2.member || d2.recipient || '';
+      who = (number + (member ? ' • ' + member : '')).trim();
+    }
+    var title = (act.charAt(0).toUpperCase()+act.slice(1)) + ' ' + ent + (who ? ': ' + who : '');
+    return '<li class="ra-item" style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,.06);">' +
+           '<span class="ra-title" style="font-weight:400;">' + title + '</span>' +
+           '<span class="ra-meta" style="float:right; opacity:.7;">' + when + '</span>' +
+           '</li>';
+  }
+
+  window.renderRecentActivity = function renderRecentActivity(items){
+    try {
+      var containers = [
+        document.getElementById('recentActivity'),
+        document.getElementById('recentActivityList'),
+        document.querySelector('.recent-activity'),
+        document.querySelector('.activity-log')
+      ].filter(Boolean);
+      if (!containers.length) return;
+
+      var filtered = (Array.isArray(items) ? items : []).filter(passFilter);
+      var html = (filtered.length ? filtered : []).slice(0, 50).map(formatRow).join('');
+      var emptyHTML = '<li class="ra-empty" style="color:#6c757d;padding:6px 8px;">No recent member or certificate changes</li>';
+      var listHTML = '<ul class="ra-list" style="list-style:none;padding-left:0;margin:0;">' + (html || emptyHTML) + '</ul>';
+
+      for (var i=0;i<containers.length;i++){
+        var el = containers[i];
+        el.innerHTML = listHTML;
+        // Ensure scrollbar is present
+        try {
+          if (!el.style.maxHeight) el.style.maxHeight = '300px';
+          el.style.overflowY = 'auto';
+          el.style.webkitOverflowScrolling = 'touch';
+        } catch(_){}
+      }
+    } catch(e){ /* no-op */ }
+  };
+})();
+// === [/Injected Override] End ===
