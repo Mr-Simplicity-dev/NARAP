@@ -30,7 +30,8 @@ class PerformanceMonitor {
     }
 }
 
-
+// Notification Manager Class
+// Notification Manager Class (ghost box safe)
 // Notification Manager Class (fixed: no ghost box, no duplicates)
 class NotificationManager {
   constructor() {
@@ -11903,5 +11904,3 @@ try {
 
   console.log('✅ State Select Patch (merged) active');
 })();
-
-
