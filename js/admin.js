@@ -12639,3 +12639,39 @@ try {
 
   console.log('✅ NARAP v12 override active (multi-base + extended fallbacks)');
 })();
+
+
+
+// Safe global fallback avatar
+(function(){
+  try {
+    var a = (typeof window !== 'undefined' && window.NARAP_FALLBACK_AVATAR) ? window.NARAP_FALLBACK_AVATAR : null;
+    if (a && typeof a === 'string') { window.FALLBACK_AVATAR = a; }
+    else if (typeof window.FALLBACK_AVATAR === 'undefined') {
+      window.FALLBACK_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0yMCA3NUMyMCA2NS4wNTc2IDI4LjA1NzYgNTcgMzggNTdINjJDNzEuOTQyNCA1NyA4MCA2NS4wNTc2IDgwIDc1VjgwSDIwVjc1WiIgZmlsbD0iI0NDQyIvPgo8L3N2Zz4K';
+    }
+  } catch(_) {}
+})();
+
+
+/* === injected: debounce wrapper to reduce API 429s (safe, non-invasive) === */
+(function(){try{
+  if (window.__debounceInjected) return;
+  window.__debounceInjected = true;
+  function __debounce(fn, delay){
+    var t; 
+    return function(){
+      var ctx=this, args=arguments;
+      clearTimeout(t);
+      t=setTimeout(function(){ fn.apply(ctx,args); }, delay);
+    };
+  }
+  var fm = window.filterMembers;
+  if (typeof fm === 'function' && !fm.__isDebounced){
+    var wrapped = __debounce(fm, 350);
+    wrapped.__isDebounced = true;
+    window.filterMembers = wrapped;
+    // If bound to inputs via oninput attributes, this still works because name stays the same
+  }
+} catch(e) { /* no-op */ }})(); 
+/* === end injected === */
