@@ -14043,3 +14043,46 @@ try {
 })();
 // === [/Nesting Fix] End ===
 
+
+
+
+// === [Prune Duplicate Recent Activity Containers] ===
+(function(){
+  function unique(arr){ var s=new Set(); var out=[]; for (var i=0;i<arr.length;i++){ var el=arr[i]; if(!el) continue; if(s.has(el)) continue; s.add(el); out.push(el);} return out; }
+  function pruneRecentActivityContainers(){
+    try {
+      var sels = ['#recentActivity', '#recentActivityList', '.recent-activity', '.activity-log'];
+      var cands = [];
+      for (var i=0;i<sels.length;i++){
+        var list = document.querySelectorAll(sels[i]);
+        for (var j=0;j<list.length;j++) cands.push(list[j]);
+      }
+      cands = unique(cands);
+      if (cands.length < 2) return;
+
+      // Hide any candidate that contains another candidate (i.e., the upper/outer containers)
+      var toHide = [];
+      for (var a=0;a<cands.length;a++){
+        var el = cands[a];
+        for (var b=0;b<cands.length;b++){
+          if (a===b) continue;
+          var other = cands[b];
+          if (el.contains(other)) { toHide.push(el); break; }
+        }
+      }
+      toHide = unique(toHide);
+      for (var k=0;k<toHide.length;k++){
+        var elh = toHide[k];
+        elh.setAttribute('data-activity-pruned','1');
+        elh.style.display = 'none';
+      }
+    } catch(e){ /* no-op */ }
+  }
+  document.addEventListener('DOMContentLoaded', pruneRecentActivityContainers);
+  // Retry after SPA renders
+  setTimeout(pruneRecentActivityContainers, 400);
+  setTimeout(pruneRecentActivityContainers, 1500);
+  setTimeout(pruneRecentActivityContainers, 4000);
+})();
+// === [/Prune Duplicate Recent Activity Containers] ===
+
