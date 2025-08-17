@@ -13943,3 +13943,103 @@ try {
 })();
 // === [/FINAL Inject] End ===
 
+
+
+
+// === [Nesting Fix] Render into a single leaf container to avoid nested Recent Activity ===
+(function(){
+  function depth(n){ var d=0; while(n&&n.parentElement){ d++; n=n.parentElement; } return d; }
+  function unique(arr){ var out=[]; var seen=new Set(); for (var i=0;i<arr.length;i++){ var el=arr[i]; if(!el)continue; if(seen.has(el))continue; seen.add(el); out.push(el);} return out; }
+  function pickLeafContainer(){
+    // Prefer explicit body containers if they exist
+    var cands = unique([
+      document.querySelector('#recentActivity [data-role="activity-body"]'),
+      document.querySelector('#recentActivity .ra-body'),
+      document.getElementById('recentActivityList'),
+      document.getElementById('recentActivity'),
+      document.querySelector('.recent-activity'),
+      document.querySelector('.activity-log')
+    ].filter(Boolean));
+
+    if (!cands.length) return null;
+    // Remove any element that contains another candidate (keep deepest/leaf)
+    var leaves = cands.filter(function(el){
+      return !cands.some(function(other){ return el!==other && el.contains(other); });
+    });
+    // Pick the deepest by DOM depth
+    leaves.sort(function(a,b){ return depth(a)-depth(b); });
+    return leaves[leaves.length-1] || cands[0];
+  }
+
+  // Wrap existing renderer to target a single leaf container
+  var _origRender = window.renderRecentActivity;
+  window.renderRecentActivity = function(items){
+    try {
+      var target = pickLeafContainer();
+      if (!target) { if (typeof _origRender === 'function') return _origRender(items); else return; }
+
+      // Build markup using existing formatting from current renderer
+      var pass = (typeof window.__recentActivityPassFilter === 'function') ? window.__recentActivityPassFilter : function(){return true;};
+      function actionText(it){
+        var ent = String(it.entity||'').toLowerCase();
+        var act = String(it.action||'').toLowerCase();
+        var d = it.data || {};
+        if (ent === 'member'){
+          var name = d.name || d.fullName || '';
+          var code = d.code ? ' ('+d.code+')' : '';
+          return (act.charAt(0).toUpperCase()+act.slice(1)) + ' member: ' + (name+code).trim();
+        } else if (ent === 'certificate'){
+          var num = d.number || '';
+          var mem = d.member || d.recipient || '';
+          var who = (num + (mem ? ' • ' + mem : '')).trim();
+          return (act.charAt(0).toUpperCase()+act.slice(1)) + ' certificate: ' + who;
+        }
+        return act + ' ' + ent;
+      }
+      function whenText(it){
+        if (it.ts) { try { return new Date(it.ts).toLocaleString(); } catch(_){} }
+        return it.time || '';
+      }
+
+      var filtered = (Array.isArray(items)?items:[]).filter(pass).slice(0,50);
+      var html = filtered.map(function(it){
+        return ''+
+        '<li class="ra-item" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.06);">' +
+          '<button class="btn btn-sm btn-light ra-refresh" style="padding:2px 8px;font-size:12px;" onclick="(function(e){e.preventDefault(); if(window.reloadRecentActivity) window.reloadRecentActivity(50);})(event)">Refresh</button>' +
+          '<span class="ra-entity" style="font-weight:600;">' + String(it.entity||'').toLowerCase() + '</span>' +
+          '<span>-</span>' +
+          '<span class="ra-text" style="flex:1 1 auto;">' + actionText(it) + '</span>' +
+          '<span class="ra-meta" style="white-space:nowrap;opacity:.7;">' + whenText(it) + '</span>' +
+        '</li>';
+      }).join('');
+
+      var emptyHTML = '<li class="ra-empty" style="color:#6c757d;padding:8px 10px;">No recent member or certificate changes</li>';
+      var listHTML = '<ul class="ra-list" style="list-style:none;padding-left:0;margin:0;">' + (html || emptyHTML) + '</ul>';
+
+      // If target is already a body element, write directly; else ensure a body under it
+      if (target.getAttribute('data-role') === 'activity-body' || target.classList.contains('ra-body')) {
+        target.innerHTML = listHTML;
+        target.style.maxHeight = target.style.maxHeight || '300px';
+        target.style.overflowY = 'auto';
+        target.style.webkitOverflowScrolling = 'touch';
+      } else {
+        // Don't touch existing headers; just manage a child body
+        var body = target.querySelector('[data-role="activity-body"], .ra-body');
+        if (!body) {
+          body = document.createElement('div');
+          body.className = 'ra-body';
+          body.setAttribute('data-role','activity-body');
+          target.appendChild(body);
+        }
+        body.innerHTML = listHTML;
+        body.style.maxHeight = body.style.maxHeight || '300px';
+        body.style.overflowY = 'auto';
+        body.style.webkitOverflowScrolling = 'touch';
+      }
+    } catch(e){
+      try { if (typeof _origRender === 'function') return _origRender(items); } catch(_){}
+    }
+  };
+})();
+// === [/Nesting Fix] End ===
+
