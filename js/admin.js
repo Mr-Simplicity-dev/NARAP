@@ -13557,3 +13557,86 @@ try {
   };
 })();
 // === [/Injected Override] End ===
+
+
+// === [Injected Override] Recent Activity: restore previous row style with 'Refresh' badge ===
+(function(){
+  var passFilter = (typeof window.__recentActivityPassFilter === 'function')
+    ? window.__recentActivityPassFilter
+    : function(it){
+        if (!it) return false;
+        var ent = String(it.entity||'').toLowerCase();
+        var act = String(it.action||'').toLowerCase();
+        return (ent==='member'||ent==='certificate') && (act==='added'||act==='updated'||act==='deleted');
+      };
+
+  function actionText(it){
+    var ent = String(it.entity||'').toLowerCase();
+    var act = String(it.action||'').toLowerCase();
+    var d = it.data || {};
+    if (ent === 'member') {
+      var name = d.name || d.fullName || '';
+      var code = d.code ? ' ('+d.code+')' : '';
+      return (act.charAt(0).toUpperCase()+act.slice(1)) + ' member: ' + (name+code).trim();
+    } else if (ent === 'certificate') {
+      var num = d.number || '';
+      var mem = d.member || d.recipient || '';
+      var who = num + (mem ? ' • ' + mem : '');
+      return (act.charAt(0).toUpperCase()+act.slice(1)) + ' certificate: ' + who.trim();
+    }
+    return (act || '-') + ' ' + ent;
+  }
+
+  function whenText(it){
+    if (it.ts) { try { return new Date(it.ts).toLocaleString(); } catch(_){} }
+    return it.time || '';
+  }
+
+  // Click handler for the small refresh pill
+  function rowRefresh(e){
+    e && e.preventDefault && e.preventDefault();
+    if (typeof window.reloadRecentActivity === 'function') window.reloadRecentActivity(50);
+  }
+
+  window.renderRecentActivity = function renderRecentActivity(items){
+    try {
+      var containers = [
+        document.getElementById('recentActivity'),
+        document.getElementById('recentActivityList'),
+        document.querySelector('.recent-activity'),
+        document.querySelector('.activity-log')
+      ].filter(Boolean);
+      if (!containers.length) return;
+
+      var filtered = (Array.isArray(items) ? items : []).filter(passFilter);
+      var html = (filtered.length ? filtered : []).slice(0, 50).map(function(it, idx){
+        var when = whenText(it);
+        var ent = String(it.entity||'').toLowerCase();
+        var title = actionText(it);
+        return '' +
+        '<li class="ra-item" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid rgba(0,0,0,.06);">' +
+          '<button class="btn btn-sm btn-light ra-refresh" style="padding:2px 8px; font-size:12px;" onclick="(function(e){ e.preventDefault(); if(window.reloadRecentActivity) window.reloadRecentActivity(50); })(event)">Refresh</button>' +
+          '<span class="ra-entity" style="font-weight:600;">' + ent + '</span>' +
+          '<span>-</span>' +
+          '<span class="ra-text" style="flex:1 1 auto;">' + title + '</span>' +
+          '<span class="ra-meta" style="white-space:nowrap; opacity:.7;">' + when + '</span>' +
+        '</li>';
+      }).join('');
+
+      var emptyHTML = '<li class="ra-empty" style="color:#6c757d; padding:8px 10px;">No recent member or certificate changes</li>';
+      var listHTML = '<ul class="ra-list" style="list-style:none; padding-left:0; margin:0;">' + (html || emptyHTML) + '</ul>';
+
+      for (var i=0;i<containers.length;i++){
+        var el = containers[i];
+        el.innerHTML = listHTML;
+        // Ensure scrollbar
+        try {
+          if (!el.style.maxHeight) el.style.maxHeight = '300px';
+          el.style.overflowY = 'auto';
+          el.style.webkitOverflowScrolling = 'touch';
+        } catch(_){}
+      }
+    } catch(e){}
+  };
+})();
+// === [/Injected Override] End ===
