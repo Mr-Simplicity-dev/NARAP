@@ -11783,12 +11783,13 @@ try {
 })();
 // === End Certificate Dedupe Patch ===
 
-/* ========================= NARAP - State Select Patch (merged) =========================
-   This block converts #editMemberState to a <select> with full states list,
-   auto-selects saved state when editing, and enforces uppercase on submit.
-   It wraps existing functions (showEditMemberModal, editMember) without changing
-   their internal logic. Safe to keep at end of the file.
-======================================================================================== */
+/* ========================= NARAP - State Select Patch (merged v2, safe) =========================
+   Fixes prior infinite DOM churn by marking the select as patched and avoiding re-replacements.
+   - Converts #editMemberState to a <select> (once), with full states + FCT
+   - Auto-selects saved state on edit
+   - Uppercases state on submit
+   - Never re-renders an already-patched select
+================================================================================================= */
 (function(){
   const NIGERIA_STATES = [
     "ABIA","ADAMAWA","AKWA IBOM","ANAMBRA","BAUCHI","BAYELSA","BENUE","BORNO",
@@ -11802,6 +11803,7 @@ try {
     const sel = document.createElement('select');
     sel.id = 'editMemberState';
     sel.required = true;
+    sel.setAttribute('data-state-patched','1');
     sel.innerHTML = '<option value=\"\">SELECT STATE</option>' +
       NIGERIA_STATES.map(s => `<option value="${s}">${s}</option>`).join('');
     if (currentValue) {
@@ -11818,22 +11820,33 @@ try {
     return sel;
   }
 
+  function isPatchedSelect(el){
+    return !!(el && el.tagName && el.tagName.toLowerCase()==='select' && el.getAttribute('data-state-patched')==='1');
+  }
+
   function ensureStateSelect(){
     try{
       const el = document.getElementById('editMemberState');
-      if (!el) return;
+      if (!el) return false;
+
+      // If already a patched select, do nothing
+      if (isPatchedSelect(el)) return true;
+
+      // If it's a select but not patched, patch it ONCE by rebuilding with marker
       if (el.tagName && el.tagName.toLowerCase() === 'select') {
-        // Normalize options with our canonical list while keeping current selection
         const current = el.value || el.getAttribute('value') || '';
         const sel = buildStateSelect(current);
         el.replaceWith(sel);
-        return;
+        return true;
       }
+
       // If it's an <input>, replace with our <select>
       const value = el.value || el.getAttribute('value') || '';
       const sel = buildStateSelect(value);
       el.replaceWith(sel);
+      return true;
     }catch(e){ /* best effort */ }
+    return false;
   }
 
   // Expose helper to set value programmatically
@@ -11880,27 +11893,35 @@ try {
       ensureStateSelect();
       try{
         const el = document.getElementById('editMemberState');
-        if (el) {
-          const up = (el.value || '').toString().trim().toUpperCase();
-          el.value = up;
-        }
+        if (el) el.value = (el.value || '').toString().trim().toUpperCase();
       }catch(_){}
       return orig.apply(this, arguments);
     };
   })();
 
-  // Initialize once DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureStateSelect);
-  } else {
-    ensureStateSelect();
+  function observeUntilPatched(){
+    try{
+      const obs = new MutationObserver(() => {
+        // Only act when there is an unpatched target present
+        const el = document.getElementById('editMemberState');
+        if (el && !isPatchedSelect(el)) {
+          ensureStateSelect();
+        }
+      });
+      obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
+    }catch(_){}
   }
 
-  // Observe modal insertions or dynamic DOM changes
-  try{
-    const obs = new MutationObserver(() => ensureStateSelect());
-    obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
-  }catch(_){}
+  // Initialize once DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      ensureStateSelect();
+      observeUntilPatched();
+    });
+  } else {
+    ensureStateSelect();
+    observeUntilPatched();
+  }
 
-  console.log('✅ State Select Patch (merged) active');
+  console.log('✅ State Select Patch (merged v2, safe) active');
 })();
