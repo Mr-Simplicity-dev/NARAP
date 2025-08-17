@@ -13058,3 +13058,32 @@ try {
   });
 })();
 // === [/Injected] End ===
+
+
+// === [Injected] Recent Activity dashboard hooks (minimal) ===
+(function(){
+  // Wrap switchTab once to refresh activity on dashboard
+  if (!window.__switchTabWrapped) {
+    if (typeof window.switchTab === 'function') {
+      const _origSwitchTab = window.switchTab;
+      window.switchTab = function(name){
+        const r = _origSwitchTab.apply(this, arguments);
+        try {
+          if (String(name).toLowerCase() === 'dashboard' && typeof window.reloadRecentActivity === 'function') {
+            window.reloadRecentActivity(50);
+          }
+        } catch(_){}
+        return r;
+      };
+      window.__switchTabWrapped = true;
+    }
+  }
+
+  // Ensure activity is loaded on first paint if container exists
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      if (typeof window.reloadRecentActivity === 'function') window.reloadRecentActivity(50);
+    } catch(_){}
+  });
+})();
+// === [/Injected] End ===
