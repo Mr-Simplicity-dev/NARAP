@@ -12124,12 +12124,14 @@ try {
   };
 })();
 
-/* ===================== NARAP - All-in-One Edit + ID + Activity Override (v9) =====================
-   - Guarantees member ID is available for save (hidden input, modal dataset, button capture, code lookup)
-   - Replaces editMember with a robust version (no `row` usage) that PUTs JSON (with FormData fallback)
-   - Updates in-memory caches, re-renders, and logs `member • state_moved` in Recent Activity
-   - Compatible with earlier state-select patch; last override wins safely
-=================================================================================================== */
+/* ===================== NARAP - All-in-One Edit + ID + Activity Override (v10) =====================
+   Adds POST override fallback for 405 Method Not Allowed responses.
+   Order of attempts:
+     1) PUT (JSON)
+     2) PUT (FormData)
+     3) POST + X-HTTP-Method-Override: PUT (JSON)
+     4) POST + X-HTTP-Method-Override: PUT (FormData)
+==================================================================================================== */
 (function(){
   // --- Helpers ---
   const $ = (id) => document.getElementById(id);
@@ -12244,6 +12246,31 @@ try {
     return res.json();
   }
 
+  async function postOverrideJSON(url, payload){
+    const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'method=PUT', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-HTTP-Method-Override': 'PUT'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`POST(override) JSON ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
+    return res.json();
+  }
+
+  async function postOverrideForm(url, payload){
+    const fd = new FormData();
+    for (const [k,v] of Object.entries(payload)) fd.append(k, v==null?'':v);
+    const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'method=PUT', {
+      method: 'POST',
+      headers: { 'X-HTTP-Method-Override': 'PUT' },
+      body: fd
+    });
+    if (!res.ok) throw new Error(`POST(override) FORM ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
+    return res.json();
+  }
+
   // --- Final override (last one wins) ---
   window.editMember = async function(ev){
     try{ if (ev && typeof ev.preventDefault==='function') ev.preventDefault(); }catch(_){}
@@ -12259,7 +12286,7 @@ try {
       }
     }
     if (!id){
-      console.error('editMember(v9): missing member ID');
+      console.error('editMember(v10): missing member ID');
       if (typeof window.showMessage === 'function') window.showMessage('Missing member ID', 'danger');
       return false;
     }
@@ -12283,10 +12310,18 @@ try {
       try {
         updated = await putForm(url, payload);
       } catch(e2){
-        console.error('editMember(v9): backend update failed', e1, e2);
-        if (typeof window.showMessage === 'function')
-          window.showMessage('Backend update failed: ' + (e2?.message || e1?.message || 'Unknown error'), 'danger');
-        return false;
+        try {
+          updated = await postOverrideJSON(url, payload);
+        } catch (e3){
+          try {
+            updated = await postOverrideForm(url, payload);
+          } catch (e4){
+            console.error('editMember(v10): backend update failed', e1, e2, e3, e4);
+            if (typeof window.showMessage === 'function')
+              window.showMessage('Backend update failed: ' + (e4?.message || e3?.message || e2?.message || e1?.message || 'Unknown error'), 'danger');
+            return false;
+          }
+        }
       }
     }
 
@@ -12313,5 +12348,5 @@ try {
     return false;
   };
 
-  console.log('✅ NARAP v9 override active (ID + edit + activity)');
+  console.log('✅ NARAP v10 override active (method-override fallback)');
 })();
