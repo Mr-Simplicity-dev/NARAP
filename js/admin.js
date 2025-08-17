@@ -12939,6 +12939,156 @@ try {
 /* === end injected === */
 
 
+// === [Injected] Recent Activity: backend-first display with offline fallback & sync ===
+// Keeps your existing ActivityLogger (localStorage) intact, adds backend-first fetch for display,
+// and queues local logs for backend sync when online. All guards prevent double registration.
+(function(){
+  if (window.__activityBackendFirstBound) return;
+  window.__activityBackendFirstBound = true;
+
+  // Local storage queue for unsent activity items
+  const QUEUE_KEY = 'narap_activity_pending';
+
+  function readPendingActivity(){
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]') || []; } catch { return []; }
+  }
+  function writePendingActivity(list){
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(Array.isArray(list) ? list : [])); } catch {}
+  }
+  function queueActivity(entry){
+    const list = readPendingActivity();
+    list.push({...entry, __attempts: (entry.__attempts||0)});
+    writePendingActivity(list);
+  }
+
+  // Wrap logger to also queue to backend (without breaking the original behavior)
+  try {
+    const _origLog = activityLogger && activityLogger.log ? activityLogger.log.bind(activityLogger) : null;
+    if (_origLog && !activityLogger.__wrappedForBackend) {
+      activityLogger.log = function(entry){
+        const e = _origLog(entry);
+        try { queueActivity(e); } catch(_){}
+        // Fire-and-forget sync if online
+        if (navigator.onLine) { try { window.syncActivityPending && window.syncActivityPending(); } catch(_){} }
+        return e;
+      };
+      activityLogger.__wrappedForBackend = true;
+    }
+  } catch(_){}
+
+  // Backend-first fetch (UI can call this to show Recent Activity)
+  if (typeof window.getRecentActivity !== 'function') {
+    window.getRecentActivity = async function getRecentActivity(limit = 50) {
+      // Try backend first when online
+      if (navigator.onLine) {
+        try {
+          const url = `${backendUrl}/api/activity?limit=${encodeURIComponent(limit)}`;
+          const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+          if (resp.ok) {
+            const body = await (typeof tryJson === 'function' ? tryJson(resp) : resp.json().catch(()=>null));
+            // Accept common shapes: [], {data:[]}, {success:{data:[]}} 
+            let items = Array.isArray(body) ? body
+                      : (Array.isArray(body?.data) ? body.data
+                      : (Array.isArray(body?.success?.data) ? body.success.data : []));
+            if (Array.isArray(items) && items.length) {
+              return items.slice(0, limit);
+            }
+          }
+        } catch(_) { /* fall back to local */ }
+      }
+      // Local fallback (uses your ActivityLogger)
+      try {
+        const local = (typeof getActivityLog === 'function') ? getActivityLog() : [];
+        return Array.isArray(local) ? local.slice(0, limit) : [];
+      } catch { return []; }
+    };
+  }
+
+  // Sync pending local activity logs to backend when online
+  if (typeof window.syncActivityPending !== 'function') {
+    window.syncActivityPending = async function syncActivityPending(){
+      if (!navigator.onLine) return;
+      let list = readPendingActivity();
+      if (!list.length) return;
+
+      const remain = [];
+      for (const item of list) {
+        try {
+          const resp = await fetch(`${backendUrl}/api/activity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(item)
+          });
+          if (!resp.ok) {
+            // Keep and increment attempts up to 3
+            const attempts = (item.__attempts||0) + 1;
+            if (attempts < 3) remain.push({...item, __attempts: attempts});
+          }
+        } catch(_) {
+          const attempts = (item.__attempts||0) + 1;
+          if (attempts < 3) remain.push({...item, __attempts: attempts});
+        }
+      }
+      writePendingActivity(remain);
+    };
+  }
+
+  // Helper to refresh any UI that shows activity if present
+  if (typeof window.reloadRecentActivity !== 'function') {
+    window.reloadRecentActivity = async function reloadRecentActivity(limit=50){
+      const items = await window.getRecentActivity(limit);
+      // If your UI has a specific renderer, call it here if present.
+      if (typeof window.renderRecentActivity === 'function') {
+        try { window.renderRecentActivity(items); } catch(_){}
+      }
+      return items;
+    };
+  }
+
+  // On page load: try to sync any pending and then show backend-first activity
+  document.addEventListener('DOMContentLoaded', async () => {
+    try { await window.syncActivityPending(); } catch(_) {}
+    try { await window.reloadRecentActivity(50); } catch(_) {}
+  });
+
+  // When back online: sync and reload
+  window.addEventListener('online', async () => {
+    try { await window.syncActivityPending(); } catch(_) {}
+    try { await window.reloadRecentActivity(50); } catch(_) {}
+  });
+})();
+// === [/Injected] End ===
+
+
+// === [Injected] Recent Activity dashboard hooks (minimal) ===
+(function(){
+  // Wrap switchTab once to refresh activity on dashboard
+  if (!window.__switchTabWrapped) {
+    if (typeof window.switchTab === 'function') {
+      const _origSwitchTab = window.switchTab;
+      window.switchTab = function(name){
+        const r = _origSwitchTab.apply(this, arguments);
+        try {
+          if (String(name).toLowerCase() === 'dashboard' && typeof window.reloadRecentActivity === 'function') {
+            window.reloadRecentActivity(50);
+          }
+        } catch(_){}
+        return r;
+      };
+      window.__switchTabWrapped = true;
+    }
+  }
+
+  // Ensure activity is loaded on first paint if container exists
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      if (typeof window.reloadRecentActivity === 'function') window.reloadRecentActivity(50);
+    } catch(_){}
+  });
+})();
+// === [/Injected] End ===
+
+
 // === [Injected] Members Tab: Backend Refresh Button Handler ===
 (function(){
   if (window.__membersRefreshBound) return;
@@ -13105,31 +13255,165 @@ try {
     }
   };
 })();
+// === [/Merged Injection] End ===
 
 
-
-// === [RECENT ACTIVITY v1 - single source of truth] ===
+// === [Injected] Ensure Recent Activity mirrors System Activity (backend + offline queue) ===
 (function(){
-  // ---- Kill old intervals/EventSources and old functions ----
+  if (window.__activityBridgeApplied) return;
+  window.__activityBridgeApplied = true;
+
+  // ---- Queue helpers (idempotent) ----
+  const QUEUE_KEY = 'narap_activity_pending';
+  function __readPendingActivity(){
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]') || []; } catch { return []; }
+  }
+  function __writePendingActivity(list){
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(Array.isArray(list) ? list : [])); } catch {}
+  }
+  async function __postActivity(item){
+    if (!item) return;
+    // Normalize: ensure ts/date/time
+    try {
+      const now = new Date();
+      item.ts = item.ts || now.toISOString();
+      item.date = item.date || now.toLocaleDateString();
+      item.time = item.time || now.toLocaleTimeString();
+    } catch(_){}
+    // Try online first
+    if (navigator.onLine && typeof backendUrl === 'string' && backendUrl) {
+      try {
+        const resp = await fetch(`${backendUrl}/api/activity`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        if (resp.ok) return true;
+      } catch(_){/* fall through */}
+    }
+    // Queue for later
+    const list = __readPendingActivity();
+    list.push({ ...item, __attempts: (item.__attempts||0) });
+    __writePendingActivity(list);
+    return false;
+  }
+
+  if (typeof window.syncActivityPending !== 'function') {
+    window.syncActivityPending = async function syncActivityPending(){
+      if (!navigator.onLine) return;
+      let list = __readPendingActivity();
+      if (!list.length) return;
+      const remain = [];
+      for (const item of list) {
+        try {
+          const resp = await fetch(`${backendUrl}/api/activity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(item)
+          });
+          if (!resp.ok) {
+            const attempts = (item.__attempts||0) + 1;
+            if (attempts < 3) remain.push({ ...item, __attempts: attempts });
+          }
+        } catch(_) {
+          const attempts = (item.__attempts||0) + 1;
+          if (attempts < 3) remain.push({ ...item, __attempts: attempts });
+        }
+      }
+      __writePendingActivity(remain);
+    };
+  }
+
+  // ---- Wrap local log helpers so they also post/queue to backend ----
+  function wrapAndBridge(fnName, entity, actionKey='action'){
+    try {
+      const orig = window[fnName];
+      if (typeof orig !== 'function' || orig.__bridged) return;
+      window[fnName] = async function bridged(item){
+        // Call original (keeps local System Activity in sync)
+        const res = orig.apply(this, arguments);
+        try {
+          const e = { entity: entity, [actionKey]: (fnName.toLowerCase().includes('add') ? 'added' : fnName.toLowerCase().includes('update') ? 'updated' : 'deleted') };
+          // Build compact data payload
+          if (entity === 'member') {
+            e.data = {
+              id: item?._id || item?.id,
+              code: item?.code,
+              name: item?.name || item?.fullName,
+              state: item?.state || item?.State,
+              email: item?.email || null
+            };
+          } else if (entity === 'certificate') {
+            e.data = {
+              id: item?._id || item?.id,
+              number: item?.certificateNumber || item?.number,
+              member: item?.memberName || item?.recipientName || item?.name
+            };
+          } else {
+            e.data = item || {};
+          }
+          await __postActivity(e);
+          if (navigator.onLine && typeof window.reloadRecentActivity === 'function') {
+            try { window.reloadRecentActivity(50); } catch(_){}
+          }
+        } catch(_){}
+        return res;
+      };
+      window[fnName].__bridged = true;
+    } catch(_){}
+  }
+
+  // Bridge member & certificate helpers
+  wrapAndBridge('logMemberAdd', 'member');
+  wrapAndBridge('logMemberUpdate', 'member');
+  wrapAndBridge('logMemberDelete', 'member');
+  wrapAndBridge('logCertificateAdd', 'certificate');
+  wrapAndBridge('logCertificateUpdate', 'certificate');
+  wrapAndBridge('logCertificateDelete', 'certificate');
+
+  // Also bridge generic ActivityLogger.log if present, to catch any direct logs
+  try {
+    if (window.activityLogger && typeof activityLogger.log === 'function' && !activityLogger.log.__bridged) {
+      const _origLog = activityLogger.log.bind(activityLogger);
+      activityLogger.log = async function(entry){
+        const e = _origLog(entry);
+        try { await __postActivity(e); } catch(_){}
+        return e;
+      };
+      activityLogger.log.__bridged = true;
+    }
+  } catch(_){}
+
+  // Kick a sync when back online
+  window.addEventListener('online', async () => {
+    try { await window.syncActivityPending(); } catch(_){}
+    try { if (typeof window.reloadRecentActivity === 'function') await window.reloadRecentActivity(50); } catch(_){}
+  });
+})();
+// === [/Injected] End ===
+
+
+// === [RECENT ACTIVITY v1 — single-source live module] ===
+(function(){
+  // Stop any legacy loops/listeners and override old APIs to avoid duplicates
   try {
     for (const k of Object.keys(window)) {
       if (/^__recentPolling/.test(k)) { try { clearInterval(window[k]); } catch(_){}; try{ delete window[k]; }catch(_){} }
     }
     const esKeys = ['__recentES','__recentEventSource','__activityES','__RA_es'];
     for (const k of esKeys) { try { window[k] && window[k].close && window[k].close(); } catch(_){}; try{ delete window[k]; }catch(_){} }
-    // Remove old APIs so we don't accidentally call them
-    delete window.renderRecentActivity;
-    delete window.getRecentActivity;
-    delete window.reloadRecentActivity;
-    delete window.__recentActivityPassFilter;
   } catch(_) {}
+  try { delete window.renderRecentActivity; } catch(_) {}
+  try { delete window.getRecentActivity; } catch(_) {}
+  try { delete window.reloadRecentActivity; } catch(_) {}
+  try { delete window.__recentActivityPassFilter; } catch(_) {}
 
-  // ---- Config ----
+  // Config
   const FILTER_ENTS = ['member','certificate'];
   const FILTER_ACTS = ['added','updated','deleted'];
   const LIMIT = 50;
 
-  // ---- Utils ----
+  // Helpers
   function pass(it){
     if (!it) return false;
     const e = String(it.entity||'').toLowerCase();
@@ -13176,12 +13460,12 @@ try {
     return it.time || '';
   }
 
-  // ---- Target selection (single leaf) ----
+  // Find a single (deepest) target; do NOT create extra containers
   function unique(arr){ const s=new Set(); const out=[]; for(const el of arr){ if(el && !s.has(el)){ s.add(el); out.push(el); } } return out; }
   function depth(n){ let d=0; while(n && n.parentElement){ d++; n=n.parentElement; } return d; }
   function findTarget(){
     const candidates = unique([
-      document.querySelector('#recentActivity [data-role=\"activity-body\"]'),
+      document.querySelector('#recentActivity [data-role="activity-body"]'),
       document.querySelector('#recentActivity .ra-body'),
       document.getElementById('recentActivityList'),
       document.getElementById('recentActivity'),
@@ -13189,13 +13473,14 @@ try {
       document.querySelector('.activity-log')
     ].filter(Boolean));
     if (!candidates.length) return null;
-    // Choose the deepest (leaf) element
+    // Choose the deepest element so we never render inside a parent wrapper and again in a child
     const leaves = candidates.filter(el => !candidates.some(other => el!==other && el.contains(other)));
     leaves.sort((a,b)=> depth(a)-depth(b));
     let target = leaves[leaves.length-1] || candidates[0];
-    // If target is not a body, create/use a child body
+
+    // If target is not a body node, use/create a body inside it
     if (!(target.getAttribute && (target.getAttribute('data-role')==='activity-body' || target.classList.contains('ra-body')))) {
-      let body = target.querySelector('[data-role=\"activity-body\"], .ra-body');
+      let body = target.querySelector('[data-role="activity-body"], .ra-body');
       if (!body) {
         body = document.createElement('div');
         body.className = 'ra-body';
@@ -13204,9 +13489,10 @@ try {
       }
       target = body;
     }
-    // Ensure title exists above the body
+
+    // Ensure header exists once (keep your existing title; add one if missing)
     const parent = target.parentElement;
-    if (parent && !parent.querySelector('.ra-header, [data-role=\"activity-header\"], .card-title, h3, h4, h5')) {
+    if (parent && !parent.querySelector('.ra-header, [data-role="activity-header"], .card-title, h3, h4, h5')) {
       const header = document.createElement('div');
       header.className = 'ra-header';
       header.setAttribute('data-role','activity-header');
@@ -13216,8 +13502,7 @@ try {
       header.style.padding = '8px 10px';
       parent.insertBefore(header, parent.firstChild);
     }
-    // Unhide if any previous prune hid containers
-    try { parent && (parent.style.display=''); parent && parent.removeAttribute('data-activity-pruned'); } catch(_){}
+
     // Enforce scrollbar on body only
     target.style.maxHeight = target.style.maxHeight || '300px';
     target.style.overflowY = 'auto';
@@ -13225,28 +13510,28 @@ try {
     return target;
   }
 
-  // ---- Rendering ----
+  // Rendering
   function render(items){
     const target = findTarget();
     if (!target) return;
     const filtered = dedupe((Array.isArray(items)?items:[]).filter(pass)).slice(0, LIMIT);
     const html = filtered.map(it => `
-      <li class=\"ra-item\" style=\"display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.06);\">
-        <button class=\"btn btn-sm btn-light ra-refresh\" style=\"padding:2px 8px;font-size:12px;\"
-                onclick=\"(function(e){e.preventDefault(); if(window.RA && RA.reload) RA.reload();})(event)\">
+      <li class="ra-item" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.06);">
+        <button class="btn btn-sm btn-light ra-refresh" style="padding:2px 8px;font-size:12px;"
+                onclick="(function(e){e.preventDefault(); if(window.RA && RA.reload) RA.reload();})(event)">
           Refresh
         </button>
-        <span class=\"ra-entity\" style=\"font-weight:600;\">${String(it.entity||'').toLowerCase()}</span>
+        <span class="ra-entity" style="font-weight:600;">${String(it.entity||'').toLowerCase()}</span>
         <span>-</span>
-        <span class=\"ra-text\" style=\"flex:1 1 auto;\">${actionText(it)}</span>
-        <span class=\"ra-meta\" style=\"white-space:nowrap;opacity:.7;\">${whenText(it)}</span>
+        <span class="ra-text" style="flex:1 1 auto;">${actionText(it)}</span>
+        <span class="ra-meta" style="white-space:nowrap;opacity:.7;">${whenText(it)}</span>
       </li>
     `).join('');
-    const emptyHTML = `<li class=\"ra-empty\" style=\"color:#6c757d;padding:8px 10px;\">No recent member or certificate changes</li>`;
-    target.innerHTML = `<ul class=\"ra-list\" style=\"list-style:none;padding-left:0;margin:0;\">${html || emptyHTML}</ul>`;
+    const emptyHTML = `<li class="ra-empty" style="color:#6c757d;padding:8px 10px;">No recent member or certificate changes</li>`;
+    target.innerHTML = `<ul class="ra-list" style="list-style:none;padding-left:0;margin:0;">${html || emptyHTML}</ul>`;
   }
 
-  // ---- Data sources ----
+  // Data
   async function getBackend(limit=LIMIT){
     if (!navigator.onLine || !window.backendUrl) return [];
     try {
@@ -13268,7 +13553,7 @@ try {
     return [];
   }
 
-  // ---- Public API ----
+  // Public API
   const RA = {
     buf: [], es: null, poll: null,
     async reload(){
@@ -13284,7 +13569,7 @@ try {
       try { RA.es && RA.es.close && RA.es.close(); } catch(_) {}
       try { RA.poll && clearInterval(RA.poll); } catch(_) {}
 
-      // SSE
+      // SSE (filtered)
       if (window.EventSource && window.backendUrl) {
         try {
           const url = `${backendUrl}/api/activity/stream?entities=${FILTER_ENTS.join(',')}&actions=${FILTER_ACTS.join(',')}`;
@@ -13300,13 +13585,16 @@ try {
           RA.es.onerror = ()=>{ try{RA.es && RA.es.close();}catch(_){}; RA.es = null; setTimeout(()=>{RA.start();}, 5000); };
         } catch(_){ RA.es = null; }
       }
+
       // Poll fallback
       if (!RA.es) {
         RA.poll = setInterval(()=>{ RA.reload(); }, 15000);
       }
+
       // Initial load
       RA.reload();
-      // Network events
+
+      // Refresh when back online
       window.addEventListener('online', ()=> RA.reload());
     },
     stop(){
@@ -13316,118 +13604,13 @@ try {
       RA.poll = null;
     }
   };
-  window.RA = RA; // expose
-  // Optional global aliases for compatibility
+  window.RA = RA;
+  // Back-compat aliases
   window.renderRecentActivity = render;
   window.getRecentActivity = async (limit)=>{ const out = await RA.reload(); return out.slice(0, limit||LIMIT); };
   window.reloadRecentActivity = ()=> RA.reload();
 
-  // Start automatically
+  // Auto-start
   document.addEventListener('DOMContentLoaded', ()=> RA.start());
 })();
 // === [/RECENT ACTIVITY v1] End ===
-
-
-
-
-// === [RECENT ACTIVITY root fix: single visible container, remove nested duplicates] ===
-(function(){
-  if (window.__RA_rootfix_applied) return; window.__RA_rootfix_applied = true;
-
-  // Choose a single root container deterministically; prefer explicit marker if present
-  function pickRoot(){
-    // If dev marks a root explicitly, honor it
-    var marked = document.querySelector('[data-recent-activity-root]');
-    if (marked) return marked;
-
-    // Priority order
-    var order = [
-      '#recentActivity [data-role="activity-body"]',
-      '#recentActivity .ra-body',
-      '#recentActivityList',
-      '#recentActivity',
-      '.recent-activity',
-      '.activity-log'
-    ];
-    for (var i=0;i<order.length;i++){
-      var el = document.querySelector(order[i]);
-      if (el) return el;
-    }
-    return null;
-  }
-
-  function isAncestor(a, b){ try { return a && b && a !== b && a.contains(b); } catch(_) { return false; } }
-  function isDescendant(a, b){ return isAncestor(b, a); }
-
-  // Remove extra RA lists/containers while keeping header wrappers
-  function sanitizeAround(rootBody){
-    try {
-      if (!rootBody) return;
-      // If rootBody is not a body, create one inside
-      if (!(rootBody.getAttribute && (rootBody.getAttribute('data-role')==='activity-body' || rootBody.classList.contains('ra-body')))) {
-        var body = rootBody.querySelector('[data-role="activity-body"], .ra-body');
-        if (!body) {
-          body = document.createElement('div');
-          body.className = 'ra-body';
-          body.setAttribute('data-role','activity-body');
-          rootBody.appendChild(body);
-        }
-        rootBody = body;
-      }
-
-      // Find all potential RA containers
-      var cands = Array.from(document.querySelectorAll('#recentActivity, #recentActivityList, .recent-activity, .activity-log'));
-      // Hide any candidate that is neither the root body nor an ancestor of it
-      cands.forEach(function(el){
-        if (el === rootBody || isAncestor(el, rootBody)) {
-          // keep visible
-          el.style.display = '';
-        } else {
-          el.style.display = 'none';
-        }
-      });
-
-      // Inside the kept ancestor, remove duplicate RA lists outside the root body
-      var keepWrapper = rootBody.parentElement;
-      if (keepWrapper) {
-        var dupLists = Array.from(keepWrapper.querySelectorAll('.ra-list, .ra-item, [data-role="activity-body"], .ra-body'))
-          .filter(function(el){ return el !== rootBody && !isAncestor(el, rootBody) && !isDescendant(el, rootBody); });
-        dupLists.forEach(function(el){ try { el.remove(); } catch(_){} });
-      }
-
-      // Ensure scrollbars only on root body
-      rootBody.style.maxHeight = rootBody.style.maxHeight || '300px';
-      rootBody.style.overflowY = 'auto';
-      rootBody.style.webkitOverflowScrolling = 'touch';
-
-      // Expose chosen root for renderer
-      window.__RA_rootBody = rootBody;
-    } catch(_){}
-  }
-
-  // Hook into RA after it becomes available
-  function apply(){
-    try {
-      var root = pickRoot();
-      if (!root) return;
-      sanitizeAround(root);
-    } catch(_){}
-  }
-
-  document.addEventListener('DOMContentLoaded', apply);
-  setTimeout(apply, 300);
-  setTimeout(apply, 1200);
-  setTimeout(apply, 3000);
-
-  // Patch RA.findTarget (if present) to always use the chosen root
-  try {
-    if (window.RA) {
-      window.RA.findTarget = function(){
-        if (window.__RA_rootBody) return window.__RA_rootBody;
-        var r = pickRoot(); sanitizeAround(r); return window.__RA_rootBody || r;
-      };
-    }
-  } catch(_){}
-})();
-// === [/RECENT ACTIVITY root fix] ===
-
