@@ -13745,3 +13745,201 @@ try {
   };
 })();
 // === [/Injected Override] End ===
+
+
+
+// === [FINAL Inject] Recent Activity: filtered, deduped, no-duplicate logs, live ===
+(function(){
+  // Signal that backend hooks exist for activity; avoid client-side POSTing
+  window.ACTIVITY_BACKEND_HOOKS = true;
+
+  // Replace log helpers to avoid posting to /api/activity (backend hooks will log)
+  (function(){
+    function mData(m){ return { id: m?._id||m?.id, code: m?.code, name: m?.name||m?.fullName, state: m?.state||m?.State, email: m?.email||null }; }
+    function cData(c){ return { id: c?._id||c?.id, number: c?.certificateNumber||c?.number, member: c?.memberName||c?.recipientName||c?.name }; }
+    try {
+      if (typeof window.activityLogger === 'object') {
+        window.logMemberAdd    = (m)=>activityLogger.member('added',   mData(m));
+        window.logMemberUpdate = (m)=>activityLogger.member('updated', mData(m));
+        window.logMemberDelete = (m)=>activityLogger.member('deleted', mData(m));
+        window.logCertificateAdd    = (c)=>activityLogger.certificate('added',   cData(c));
+        window.logCertificateUpdate = (c)=>activityLogger.certificate('updated', cData(c));
+        window.logCertificateDelete = (c)=>activityLogger.certificate('deleted', cData(c));
+      }
+    } catch(_){}
+  })();
+
+  // Filtering
+  window.__recentActivityPassFilter = function(it){
+    if (!it) return false;
+    const ent = String(it.entity||'').toLowerCase();
+    const act = String(it.action||'').toLowerCase();
+    return (ent==='member' || ent==='certificate') &&
+           (act==='added' || act==='updated' || act==='deleted');
+  };
+
+  // Dedupe helpers
+  function keyOf(it){
+    if (!it) return 'null';
+    if (it._id) return 'id:' + it._id;
+    const ent = String(it.entity||'').toLowerCase();
+    const act = String(it.action||'').toLowerCase();
+    const d = it.data || {};
+    const did = d.id || d._id || d.code || d.number || d.email || d.member || '';
+    // Round ts to minute to avoid micro dupes
+    let t = it.ts || it.time || '';
+    try { if (t) t = new Date(t).toISOString().slice(0,16); } catch(_) {}
+    return [ent, act, String(did), String(t)].join('|');
+  }
+  function dedupe(list){
+    const map = new Map();
+    for (const it of (Array.isArray(list)?list:[])) {
+      const k = keyOf(it);
+      if (!map.has(k)) map.set(k, it);
+    }
+    return Array.from(map.values());
+  }
+
+  // Wrap getRecentActivity to request filtered + dedupe
+  (function(){
+    const _orig = window.getRecentActivity;
+    window.getRecentActivity = async function getRecentActivity(limit=50){
+      let items = [];
+      if (navigator.onLine && typeof backendUrl === 'string' && backendUrl) {
+        try {
+          const resp = await fetch(`${backendUrl}/api/activity?limit=${encodeURIComponent(limit)}&entities=member,certificate&actions=added,updated,deleted`);
+          if (resp.ok) {
+            const body = await (typeof tryJson==='function'?tryJson(resp):resp.json());
+            items = Array.isArray(body) ? body : (Array.isArray(body?.data) ? body.data : []);
+          }
+        } catch(_) {}
+      }
+      if (!items.length && typeof _orig === 'function') {
+        try { items = await _orig(limit) || []; } catch(_){}
+      }
+      items = items.filter(window.__recentActivityPassFilter);
+      // Merge with live buffer but dedupe
+      const merged = dedupe([...(window.__recentLiveBuffer||[]), ...items]);
+      return merged;
+    };
+  })();
+
+  // Renderer (preserves header + scrollbar + screenshot style)
+  window.renderRecentActivity = function renderRecentActivity(items){
+    try {
+      const containers = [
+        document.getElementById('recentActivity'),
+        document.getElementById('recentActivityList'),
+        document.querySelector('.recent-activity'),
+        document.querySelector('.activity-log')
+      ].filter(Boolean);
+      if (!containers.length) return;
+
+      function actionText(it){
+        const ent = String(it.entity||'').toLowerCase();
+        const act = String(it.action||'').toLowerCase();
+        const d = it.data || {};
+        if (ent === 'member'){
+          const name = d.name || d.fullName || '';
+          const code = d.code ? ` (${d.code})` : '';
+          return `${act.charAt(0).toUpperCase()+act.slice(1)} member: ${`${name}${code}`.trim()}`;
+        } else if (ent === 'certificate'){
+          const num = d.number || '';
+          const mem = d.member || d.recipient || '';
+          const who = `${num}${mem ? ' • ' + mem : ''}`.trim();
+          return `${act.charAt(0).toUpperCase()+act.slice(1)} certificate: ${who}`;
+        }
+        return `${act} ${ent}`;
+      }
+      function whenText(it){
+        if (it.ts) { try { return new Date(it.ts).toLocaleString(); } catch(_){} }
+        return it.time || '';
+      }
+
+      // Filter + dedupe + limit
+      const filtered = dedupe((Array.isArray(items)?items:[]).filter(window.__recentActivityPassFilter)).slice(0,50);
+
+      const html = filtered.map(it => `
+        <li class="ra-item" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.06);">
+          <button class="btn btn-sm btn-light ra-refresh" style="padding:2px 8px;font-size:12px;"
+                  onclick="(function(e){e.preventDefault(); if(window.reloadRecentActivity) window.reloadRecentActivity(50);})(event)">
+            Refresh
+          </button>
+          <span class="ra-entity" style="font-weight:600;">${String(it.entity||'').toLowerCase()}</span>
+          <span>-</span>
+          <span class="ra-text" style="flex:1 1 auto;">${actionText(it)}</span>
+          <span class="ra-meta" style="white-space:nowrap;opacity:.7;">${whenText(it)}</span>
+        </li>`).join('');
+
+      const emptyHTML = `<li class="ra-empty" style="color:#6c757d;padding:8px 10px;">No recent member or certificate changes</li>`;
+      const listHTML = `<ul class="ra-list" style="list-style:none;padding-left:0;margin:0;">${html || emptyHTML}</ul>`;
+
+      for (const el of containers){
+        let header = el.querySelector('.ra-header,[data-role="activity-header"],.card-title,h3,h4,h5');
+        if (!header){
+          header = document.createElement('div');
+          header.className = 'ra-header';
+          header.textContent = 'Recent Activity';
+          header.style.textAlign = 'center';
+          header.style.fontWeight = '600';
+          header.style.padding = '8px 10px';
+          el.insertBefore(header, el.firstChild);
+        }
+        let body = el.querySelector('.ra-body,[data-role="activity-body"]');
+        if (!body){
+          body = document.createElement('div');
+          body.className = 'ra-body';
+          body.setAttribute('data-role','activity-body');
+          el.appendChild(body);
+        }
+        body.innerHTML = listHTML;
+        body.style.maxHeight = body.style.maxHeight || '300px';
+        body.style.overflowY = 'auto';
+        body.style.webkitOverflowScrolling = 'touch';
+      }
+    } catch(e){}
+  };
+
+  // Live SSE (filtered), with single bind + dedupe + fallback polling
+  (function(){
+    if (window.__activityLiveBoundFinal) return;
+    window.__activityLiveBoundFinal = true;
+
+    function startSSE(){
+      if (!window.EventSource || !window.backendUrl) return null;
+      try {
+        const url = `${backendUrl}/api/activity/stream?entities=member,certificate&actions=added,updated,deleted`;
+        const es = new EventSource(url);
+        es.onmessage = function(ev){
+          try {
+            const item = JSON.parse(ev.data);
+            if (!window.__recentActivityPassFilter(item)) return;
+            const buf = (window.__recentLiveBuffer = Array.isArray(window.__recentLiveBuffer) ? window.__recentLiveBuffer : []);
+            buf.unshift(item);
+            // Dedupe buffer too
+            window.__recentLiveBuffer = dedupe(buf).slice(0, 200);
+            if (typeof window.renderRecentActivity === 'function') window.renderRecentActivity(window.__recentLiveBuffer);
+          } catch(_){}
+        };
+        es.onerror = function(){ try{es.close();}catch(_){}
+          setTimeout(startSSE, 5000);
+        };
+        return es;
+      } catch(_){ return null; }
+    }
+    function startPolling(){
+      if (window.__recentPollingFinal) return;
+      window.__recentPollingFinal = setInterval(function(){
+        if (typeof window.reloadRecentActivity === 'function') window.reloadRecentActivity(50);
+      }, 15000);
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      const es = startSSE();
+      if (!es) startPolling();
+      // Initial load
+      if (typeof window.reloadRecentActivity === 'function') window.reloadRecentActivity(50);
+    });
+  })();
+})();
+// === [/FINAL Inject] End ===
+
