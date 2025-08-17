@@ -13491,3 +13491,257 @@ try {
   });
 })();
 // === [/Injected] End ===
+
+
+// === [Injected Override] Recent Activity: restore scrollbar + normal font weight ===
+(function(){
+  // keep the same filter if defined
+  var passFilter = (typeof window.__recentActivityPassFilter === 'function')
+    ? window.__recentActivityPassFilter
+    : function(it){
+        if (!it) return false;
+        var ent = String(it.entity||'').toLowerCase();
+        var act = String(it.action||'').toLowerCase();
+        return (ent==='member'||ent==='certificate') && (act==='added'||act==='updated'||act==='deleted');
+      };
+
+  function formatRow(it){
+    var ent = String(it.entity||'').toLowerCase();
+    var act = String(it.action||'').toLowerCase();
+    var when = (it.ts && (new Date(it.ts).toLocaleString?.() || it.ts)) || (it.time || '');
+    var who = '';
+    if (ent === 'member') {
+      var d = it.data || {};
+      var name = d.name || d.fullName || '';
+      var code = d.code ? ' ('+d.code+')' : '';
+      who = (name+code).trim();
+    } else if (ent === 'certificate') {
+      var d2 = it.data || {};
+      var number = d2.number || '';
+      var member = d2.member || d2.recipient || '';
+      who = (number + (member ? ' • ' + member : '')).trim();
+    }
+    var title = (act.charAt(0).toUpperCase()+act.slice(1)) + ' ' + ent + (who ? ': ' + who : '');
+    return '<li class="ra-item" style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,.06);">' +
+           '<span class="ra-title" style="font-weight:400;">' + title + '</span>' +
+           '<span class="ra-meta" style="float:right; opacity:.7;">' + when + '</span>' +
+           '</li>';
+  }
+
+  window.renderRecentActivity = function renderRecentActivity(items){
+    try {
+      var containers = [
+        document.getElementById('recentActivity'),
+        document.getElementById('recentActivityList'),
+        document.querySelector('.recent-activity'),
+        document.querySelector('.activity-log')
+      ].filter(Boolean);
+      if (!containers.length) return;
+
+      var filtered = (Array.isArray(items) ? items : []).filter(passFilter);
+      var html = (filtered.length ? filtered : []).slice(0, 50).map(formatRow).join('');
+      var emptyHTML = '<li class="ra-empty" style="color:#6c757d;padding:6px 8px;">No recent member or certificate changes</li>';
+      var listHTML = '<ul class="ra-list" style="list-style:none;padding-left:0;margin:0;">' + (html || emptyHTML) + '</ul>';
+
+      for (var i=0;i<containers.length;i++){
+        var el = containers[i];
+        el.innerHTML = listHTML;
+        // Ensure scrollbar is present
+        try {
+          if (!el.style.maxHeight) el.style.maxHeight = '300px';
+          el.style.overflowY = 'auto';
+          el.style.webkitOverflowScrolling = 'touch';
+        } catch(_){}
+      }
+    } catch(e){ /* no-op */ }
+  };
+})();
+// === [/Injected Override] End ===
+
+
+// === [Injected Override] Recent Activity: restore previous row style with 'Refresh' badge ===
+(function(){
+  var passFilter = (typeof window.__recentActivityPassFilter === 'function')
+    ? window.__recentActivityPassFilter
+    : function(it){
+        if (!it) return false;
+        var ent = String(it.entity||'').toLowerCase();
+        var act = String(it.action||'').toLowerCase();
+        return (ent==='member'||ent==='certificate') && (act==='added'||act==='updated'||act==='deleted');
+      };
+
+  function actionText(it){
+    var ent = String(it.entity||'').toLowerCase();
+    var act = String(it.action||'').toLowerCase();
+    var d = it.data || {};
+    if (ent === 'member') {
+      var name = d.name || d.fullName || '';
+      var code = d.code ? ' ('+d.code+')' : '';
+      return (act.charAt(0).toUpperCase()+act.slice(1)) + ' member: ' + (name+code).trim();
+    } else if (ent === 'certificate') {
+      var num = d.number || '';
+      var mem = d.member || d.recipient || '';
+      var who = num + (mem ? ' • ' + mem : '');
+      return (act.charAt(0).toUpperCase()+act.slice(1)) + ' certificate: ' + who.trim();
+    }
+    return (act || '-') + ' ' + ent;
+  }
+
+  function whenText(it){
+    if (it.ts) { try { return new Date(it.ts).toLocaleString(); } catch(_){} }
+    return it.time || '';
+  }
+
+  // Click handler for the small refresh pill
+  function rowRefresh(e){
+    e && e.preventDefault && e.preventDefault();
+    if (typeof window.reloadRecentActivity === 'function') window.reloadRecentActivity(50);
+  }
+
+  window.renderRecentActivity = function renderRecentActivity(items){
+    try {
+      var containers = [
+        document.getElementById('recentActivity'),
+        document.getElementById('recentActivityList'),
+        document.querySelector('.recent-activity'),
+        document.querySelector('.activity-log')
+      ].filter(Boolean);
+      if (!containers.length) return;
+
+      var filtered = (Array.isArray(items) ? items : []).filter(passFilter);
+      var html = (filtered.length ? filtered : []).slice(0, 50).map(function(it, idx){
+        var when = whenText(it);
+        var ent = String(it.entity||'').toLowerCase();
+        var title = actionText(it);
+        return '' +
+        '<li class="ra-item" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid rgba(0,0,0,.06);">' +
+          '<button class="btn btn-sm btn-light ra-refresh" style="padding:2px 8px; font-size:12px;" onclick="(function(e){ e.preventDefault(); if(window.reloadRecentActivity) window.reloadRecentActivity(50); })(event)">Refresh</button>' +
+          '<span class="ra-entity" style="font-weight:600;">' + ent + '</span>' +
+          '<span>-</span>' +
+          '<span class="ra-text" style="flex:1 1 auto;">' + title + '</span>' +
+          '<span class="ra-meta" style="white-space:nowrap; opacity:.7;">' + when + '</span>' +
+        '</li>';
+      }).join('');
+
+      var emptyHTML = '<li class="ra-empty" style="color:#6c757d; padding:8px 10px;">No recent member or certificate changes</li>';
+      var listHTML = '<ul class="ra-list" style="list-style:none; padding-left:0; margin:0;">' + (html || emptyHTML) + '</ul>';
+
+      for (var i=0;i<containers.length;i++){
+        var el = containers[i];
+        el.innerHTML = listHTML;
+        // Ensure scrollbar
+        try {
+          if (!el.style.maxHeight) el.style.maxHeight = '300px';
+          el.style.overflowY = 'auto';
+          el.style.webkitOverflowScrolling = 'touch';
+        } catch(_){}
+      }
+    } catch(e){}
+  };
+})();
+// === [/Injected Override] End ===
+
+
+// === [Injected Override] Recent Activity: preserve/add header and render into body only ===
+(function(){
+  // Reuse existing filter and text helpers if present
+  var passFilter = (typeof window.__recentActivityPassFilter === 'function')
+    ? window.__recentActivityPassFilter
+    : function(it){
+        if (!it) return false;
+        var ent = String(it.entity||'').toLowerCase();
+        var act = String(it.action||'').toLowerCase();
+        return (ent==='member'||ent==='certificate') && (act==='added'||act==='updated'||act==='deleted');
+      };
+
+  function actionText(it){
+    var ent = String(it.entity||'').toLowerCase();
+    var act = String(it.action||'').toLowerCase();
+    var d = it.data || {};
+    if (ent === 'member') {
+      var name = d.name || d.fullName || '';
+      var code = d.code ? ' ('+d.code+')' : '';
+      return (act.charAt(0).toUpperCase()+act.slice(1)) + ' member: ' + (name+code).trim();
+    } else if (ent === 'certificate') {
+      var num = d.number || '';
+      var mem = d.member || d.recipient || '';
+      var who = (num + (mem ? ' • ' + mem : '')).trim();
+      return (act.charAt(0).toUpperCase()+act.slice(1)) + ' certificate: ' + who;
+    }
+    return (act || '-') + ' ' + ent;
+  }
+
+  function whenText(it){
+    if (it.ts) { try { return new Date(it.ts).toLocaleString(); } catch(_){} }
+    return it.time || '';
+  }
+
+  function ensureHeader(el){
+    // Try to find an existing title
+    var header = el.querySelector('[data-role="activity-header"], .ra-header, .card-title, h3, h4, h5');
+    // If there is no recognizable header inside this container, add our own
+    if (!header) {
+      header = document.createElement('div');
+      header.className = 'ra-header';
+      header.textContent = 'Recent Activity';
+      header.style.textAlign = 'center';
+      header.style.fontWeight = '600';
+      header.style.padding = '8px 10px';
+      // insert at top
+      el.insertBefore(header, el.firstChild);
+    }
+  }
+
+  function ensureBody(el){
+    var body = el.querySelector('[data-role="activity-body"], .ra-body');
+    if (!body) {
+      body = document.createElement('div');
+      body.className = 'ra-body';
+      body.setAttribute('data-role', 'activity-body');
+      el.appendChild(body);
+    }
+    // enforce scroll on the body (not the container)
+    body.style.maxHeight = body.style.maxHeight || '300px';
+    body.style.overflowY = 'auto';
+    body.style.webkitOverflowScrolling = 'touch';
+    return body;
+  }
+
+  window.renderRecentActivity = function renderRecentActivity(items){
+    try {
+      var containers = [
+        document.getElementById('recentActivity'),
+        document.getElementById('recentActivityList'),
+        document.querySelector('.recent-activity'),
+        document.querySelector('.activity-log')
+      ].filter(Boolean);
+      if (!containers.length) return;
+
+      var filtered = (Array.isArray(items) ? items : []).filter(passFilter);
+      var html = (filtered.length ? filtered : []).slice(0, 50).map(function(it){
+        var when = whenText(it);
+        var ent = String(it.entity||'').toLowerCase();
+        var title = actionText(it);
+        return '' +
+        '<li class="ra-item" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid rgba(0,0,0,.06);">' +
+          '<button class="btn btn-sm btn-light ra-refresh" style="padding:2px 8px; font-size:12px;" onclick="(function(e){ e.preventDefault(); if(window.reloadRecentActivity) window.reloadRecentActivity(50); })(event)">Refresh</button>' +
+          '<span class="ra-entity" style="font-weight:600;">' + ent + '</span>' +
+          '<span>-</span>' +
+          '<span class="ra-text" style="flex:1 1 auto;">' + title + '</span>' +
+          '<span class="ra-meta" style="white-space:nowrap; opacity:.7;">' + when + '</span>' +
+        '</li>';
+      }).join('');
+
+      var emptyHTML = '<li class="ra-empty" style="color:#6c757d; padding:8px 10px;">No recent member or certificate changes</li>';
+      var listHTML = '<ul class="ra-list" style="list-style:none; padding-left:0; margin:0;">' + (html || emptyHTML) + '</ul>';
+
+      for (var i=0;i<containers.length;i++){
+        var el = containers[i];
+        ensureHeader(el);               // keep or add the title
+        var body = ensureBody(el);      // only update the body
+        body.innerHTML = listHTML;
+      }
+    } catch(e){}
+  };
+})();
+// === [/Injected Override] End ===
