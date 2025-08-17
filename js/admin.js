@@ -11867,3 +11867,96 @@ try {
 
   console.log('✅ State Select Patch (final safe) active');
 })();
+
+/* ===== NARAP - Post-Edit State Reindex Patch =====
+   Ensures that after changing a member's state (e.g., ABIA -> KADUNA),
+   the member moves to the new state's list in the UI immediately.
+   - Non-invasive: wraps existing editMember without altering its internals.
+   - Works whether editMember is sync or returns a Promise.
+*/
+(function(){
+  function getEditingMemberId(){
+    // Try hidden field first
+    const hidden = document.getElementById('editMemberId');
+    if (hidden && hidden.value) return hidden.value;
+    // Try modal data attribute
+    const modal = document.getElementById('editMemberModal');
+    if (modal && modal.dataset && modal.dataset.memberId) return modal.dataset.memberId;
+    // Fallback: use a last-selected global if your app sets it
+    if (window.__editingMemberId) return window.__editingMemberId;
+    return null;
+  }
+
+  function getNewStateValue(){
+    const el = document.getElementById('editMemberState');
+    if (!el) return null;
+    return (el.value || '').toString().trim().toUpperCase() || null;
+  }
+
+  function applyStateToCaches(memberId, newState){
+    if (!memberId || !newState) return;
+
+    function applyTo(arr){
+      if (!Array.isArray(arr)) return;
+      const idx = arr.findIndex(m => m && (m._id === memberId || m.id === memberId));
+      if (idx >= 0) {
+        if (arr[idx]) {
+          arr[idx].state = newState;
+          if ('State' in arr[idx]) arr[idx].State = newState;
+        }
+      }
+    }
+
+    // Update likely caches
+    applyTo(window.members);
+    applyTo(window.currentMembers);
+    applyTo(window.filteredMembers);
+
+    // Re-run filters / renderers
+    if (typeof window.filterMembers === 'function') {
+      window.filterMembers(); // will respect the chosen stateFilter value
+    } else if (typeof window.renderMembers === 'function') {
+      window.renderMembers(Array.isArray(window.members) ? window.members : []);
+    } else {
+      // Last resort: refresh pagination controls if present
+      if (typeof window.updatePaginationControls === 'function') {
+        try { window.updatePaginationControls(); } catch (_){}
+      }
+    }
+  }
+
+  const orig = window.editMember;
+  if (typeof orig !== 'function') return;
+
+  window.editMember = function(ev){
+    const memberId = getEditingMemberId();
+    // Ensure select is uppercase (harmonize with your existing patch)
+    try {
+      const sel = document.getElementById('editMemberState');
+      if (sel) sel.value = (sel.value || '').toString().trim().toUpperCase();
+    } catch(_){}
+
+    const ret = orig.apply(this, arguments);
+
+    // When finished (sync or async), update caches and redraw
+    const finalize = () => {
+      try {
+        const newState = getNewStateValue();
+        applyStateToCaches(memberId, newState);
+        if (typeof window.showMessage === 'function' && newState) {
+          window.showMessage(`Member moved to ${newState}`, 'success');
+        }
+      } catch(_){}
+    };
+
+    if (ret && typeof ret.then === 'function') {
+      // Promise-like
+      return ret.then(function(x){ finalize(); return x; })
+                .catch(function(e){ finalize(); throw e; });
+    } else {
+      // Synchronous path
+      setTimeout(finalize, 0);
+      return ret;
+    }
+  };
+})();
