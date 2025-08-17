@@ -6396,15 +6396,52 @@ function refreshCertificates() {
 }
 
 function clearCertificateFilters() {
-    const searchInput = document.getElementById('certificateSearch');
-    const statusFilter = document.getElementById('statusFilter');
-    const dateFilter = document.getElementById('dateFilter');
-    
-    if (searchInput) searchInput.value = '';
-    if (statusFilter) statusFilter.value = '';
-    if (dateFilter) dateFilter.value = '';
-    
-    loadCertificates(1, 10);
+    // Inputs used by certificate filtering UI
+    const searchBoxes = [
+      document.getElementById('certificateSearch')
+    ];
+    const statusBoxes = [
+      document.getElementById('certificateStatusFilter'),
+      document.getElementById('statusFilter') // legacy id (fallback)
+    ];
+    const typeBoxes = [
+      document.getElementById('certificateTypeFilter'),
+      document.getElementById('typeFilter'), // legacy fallback
+      document.getElementById('typeFilterUI') // if present
+    ];
+    const stateBoxes = [
+      document.getElementById('certificateStateFilter'),
+      document.getElementById('stateFilter'), // legacy fallback
+      document.getElementById('stateFilterUI') // if present
+    ];
+    const dateBoxes = [
+      document.getElementById('dateFilter')
+    ];
+
+    // Reset values
+    for (const el of [...searchBoxes, ...statusBoxes, ...typeBoxes, ...stateBoxes, ...dateBoxes]) {
+      if (!el) continue;
+      if ('value' in el) el.value = '';
+      // If it's a <select>, also reset to the first option if 'All...' exists
+      if (el.tagName === 'SELECT') {
+        const idx = Array.from(el.options || []).findIndex(o => (/all/i.test(o.text) || o.value === '' ));
+        el.selectedIndex = idx !== -1 ? idx : 0;
+      }
+      // Fire change/input for any listeners
+      try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+      try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
+    }
+
+    // Reset pagination to page 1 and reload with blank filters
+    const per = parseInt(localStorage.getItem('narap_certificates_per_page')) || 10;
+    if (typeof loadCertificates === 'function') {
+      loadCertificates(1, per, '', '', '', '');
+    } else if (typeof refreshCertificates === 'function') {
+      refreshCertificates();
+    }
+
+    // Optional toast
+    try { showMessage('Certificate filters cleared', 'success'); } catch(_){}
 }
 
 function generateCertificatePreview() {
@@ -11745,3 +11782,125 @@ try {
   };
 })();
 // === End Certificate Dedupe Patch ===
+
+/* ========================= NARAP - State Select Patch (merged) =========================
+   This block converts #editMemberState to a <select> with full states list,
+   auto-selects saved state when editing, and enforces uppercase on submit.
+   It wraps existing functions (showEditMemberModal, editMember) without changing
+   their internal logic. Safe to keep at end of the file.
+======================================================================================== */
+(function(){
+  const NIGERIA_STATES = [
+    "ABIA","ADAMAWA","AKWA IBOM","ANAMBRA","BAUCHI","BAYELSA","BENUE","BORNO",
+    "CROSS RIVER","DELTA","EBONYI","EDO","EKITI","ENUGU","FCT","GOMBE","IMO",
+    "JIGAWA","KADUNA","KANO","KATSINA","KEBBI","KOGI","KWARA","LAGOS",
+    "NASARAWA","NIGER","OGUN","ONDO","OSUN","OYO","PLATEAU","RIVERS",
+    "SOKOTO","TARABA","YOBE","ZAMFARA"
+  ];
+
+  function buildStateSelect(currentValue){
+    const sel = document.createElement('select');
+    sel.id = 'editMemberState';
+    sel.required = true;
+    sel.innerHTML = '<option value=\"\">SELECT STATE</option>' +
+      NIGERIA_STATES.map(s => `<option value="${s}">${s}</option>`).join('');
+    if (currentValue) {
+      const up = String(currentValue).trim().toUpperCase();
+      if (!NIGERIA_STATES.includes(up)) {
+        // retain legacy/unknown value so it's visible/selectable
+        const opt = document.createElement('option');
+        opt.value = up;
+        opt.textContent = up;
+        sel.appendChild(opt);
+      }
+      sel.value = up;
+    }
+    return sel;
+  }
+
+  function ensureStateSelect(){
+    try{
+      const el = document.getElementById('editMemberState');
+      if (!el) return;
+      if (el.tagName && el.tagName.toLowerCase() === 'select') {
+        // Normalize options with our canonical list while keeping current selection
+        const current = el.value || el.getAttribute('value') || '';
+        const sel = buildStateSelect(current);
+        el.replaceWith(sel);
+        return;
+      }
+      // If it's an <input>, replace with our <select>
+      const value = el.value || el.getAttribute('value') || '';
+      const sel = buildStateSelect(value);
+      el.replaceWith(sel);
+    }catch(e){ /* best effort */ }
+  }
+
+  // Expose helper to set value programmatically
+  window.setMemberState = function(stateValue){
+    const el = document.getElementById('editMemberState');
+    if (!el) return;
+    const up = stateValue ? String(stateValue).trim().toUpperCase() : '';
+    if (el.tagName && el.tagName.toLowerCase() === 'select') {
+      if (up && !Array.from(el.options).some(o => o.value === up)) {
+        const opt = document.createElement('option');
+        opt.value = up;
+        opt.textContent = up;
+        el.appendChild(opt);
+      }
+      el.value = up || '';
+    } else {
+      el.value = up;
+    }
+  };
+
+  // Wrap showEditMemberModal to auto-select saved state after DOM is ready
+  (function wrapShowEdit(){
+    const orig = window.showEditMemberModal;
+    if (typeof orig !== 'function') return;
+    window.showEditMemberModal = function(memberId){
+      // Ensure we have a proper select before populating
+      setTimeout(ensureStateSelect, 0);
+      const ret = orig.apply(this, arguments);
+      try{
+        // Try to find the member from caches your app likely maintains
+        const coll = (window.currentMembers || window.members || []);
+        const m = coll.find(mm => mm && (mm._id === memberId || mm.id === memberId));
+        if (m) window.setMemberState(m.state || m.State || '');
+      }catch(_){}
+      return ret;
+    };
+  })();
+
+  // Wrap editMember to always submit uppercase state
+  (function wrapEditMember(){
+    const orig = window.editMember;
+    if (typeof orig !== 'function') return;
+    window.editMember = function(ev){
+      ensureStateSelect();
+      try{
+        const el = document.getElementById('editMemberState');
+        if (el) {
+          const up = (el.value || '').toString().trim().toUpperCase();
+          el.value = up;
+        }
+      }catch(_){}
+      return orig.apply(this, arguments);
+    };
+  })();
+
+  // Initialize once DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureStateSelect);
+  } else {
+    ensureStateSelect();
+  }
+
+  // Observe modal insertions or dynamic DOM changes
+  try{
+    const obs = new MutationObserver(() => ensureStateSelect());
+    obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
+  }catch(_){}
+
+  console.log('✅ State Select Patch (merged) active');
+})();
