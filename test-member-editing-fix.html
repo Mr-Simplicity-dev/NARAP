@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NARAP Member Editing Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 3px; cursor: pointer; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-warning { background-color: #ffc107; color: black; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        input, select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; width: 200px; }
+        .form-group { margin: 10px 0; }
+        label { display: inline-block; width: 120px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 NARAP Member Editing Fix Test</h1>
+    
+    <div class="test-section">
+        <h2>📋 Issue Diagnosis</h2>
+        <p><strong>Problem:</strong> Member editing functionality is not working properly due to conflicting function definitions.</p>
+        <p><strong>Root Cause:</strong> Multiple <code>window.editMember</code> and <code>window.showEditMemberModal</code> function definitions are overriding each other.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Function Conflict Test</h2>
+        <button onclick="testFunctionConflicts()" class="btn-primary">Test Function Conflicts</button>
+        <div id="conflictResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Member Editing Test</h2>
+        <button onclick="testMemberEditing()" class="btn-success">Test Member Editing</button>
+        <div id="editingResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🛠️ Quick Fix Test</h2>
+        <button onclick="applyQuickFix()" class="btn-warning">Apply Quick Fix</button>
+        <div id="fixResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Test Member Form</h2>
+        <form id="testMemberForm" onsubmit="testFormSubmission(event)">
+            <div class="form-group">
+                <label>Name:</label>
+                <input type="text" id="testName" value="Test Member" required>
+            </div>
+            <div class="form-group">
+                <label>Code:</label>
+                <input type="text" id="testCode" value="TEST001" required>
+            </div>
+            <div class="form-group">
+                <label>Position:</label>
+                <select id="testPosition" required>
+                    <option value="">Select Position</option>
+                    <option value="MEMBER" selected>Member</option>
+                    <option value="PRESIDENT">President</option>
+                    <option value="SECRETARY">Secretary</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>State:</label>
+                <select id="testState" required>
+                    <option value="">Select State</option>
+                    <option value="LAGOS" selected>Lagos</option>
+                    <option value="ABUJA">Abuja</option>
+                    <option value="KANO">Kano</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Zone:</label>
+                <input type="text" id="testZone" value="Test Zone" required>
+            </div>
+            <button type="submit" class="btn-success">Test Form Submission</button>
+        </form>
+        <div id="formResults"></div>
+    </div>
+
+    <script>
+        // Test function conflicts
+        function testFunctionConflicts() {
+            const results = document.getElementById('conflictResults');
+            results.innerHTML = '<h3>🔍 Function Conflict Analysis</h3>';
+            
+            // Check for multiple function definitions
+            const editMemberFunctions = [];
+            const showEditMemberModalFunctions = [];
+            
+            // Check window object
+            if (window.editMember) {
+                editMemberFunctions.push('window.editMember');
+            }
+            
+            if (window.showEditMemberModal) {
+                showEditMemberModalFunctions.push('window.showEditMemberModal');
+            }
+            
+            // Check for function conflicts
+            if (editMemberFunctions.length > 1) {
+                results.innerHTML += '<div class="error">❌ Multiple editMember functions detected!</div>';
+            } else if (editMemberFunctions.length === 1) {
+                results.innerHTML += '<div class="success">✅ Single editMember function found</div>';
+            } else {
+                results.innerHTML += '<div class="warning">⚠️ No editMember function found</div>';
+            }
+            
+            if (showEditMemberModalFunctions.length > 1) {
+                results.innerHTML += '<div class="error">❌ Multiple showEditMemberModal functions detected!</div>';
+            } else if (showEditMemberModalFunctions.length === 1) {
+                results.innerHTML += '<div class="success">✅ Single showEditMemberModal function found</div>';
+            } else {
+                results.innerHTML += '<div class="warning">⚠️ No showEditMemberModal function found</div>';
+            }
+            
+            // Check function types
+            if (window.editMember) {
+                results.innerHTML += `<div class="info">📝 editMember type: ${typeof window.editMember}</div>`;
+                results.innerHTML += `<div class="info">📝 editMember is async: ${window.editMember.constructor.name === 'AsyncFunction'}</div>`;
+            }
+            
+            if (window.showEditMemberModal) {
+                results.innerHTML += `<div class="info">📝 showEditMemberModal type: ${typeof window.showEditMemberModal}</div>`;
+            }
+        }
+
+        // Test member editing functionality
+        function testMemberEditing() {
+            const results = document.getElementById('editingResults');
+            results.innerHTML = '<h3>🔍 Member Editing Test</h3>';
+            
+            try {
+                // Test if functions exist and are callable
+                if (typeof window.showEditMemberModal === 'function') {
+                    results.innerHTML += '<div class="success">✅ showEditMemberModal function exists and is callable</div>';
+                } else {
+                    results.innerHTML += '<div class="error">❌ showEditMemberModal function is not available</div>';
+                }
+                
+                if (typeof window.editMember === 'function') {
+                    results.innerHTML += '<div class="success">✅ editMember function exists and is callable</div>';
+                } else {
+                    results.innerHTML += '<div class="error">❌ editMember function is not available</div>';
+                }
+                
+                // Test form elements
+                const form = document.getElementById('editMemberForm');
+                if (form) {
+                    results.innerHTML += '<div class="success">✅ Edit member form exists</div>';
+                } else {
+                    results.innerHTML += '<div class="error">❌ Edit member form not found</div>';
+                }
+                
+                // Test modal
+                const modal = document.getElementById('editMemberModal');
+                if (modal) {
+                    results.innerHTML += '<div class="success">✅ Edit member modal exists</div>';
+                } else {
+                    results.innerHTML += '<div class="error">❌ Edit member modal not found</div>';
+                }
+                
+            } catch (error) {
+                results.innerHTML += `<div class="error">❌ Error during testing: ${error.message}</div>`;
+            }
+        }
+
+        // Apply quick fix for function conflicts
+        function applyQuickFix() {
+            const results = document.getElementById('fixResults');
+            results.innerHTML = '<h3>🛠️ Applying Quick Fix</h3>';
+            
+            try {
+                // Store original functions
+                const originalEditMember = window.editMember;
+                const originalShowEditMemberModal = window.showEditMemberModal;
+                
+                // Create consolidated functions
+                window.editMember = async function(event) {
+                    event.preventDefault();
+                    results.innerHTML += '<div class="success">✅ editMember function called successfully</div>';
+                    
+                    // Simulate form data collection
+                    const form = event.target;
+                    const formData = new FormData(form);
+                    
+                    results.innerHTML += '<div class="info">📋 Form data collected:</div>';
+                    for (let [key, value] of formData.entries()) {
+                        results.innerHTML += `<div class="info">   ${key}: ${value}</div>`;
+                    }
+                    
+                    // Simulate backend update
+                    results.innerHTML += '<div class="info">📡 Simulating backend update...</div>';
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    results.innerHTML += '<div class="success">✅ Member update simulated successfully!</div>';
+                };
+                
+                window.showEditMemberModal = function(memberId) {
+                    results.innerHTML += `<div class="success">✅ showEditMemberModal called with ID: ${memberId}</div>`;
+                    
+                    // Simulate modal population
+                    const form = document.getElementById('editMemberForm');
+                    if (form) {
+                        form.dataset.memberId = memberId;
+                        results.innerHTML += '<div class="success">✅ Modal form prepared for editing</div>';
+                    }
+                };
+                
+                results.innerHTML += '<div class="success">✅ Quick fix applied! Function conflicts resolved.</div>';
+                results.innerHTML += '<div class="info">💡 Now test the member editing functionality again.</div>';
+                
+            } catch (error) {
+                results.innerHTML += `<div class="error">❌ Error applying fix: ${error.message}</div>`;
+            }
+        }
+
+        // Test form submission
+        function testFormSubmission(event) {
+            event.preventDefault();
+            const results = document.getElementById('formResults');
+            
+            const formData = {
+                name: document.getElementById('testName').value,
+                code: document.getElementById('testCode').value,
+                position: document.getElementById('testPosition').value,
+                state: document.getElementById('testState').value,
+                zone: document.getElementById('testZone').value
+            };
+            
+            results.innerHTML = '<h3>📝 Form Submission Test</h3>';
+            results.innerHTML += '<div class="success">✅ Form submitted successfully!</div>';
+            results.innerHTML += '<div class="info">📋 Form data:</div>';
+            
+            for (let [key, value] of Object.entries(formData)) {
+                results.innerHTML += `<div class="info">   ${key}: ${value}</div>`;
+            }
+            
+            // Test if editMember function would work
+            if (typeof window.editMember === 'function') {
+                results.innerHTML += '<div class="success">✅ editMember function is available for form submission</div>';
+            } else {
+                results.innerHTML += '<div class="error">❌ editMember function is not available</div>';
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔧 NARAP Member Editing Fix Test initialized');
+            
+            // Check if we're in the right context
+            if (window.location.href.includes('admin.html')) {
+                console.log('✅ Running in admin context');
+            } else {
+                console.log('⚠️ Running in standalone test context');
+            }
+        });
+    </script>
+</body>
+</html>

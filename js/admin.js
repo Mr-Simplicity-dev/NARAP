@@ -3921,7 +3921,6 @@ async function addMember(event) {
         const updatedMembers = [...currentMembers, newMember];
         window.currentMembers = updatedMembers;
         
-
         
         // Save to local storage
         saveLocalMembers(updatedMembers);
@@ -8946,7 +8945,6 @@ async function loadInitialData() {
 document.addEventListener('DOMContentLoaded', function() {
     try {
         
-        
         // Initialize notification manager container
         if (notificationManager) {
             notificationManager.createContainer();
@@ -11851,27 +11849,13 @@ try {
     };
   })();
 
-  // Wrap editMember
-  (function(){
-    const orig = window.editMember;
-    if (typeof orig !== 'function') return;
-    window.editMember = function(ev){
-    // Capture memberId and previous state BEFORE calling original editMember
-    /* memberId captured earlier */
-    let prevState = null;
+  // State select helper for editMember
+  function ensureStateSelectForEdit() {
     try {
-      const coll = (window.currentMembers || window.members || []);
-      const mm = coll.find(m => m && (m._id === memberId || m.id === memberId));
-      if (mm) prevState = (mm.state || mm.State || '').toString().trim().toUpperCase() || null;
+      const el = document.getElementById('editMemberState');
+      if (el) el.value = (el.value || '').toString().trim().toUpperCase();
     } catch(_) {}
-      ensureStateSelect();
-      try{
-        const el = document.getElementById('editMemberState');
-        if (el) el.value = (el.value || '').toString().trim().toUpperCase();
-      }catch(_){}
-      return orig.apply(this, arguments);
-    };
-  })();
+  }
 
   // Run once on load
   if (document.readyState === 'loading') {
@@ -12222,7 +12206,7 @@ try {
     try{
       const id = updated._id || updated.id || getEditingMemberId();
       const coll = (window.currentMembers || window.members || []);
-      const m = Array.isArray(coll) ? coll.find(mm => mm && (mm._id === id || mm.id === id)) : null;
+      const m = coll.find(mm => mm && (mm._id === id || mm.id === id));
       if (m){
         for (const k of ['name','code','position','zone','email','phone','title']) {
           if (typeof updated[k] !== 'undefined') m[k] = updated[k];
