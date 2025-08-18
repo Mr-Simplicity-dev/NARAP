@@ -12588,7 +12588,13 @@ try {
       zone: val('editMemberZone') || prev?.zone || ''
     };
 
-    const bases = deriveBases();
+    const bases = (function(){ 
+      const arr = deriveBases();
+      // Move known backend origins to the front so we don't hit the frontend origin first
+      const backends = arr.filter(b => /narap-backend\.onrender\.com/i.test(b) || /\/api\b/.test(b));
+      const others = arr.filter(b => !backends.includes(b));
+      return [...backends, ...others];
+    })();
     const rels = [
       (b)=>`${b}/api/users/${id}`,
       (b)=>`${b}/users/${id}`,
@@ -13680,4 +13686,3 @@ try {
   };
 })();
 // === [/Injected Override] End ===
-
