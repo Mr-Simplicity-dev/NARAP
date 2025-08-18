@@ -3908,11 +3908,11 @@ async function addMember(event) {
         }
         
         // For online storage, use the filename from backend response
-        if (isOnline && backendResponse && backendResponse.data && backendResponse.data.passportPhoto) {
+        if (isOnline && backendResponse && (backendResponse.data && backendResponse.data.passportPhoto) || backendResponse.passportPhoto) {
             newMember.passportPhoto = backendResponse.data.passportPhoto;
             
         }
-        if (isOnline && backendResponse && backendResponse.data && backendResponse.data.signature) {
+        if (isOnline && backendResponse && (backendResponse.data && backendResponse.data.signature) || backendResponse.signature) {
             newMember.signature = backendResponse.data.signature;
             
         }
@@ -5123,8 +5123,8 @@ async function editMember(event) {
       pendingSync: false
     };
     // If backend returned file names, prefer them
-    if (payload?.data?.passportPhoto) updated.passportPhoto = payload.data.passportPhoto;
-    if (payload?.data?.signature)     updated.signature     = payload.data.signature;
+    if ((payload?.data?.passportPhoto) || (payload?.passportPhoto)) updated.passportPhoto = (payload?.data?.passportPhoto) || (payload?.passportPhoto);
+    if ((payload?.data?.signature) || (payload?.signature))     updated.signature     = (payload?.data?.signature) || (payload?.signature);
 
     list[idx] = updated;
     window.currentMembers = list;
@@ -12025,7 +12025,7 @@ try {
   }
 
   async function safeBackendUpdate(memberId, payload){
-    const url = `/api/users/${memberId}`;
+    const url = `/api/users/updateUser/${memberId}`;
     const res = await fetch(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -12309,7 +12309,7 @@ try {
       zone: val('editMemberZone') || prev?.zone || ''
     };
 
-    const url = `/api/users/${id}`;
+    const url = `/api/users/updateUser/${id}`;
     let updated;
     try {
       updated = await putJSON(url, payload);
