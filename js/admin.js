@@ -361,6 +361,41 @@ function getBackendUrl() {
 
 const backendUrl = getBackendUrl();
 
+// ---- [Injected] State helpers (idempotent) ----
+(function(){
+  if (!window.__stateHelpersBound) {
+    window.__stateHelpersBound = true;
+
+    window.normalizeStateField = function(obj){
+      try {
+        if (!obj) return;
+        if (obj.state) obj.state = String(obj.state).toUpperCase().trim();
+        if (obj.State) { obj.state = String(obj.State).toUpperCase().trim(); delete obj.State; }
+      } catch(_){}
+    };
+
+    window.updateZoneFromState = function(state){
+      try {
+        if (!state) return;
+        var st = String(state).toUpperCase().trim();
+        var z = (window.stateToZone && window.stateToZone[st]) ? window.stateToZone[st] : null;
+        if (z) {
+          var zoneEl = document.getElementById('editMemberZone') || document.getElementById('zone');
+          if (zoneEl) zoneEl.value = z;
+        }
+      } catch(_){}
+    };
+
+    document.addEventListener('change', function(e){
+      if (e && e.target && e.target.id === 'editMemberState') {
+        var st = e.target.value;
+        window.updateZoneFromState && window.updateZoneFromState(st);
+      }
+    });
+  }
+})();
+
+
 // ---- Safe JSON helper: never throws on empty/invalid JSON bodies ----
 async function tryJson(res) { try { return await res.json(); } catch (_) { return null; } }
 
@@ -1561,6 +1596,41 @@ async function clearAllData() {
         try {
             console.log('🗑️ Clearing backend database...');
             const backendUrl = getBackendUrl();
+
+// ---- [Injected] State helpers (idempotent) ----
+(function(){
+  if (!window.__stateHelpersBound) {
+    window.__stateHelpersBound = true;
+
+    window.normalizeStateField = function(obj){
+      try {
+        if (!obj) return;
+        if (obj.state) obj.state = String(obj.state).toUpperCase().trim();
+        if (obj.State) { obj.state = String(obj.State).toUpperCase().trim(); delete obj.State; }
+      } catch(_){}
+    };
+
+    window.updateZoneFromState = function(state){
+      try {
+        if (!state) return;
+        var st = String(state).toUpperCase().trim();
+        var z = (window.stateToZone && window.stateToZone[st]) ? window.stateToZone[st] : null;
+        if (z) {
+          var zoneEl = document.getElementById('editMemberZone') || document.getElementById('zone');
+          if (zoneEl) zoneEl.value = z;
+        }
+      } catch(_){}
+    };
+
+    document.addEventListener('change', function(e){
+      if (e && e.target && e.target.id === 'editMemberState') {
+        var st = e.target.value;
+        window.updateZoneFromState && window.updateZoneFromState(st);
+      }
+    });
+  }
+})();
+
             console.log('🔍 Backend URL:', backendUrl);
             
             if (backendUrl && navigator.onLine) {
@@ -1801,6 +1871,41 @@ async function clearAllCertificates() {
         try {
             console.log('🗑️ Clearing backend certificates...');
             const backendUrl = getBackendUrl();
+
+// ---- [Injected] State helpers (idempotent) ----
+(function(){
+  if (!window.__stateHelpersBound) {
+    window.__stateHelpersBound = true;
+
+    window.normalizeStateField = function(obj){
+      try {
+        if (!obj) return;
+        if (obj.state) obj.state = String(obj.state).toUpperCase().trim();
+        if (obj.State) { obj.state = String(obj.State).toUpperCase().trim(); delete obj.State; }
+      } catch(_){}
+    };
+
+    window.updateZoneFromState = function(state){
+      try {
+        if (!state) return;
+        var st = String(state).toUpperCase().trim();
+        var z = (window.stateToZone && window.stateToZone[st]) ? window.stateToZone[st] : null;
+        if (z) {
+          var zoneEl = document.getElementById('editMemberZone') || document.getElementById('zone');
+          if (zoneEl) zoneEl.value = z;
+        }
+      } catch(_){}
+    };
+
+    document.addEventListener('change', function(e){
+      if (e && e.target && e.target.id === 'editMemberState') {
+        var st = e.target.value;
+        window.updateZoneFromState && window.updateZoneFromState(st);
+      }
+    });
+  }
+})();
+
             console.log('🔍 Backend URL:', backendUrl);
             
             if (backendUrl && navigator.onLine) {
@@ -4425,6 +4530,15 @@ function closeAddMemberModal() {
 }
 
 function showEditMemberModal(memberId) {
+  try {
+    var _stSel = document.getElementById('editMemberState');
+    if (_stSel) {
+      var _mst = (member && (member.state || member.State)) ? String(member.state || member.State).toUpperCase().trim() : '';
+      if (_mst && _stSel.value !== _mst) _stSel.value = _mst;
+      window.updateZoneFromState && window.updateZoneFromState(_mst);
+    }
+  } catch(_) {}
+
     const modal = document.getElementById('editMemberModal');
     if (modal) {
         // Populate form with member data
@@ -5007,7 +5121,9 @@ function closeViewMemberModal() {
     }
 }
 
-async function editMember(event) {
+async function editMember(event) {var __stEl = document.getElementById('editMemberState'); var __STATE = __stEl ? (__stEl.value||'').toUpperCase().trim() : (typeof val==='function'? String(val('editMemberState')||'').toUpperCase().trim() : '');
+  if (__STATE) { formData.append('state', __STATE); }
+
   event.preventDefault();
 
   const form = event.target;
@@ -12094,7 +12210,8 @@ try {
     const state = uppercase(getValByIds(['editMemberState','state']));
     const zone = getValByIds(['editMemberZone','zone']);
 
-    const payload = { name, code, position, state, zone };
+    const payload = {
+    state: __STATE || (payload && payload.state) || (member && (member.state||member.State) ? String(member.state||member.State).toUpperCase().trim() : undefined), name, code, position, state, zone };
 
     // Submit to backend via JSON (server override handles normalization + cert sync)
     return safeBackendUpdate(id, payload)
@@ -12588,15 +12705,20 @@ try {
       zone: val('editMemberZone') || prev?.zone || ''
     };
 
-    const bases = deriveBases();
+    const bases = (function(){ 
+      const arr = deriveBases();
+      const backends = arr.filter(b => /narap-backend\.onrender\.com/i.test(b) || /\/api/.test(b));
+      const others = arr.filter(b => !backends.includes(b));
+      return [...backends, ...others];
+    })();
     const rels = [
+      (b)=>`${b}/api/users/updateUser/${id}`,
+      (b)=>`${b}/api/users/update`,
       (b)=>`${b}/api/users/${id}`,
       (b)=>`${b}/users/${id}`,
-      (b)=>`${b}/api/users/update`,
       (b)=>`${b}/users/update`,
       (b)=>`${b}/api/users`,
-      (b)=>`${b}/users`
-    ];
+      (b)=>`${b}/users`];
     const attempts = [reqPUTJSON, reqPUTFORM, reqPOSTOvJSON, reqPOSTOvFORM, reqPOSTJSON, reqPOSTFORM];
 
     let updated=null, lastErr=null;
