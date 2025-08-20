@@ -98,3 +98,4 @@ console.log('🔧 showEditMemberModal function type:', typeof window.showEditMem
     console.error('❌ Error during fix:', error.message);
     process.exit(1);
 }
+
