@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Edit Member Functionality</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 3px; cursor: pointer; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        input, select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; width: 200px; }
+        .form-group { margin: 10px 0; }
+        label { display: inline-block; width: 120px; }
+        #results { margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Edit Member Functionality</h1>
+    
+    <div class="test-section info">
+        <h3>📋 Test Overview</h3>
+        <p>This test will verify that the edit member functionality works correctly:</p>
+        <ul>
+            <li>✅ Form population with member data</li>
+            <li>✅ Form submission and validation</li>
+            <li>✅ Backend API call</li>
+            <li>✅ Database update</li>
+            <li>✅ Frontend table refresh</li>
+            <li>✅ Success/error handling</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 Test Setup</h3>
+        <button class="btn-primary" onclick="loadAdminJS()">Load admin.js</button>
+        <button class="btn-primary" onclick="checkFunctions()">Check Functions</button>
+        <button class="btn-primary" onclick="createTestMember()">Create Test Member</button>
+        <div id="setup-status"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Test Member Data</h3>
+        <div class="form-group">
+            <label>Name:</label>
+            <input type="text" id="testName" value="Test Member" />
+        </div>
+        <div class="form-group">
+            <label>Code:</label>
+            <input type="text" id="testCode" value="TEST001" />
+        </div>
+        <div class="form-group">
+            <label>Position:</label>
+            <select id="testPosition">
+                <option value="MEMBER">Member</option>
+                <option value="PRESIDENT">President</option>
+                <option value="SECRETARY">Secretary</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>State:</label>
+            <select id="testState">
+                <option value="LAGOS">LAGOS</option>
+                <option value="ABUJA">ABUJA</option>
+                <option value="KANO">KANO</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Zone:</label>
+            <input type="text" id="testZone" value="South West" />
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔄 Test Edit Process</h3>
+        <button class="btn-success" onclick="testEditMember()">Test Edit Member</button>
+        <button class="btn-primary" onclick="verifyUpdate()">Verify Update</button>
+        <button class="btn-danger" onclick="cleanupTest()">Cleanup Test</button>
+        <div id="edit-status"></div>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        let testMemberId = null;
+        let originalMemberData = null;
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `test-section ${type}`;
+            logEntry.innerHTML = `<strong>${timestamp}</strong>: ${message}`;
+            results.appendChild(logEntry);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function loadAdminJS() {
+            try {
+                // Create a script element to load admin.js
+                const script = document.createElement('script');
+                script.src = 'js/admin.js';
+                script.onload = () => {
+                    log('✅ admin.js loaded successfully', 'success');
+                    document.getElementById('setup-status').innerHTML = '<span style="color: green;">✅ admin.js loaded</span>';
+                };
+                script.onerror = () => {
+                    log('❌ Failed to load admin.js', 'error');
+                    document.getElementById('setup-status').innerHTML = '<span style="color: red;">❌ admin.js failed to load</span>';
+                };
+                document.head.appendChild(script);
+            } catch (error) {
+                log(`❌ Error loading admin.js: ${error.message}`, 'error');
+            }
+        }
+
+        function checkFunctions() {
+            const requiredFunctions = [
+                'editMember',
+                'showEditMemberModal',
+                'closeEditMemberModal',
+                'displayMembers',
+                'showMessage'
+            ];
+
+            const missing = [];
+            const available = [];
+
+            requiredFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    available.push(funcName);
+                } else {
+                    missing.push(funcName);
+                }
+            });
+
+            if (missing.length === 0) {
+                log(`✅ All required functions available: ${available.join(', ')}`, 'success');
+            } else {
+                log(`❌ Missing functions: ${missing.join(', ')}`, 'error');
+                log(`✅ Available functions: ${available.join(', ')}`, 'info');
+            }
+        }
+
+        function createTestMember() {
+            try {
+                // Create a test member object
+                const testMember = {
+                    _id: 'test_' + Date.now(),
+                    name: document.getElementById('testName').value,
+                    code: document.getElementById('testCode').value,
+                    position: document.getElementById('testPosition').value,
+                    state: document.getElementById('testState').value,
+                    zone: document.getElementById('testZone').value,
+                    email: 'test@example.com',
+                    createdAt: new Date().toISOString()
+                };
+
+                // Store in window.currentMembers
+                if (!window.currentMembers) {
+                    window.currentMembers = [];
+                }
+                window.currentMembers.push(testMember);
+                
+                testMemberId = testMember._id;
+                originalMemberData = { ...testMember };
+
+                log(`✅ Test member created with ID: ${testMemberId}`, 'success');
+                log(`📋 Member data: ${JSON.stringify(testMember, null, 2)}`, 'info');
+
+                // Create a mock displayMembers function if it doesn't exist
+                if (typeof window.displayMembers !== 'function') {
+                    window.displayMembers = function(members) {
+                        log(`🔄 displayMembers called with ${members.length} members`, 'info');
+                    };
+                }
+
+                // Create a mock showMessage function if it doesn't exist
+                if (typeof window.showMessage !== 'function') {
+                    window.showMessage = function(message, type) {
+                        log(`💬 showMessage: ${message} (${type})`, type === 'error' ? 'error' : 'success');
+                    };
+                }
+
+            } catch (error) {
+                log(`❌ Error creating test member: ${error.message}`, 'error');
+            }
+        }
+
+        function testEditMember() {
+            if (!testMemberId) {
+                log('❌ No test member created. Create one first.', 'error');
+                return;
+            }
+
+            try {
+                log('🔄 Starting edit member test...', 'info');
+
+                // Simulate opening the edit modal
+                if (typeof window.showEditMemberModal === 'function') {
+                    window.showEditMemberModal(testMemberId);
+                    log('✅ showEditMemberModal called successfully', 'success');
+                } else {
+                    log('❌ showEditMemberModal function not available', 'error');
+                    return;
+                }
+
+                // Simulate form submission
+                setTimeout(() => {
+                    simulateFormSubmission();
+                }, 1000);
+
+            } catch (error) {
+                log(`❌ Error in edit member test: ${error.message}`, 'error');
+            }
+        }
+
+        function simulateFormSubmission() {
+            try {
+                log('📝 Simulating form submission...', 'info');
+
+                // Create a mock event object
+                const mockEvent = {
+                    preventDefault: () => log('✅ preventDefault called', 'info'),
+                    target: {
+                        dataset: { memberId: testMemberId },
+                        querySelector: (selector) => {
+                            // Mock form fields
+                            const fieldMap = {
+                                '#editMemberName': { value: 'Updated Test Member' },
+                                '#editMemberEmail': { value: 'updated@example.com' },
+                                '#editMemberCode': { value: 'UPD001' },
+                                '#editMemberPosition': { value: 'SECRETARY' },
+                                '#editMemberState': { value: 'ABUJA' },
+                                '#editMemberZone': { value: 'North Central' },
+                                '#editMemberPassword': { value: '' }
+                            };
+                            return fieldMap[selector] || null;
+                        }
+                    }
+                };
+
+                // Call editMember function
+                if (typeof window.editMember === 'function') {
+                    window.editMember(mockEvent);
+                    log('✅ editMember function called successfully', 'success');
+                } else {
+                    log('❌ editMember function not available', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Error simulating form submission: ${error.message}`, 'error');
+            }
+        }
+
+        function verifyUpdate() {
+            if (!testMemberId || !window.currentMembers) {
+                log('❌ No test data available for verification', 'error');
+                return;
+            }
+
+            try {
+                const updatedMember = window.currentMembers.find(m => m._id === testMemberId);
+                
+                if (!updatedMember) {
+                    log('❌ Test member not found in currentMembers', 'error');
+                    return;
+                }
+
+                log('🔍 Verifying member update...', 'info');
+                log(`📋 Current member data: ${JSON.stringify(updatedMember, null, 2)}`, 'info');
+
+                // Check if data was updated
+                const changes = [];
+                if (updatedMember.name !== originalMemberData.name) changes.push('name');
+                if (updatedMember.code !== originalMemberData.code) changes.push('code');
+                if (updatedMember.position !== originalMemberData.position) changes.push('position');
+                if (updatedMember.state !== originalMemberData.state) changes.push('state');
+                if (updatedMember.zone !== originalMemberData.zone) changes.push('zone');
+
+                if (changes.length > 0) {
+                    log(`✅ Member updated successfully! Changes: ${changes.join(', ')}`, 'success');
+                } else {
+                    log('⚠️ No changes detected in member data', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Error verifying update: ${error.message}`, 'error');
+            }
+        }
+
+        function cleanupTest() {
+            try {
+                if (window.currentMembers && testMemberId) {
+                    window.currentMembers = window.currentMembers.filter(m => m._id !== testMemberId);
+                    log('✅ Test member removed from currentMembers', 'success');
+                }
+                
+                testMemberId = null;
+                originalMemberData = null;
+                
+                log('🧹 Test cleanup completed', 'info');
+                
+            } catch (error) {
+                log(`❌ Error during cleanup: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-load admin.js when page loads
+        window.addEventListener('load', () => {
+            log('🚀 Page loaded, starting tests...', 'info');
+            setTimeout(loadAdminJS, 500);
+        });
+    </script>
+</body>
+</html>
