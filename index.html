@@ -2086,10 +2086,7 @@ body {
 </footer>
 
   <script>
-
-
-
-// ==== BEGIN: Local Image Cache Helpers (IndexedDB version: passport & certificate signatures) ====
+    // ==== BEGIN: Local Image Cache Helpers (IndexedDB version: passport & certificate signatures) ====
 (function(){
   // Avoid redefining
   if (window.__NARAP_IMG_CACHE_IDB__) return;
@@ -2694,6 +2691,8 @@ function displayMemberResult(member) {
 
   `;
 
+
+  try { ensureImpersonationWarningAboveButtons && ensureImpersonationWarningAboveButtons('member'); } catch(_) {}
 // ---- Hook: Member passport cache ----
 (function(){
   try{
@@ -2719,42 +2718,7 @@ function displayMemberResult(member) {
 
   
   // Add impersonation warning after modal buttons (prevent duplication)
-  setTimeout(() => {
-    const modalButtons = document.querySelector('.modal-buttons');
-    if (modalButtons) {
-      // Check if impersonation warning already exists
-      const existingWarning = document.querySelector('.impersonation-warning');
-      if (existingWarning) {
-        // Remove existing warning to prevent duplication
-        existingWarning.remove();
-      }
-      
-      const impersonationWarning = document.createElement('div');
-      impersonationWarning.className = 'impersonation-warning';
-      impersonationWarning.innerHTML = `
-  <div class="impersonation-content">
-    <div class="impersonation-text">
-      <h5 class="impersonation-title">
-        <i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
-        <span class="full-label">Impersonation Warning</span>
-        <span class="short-label">Warning</span>
-      </h5>
-      <p class="impersonation-description">
-        Suspect impersonation or suspicious activity? Contact the NARAP Task Force — available 24/7.
-      </p>
-    </div>
-    <button onclick="callTaskForce()" class="task-force-button">
-      <i class="fas fa-phone" style="font-size: 14px;"></i>
-      Task Force
-    </button>
-  </div>
-`;
-
-
-      // Insert after modal buttons
-      modalButtons.parentNode.insertBefore(impersonationWarning, modalButtons.nextSibling);
-    }
-  }, 100);
+  
   
   console.log('🔍 displayMemberResult() - Showing result modal');
   
@@ -4047,6 +4011,8 @@ function displayCertificateResult(certificate, message = '') {
     ` : ''}
   `;
 
+
+  try { ensureImpersonationWarningAboveButtons && ensureImpersonationWarningAboveButtons('certificate'); } catch(_) {}
 // ---- Hook: Certificate signature cache ----
 (function(){
   try{
@@ -4685,6 +4651,106 @@ async function testCorrectAPI() {
 // Expose test function to window for debugging
 window.testCorrectAPI = testCorrectAPI;
 
+
+
+// ==== UNIFIED IMPERSONATION WARNING INSERTER ====
+(function(){
+  if (window.__NARAP_WARN_INSERTER__) return;
+  window.__NARAP_WARN_INSERTER__ = true;
+
+  function buildWarningElement(){
+    const el = document.createElement('div');
+    el.className = 'impersonation-warning';
+    el.innerHTML = `
+      <div class="impersonation-content">
+        <div class="impersonation-text">
+          <h5 class="impersonation-title">
+            <i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
+            <span class="full-label">Impersonation Warning</span>
+            <span class="short-label">Warning</span>
+          </h5>
+          <p class="impersonation-description">
+            Suspect impersonation or suspicious activity? Contact the NARAP Task Force — available 24/7.
+          </p>
+        </div>
+        <button onclick="callTaskForce()" class="task-force-button">
+          <i class="fas fa-phone" style="font-size: 14px;"></i>
+          Task Force
+        </button>
+      </div>
+    `;
+    return el;
+  }
+
+  function resolveModal(scope){
+    let anchor = null;
+    if (scope === 'member') {
+      anchor = document.querySelector('[data-member-code]') ||
+               document.querySelector('.member-verification-card') ||
+               document.querySelector('.result-content');
+    } else if (scope === 'certificate') {
+      anchor = document.querySelector('[data-certificate-code]') ||
+               document.querySelector('.certificate-number') ||
+               document.querySelector('.id-card-section') ||
+               document.querySelector('.certificate-details');
+    } else {
+      anchor = document.querySelector('[data-certificate-code], .certificate-number, .id-card-section, .certificate-details') ||
+               document.querySelector('[data-member-code], .member-verification-card, .result-content');
+    }
+    const modal = (anchor && (anchor.closest('.result-modal') || anchor.closest('.result-modal-content'))) || document;
+    return modal;
+  }
+
+  // Public API
+  window.ensureImpersonationWarningAboveButtons = function(scope){
+    const container = resolveModal(scope);
+    const modalButtons = container.querySelector('.modal-buttons');
+    if (!modalButtons) return false;
+
+    let warning = container.querySelector('.impersonation-warning');
+    if (!warning) warning = buildWarningElement();
+
+    if (warning.nextSibling !== modalButtons) {
+      modalButtons.parentNode.insertBefore(warning, modalButtons);
+    }
+    return true;
+  };
+
+  function kick(){
+    try {
+      window.ensureImpersonationWarningAboveButtons('member');
+      window.ensureImpersonationWarningAboveButtons('certificate');
+    } catch(e){}
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => setTimeout(kick, 0));
+  } else {
+    setTimeout(kick, 0);
+  }
+
+  try {
+    const obs = new MutationObserver(() => { kick(); });
+    obs.observe(document.body, { childList: true, subtree: true });
+  } catch(_) {}
+})();
+// ==== END: UNIFIED IMPERSONATION WARNING INSERTER ====
+
+
+(function(){
+  try{
+    const style = document.createElement('style');
+    style.textContent = `
+      .short-label { display: none; }
+      .full-label { display: inline; }
+      @media (max-width: 480px) {
+        .short-label { display: inline; }
+        .full-label { display: none; }
+      }
+    `;
+    document.head.appendChild(style);
+  }catch(_){}
+})();
 </script>
 </body>
 </html>
