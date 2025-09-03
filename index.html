@@ -1794,44 +1794,51 @@ body {
 }
 
 .impersonation-warning {
-  margin-top: 15px;
-  text-align: center; /* center everything inside */
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: 12px;
+  background: #fff8e6;                 /* soft yellow background */
+  border-left: 4px solid #f39c12;      /* orange warning accent */
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
 .impersonation-warning .impersonation-title {
   font-size: 16px;
   font-weight: 600;
-  color: #f39c12;
-  margin-bottom: 8px;
+  color: #d35400;                      /* darker orange for text */
+  margin-bottom: 10px;
   display: flex;
-  flex-direction: column;   /* stack children vertically */
-  align-items: center;      /* center horizontally */
-  gap: 6px;                 /* space between icon and text */
+  flex-direction: column;              /* stack icon above text */
+  align-items: center;
+  gap: 6px;
 }
 
 .impersonation-warning .impersonation-title i {
-  font-size: 22px;          /* make icon a bit bigger */
-  margin: 0;                /* remove default spacing */
+  font-size: 24px;                     /* larger warning icon */
+  margin: 0;
+  color: #e67e22;                      /* orange icon */
 }
 
 .impersonation-warning .impersonation-description {
   font-size: 14px;
-  line-height: 1.4;
-  color: #333;
-  margin-bottom: 12px;
+  line-height: 1.5;
+  color: #5c4033;                      /* readable brownish text */
+  margin-bottom: 15px;
 }
 
 .impersonation-warning .task-force-button {
-  background: #e74c3c;
+  background: #e74c3c;                 /* red button for urgency */
   color: #fff;
   border: none;
-  padding: 8px 16px;
+  padding: 10px 20px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  transition: background 0.3s ease;
 }
 
 .impersonation-warning .task-force-button:hover {
