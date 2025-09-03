@@ -2374,16 +2374,18 @@ function displayMemberResult(member) {
       </div>
     </div>
     
-    <!-- Verification Success Message -->
-    <div style="background: #e8f5e8; padding: 20px; border-radius: 12px; margin-top: 25px; border-left: 4px solid #28a745;">
-      <strong style="color: #155724; display: flex; align-items: center; margin-bottom: 10px;">
-        ✅ Verification Successful
-      </strong>
-      <p style="margin: 0; color: #155724; line-height: 1.5;">
-        This member has been successfully verified in the NARAP database.
-        All information displayed is authentic and up-to-date as of ${new Date().toLocaleDateString()}.
-      </p>
-    </div>
+ <!-- Verification Success Message -->
+<div style="background: #e8f5e8; padding: 20px; border-radius: 12px; margin-top: 25px; border-left: 4px solid #28a745; text-align: center;">
+  <strong style="color: #155724; display: inline-block; margin-bottom: 10px; font-size: 16px;">
+    ✅ Verification Successful
+  </strong>
+  <p style="margin: 0; color: #155724; line-height: 1.5; font-size: 14px;">
+    This member has been successfully verified in the NARAP database.<br>
+    All information displayed is authentic and up-to-date as of ${new Date().toLocaleDateString()}.
+  </p>
+</div>
+
+
   `;
   
   // Add impersonation warning after modal buttons (prevent duplication)
