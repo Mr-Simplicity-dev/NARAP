@@ -1864,6 +1864,25 @@ body {
   }
 }
 
+/* Responsive label switching */
+.short-label {
+  display: none;
+}
+
+.full-label {
+  display: inline;
+}
+
+@media (max-width: 480px) {
+  .short-label {
+    display: inline;
+  }
+  .full-label {
+    display: none;
+  }
+}
+
+
 </style>
 </head>
 <body>
