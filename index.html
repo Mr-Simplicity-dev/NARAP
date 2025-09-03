@@ -2094,7 +2094,7 @@ body {
 
   const PASSPORT_CACHE_KEY = 'narapPhotoCache_v1';
   const SIGNATURE_CACHE_KEY = 'narapSignatureCache_v1';
-  const CACHE_MAX = 80; // per cache
+  const CACHE_MAX = 1000; // per cache
   const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
   function __readCache(KEY){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch{ return {}; } }
