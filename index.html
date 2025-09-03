@@ -2455,22 +2455,23 @@ function displayMemberResult(member) {
       const impersonationWarning = document.createElement('div');
       impersonationWarning.className = 'impersonation-warning';
       impersonationWarning.innerHTML = `
-        <div class="impersonation-content">
-          <div class="impersonation-text">
-            <h5 class="impersonation-title">
-              <i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
-              Impersonation Warning
-            </h5>
-            <p class="impersonation-description">
-              If you suspect this member is being impersonated or if you notice any suspicious activity, 
-              please contact the NARAP Task Force immediately. They are available 24/7 to handle security concerns.
-            </p>
-          </div>
-          <button onclick="callTaskForce()" class="task-force-button">
-            <i class="fas fa-phone" style="font-size: 14px;"></i>
-            Task Force
-          </button>
-        </div>
+  <div class="impersonation-content">
+    <div class="impersonation-text">
+      <h5 class="impersonation-title">
+        <i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
+        Impersonation Warning
+      </h5>
+      <p class="impersonation-description">
+        Suspect impersonation or suspicious activity? Contact the NARAP Task Force — available 24/7.
+      </p>
+    </div>
+    <button onclick="callTaskForce()" class="task-force-button">
+      <i class="fas fa-phone" style="font-size: 14px;"></i>
+      Task Force
+    </button>
+  </div>
+`;
+
       `;
       
       // Insert after modal buttons
