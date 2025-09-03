@@ -1244,84 +1244,78 @@ async function syncPendingChanges() {
 
     // ---- Members: CREATE (with UPSERT fallback) ----
     for (const member of pending.memberCreations || []) {
-      try {
-        const mm = sanitizeMemberForFormData(member);
-        const formData = new FormData();
-        const fields = ['name','email','code','position','state','zone','password'];
-        for (const k of fields) if (mm[k] != null && mm[k] !== '') formData.append(k, String(mm[k]));
+        try {
+          const mm = sanitizeMemberForFormData(member);
+          const formData = new FormData();
+          const fields = ['name','email','code','position','state','zone','password'];
+          for (const k of fields) if (mm[k] != null && mm[k] !== '') formData.append(k, String(mm[k]));
 
-        // Attach files using both key names to satisfy backend variance
-        const passFile = mm.passport || mm.passportFile || mm.passport_photo || mm.passportPhoto;
-        const sigFile  = mm.signature || mm.signatureFile || mm.signature_photo || mm.signaturePhoto;
-        if (passFile instanceof File) { formData.append('passport', passFile); formData.append('passportPhoto', passFile); }
-        if (sigFile  instanceof File) { formData.append('signature', sigFile); }
+          // Attach files using both key names to satisfy backend variance
+          const passFile = mm.passport || mm.passportFile || mm.passport_photo || mm.passportPhoto;
+          const sigFile  = mm.signature || mm.signatureFile || mm.signature_photo || mm.signaturePhoto;
+          if (passFile instanceof File) { formData.append('passport', passFile); formData.append('passportPhoto', passFile); }
+          if (sigFile  instanceof File) { formData.append('signature', sigFile); }
 
-        const upsertResult = await upsertMemberFormData(mm, formData);
-        if (upsertResult.ok) {
-          if (typeof counts !== 'undefined') { counts.updated = (counts.updated || 0) + 1; }
-        } else {
-          if (remain && remain.memberUpdates) {
-            if ((member.__attempts||0) >= 1) {
-              console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
-              if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
-            } else {
-              remain.memberUpdates.push(__bumpAttempts(member));
-            }
-          }
-          if (typeof errors !== 'undefined') errors.push({ member, error: 'Upsert failed', details: upsertResult });
-        }
-      } catch (err) {
-        if (remain && remain.memberUpdates) {
-          if ((member.__attempts||0) >= 1) {
-            console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
-            if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+          const upsertResult = await upsertMemberFormData(mm, formData);
+          if (upsertResult.ok) {
+            // increment counts if present; otherwise ignore
+            if (typeof counts !== 'undefined') { counts.updated = (counts.updated || 0) + 1; }
           } else {
-            remain.memberUpdates.push(__bumpAttempts(member));
+            if (remain && remain.memberUpdates) if ((member.__attempts||0) >= 1) {
+  console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
+  if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+} else {
+  remain.memberUpdates.push(__bumpAttempts(member));
+}
+            if (typeof errors !== 'undefined') errors.push({ member, error: 'Upsert failed', details: upsertResult });
           }
+        } catch (err) {
+          if (remain && remain.memberUpdates) if ((member.__attempts||0) >= 1) {
+  console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
+  if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+} else {
+  remain.memberUpdates.push(__bumpAttempts(member));
+}
+          if (typeof errors !== 'undefined') errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
         }
-        if (typeof errors !== 'undefined') errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
-      }
     }
 
     // ---- Members: UPDATE ----
     for (const member of pending.memberUpdates || []) {
-      try {
-        const mm = sanitizeMemberForFormData(member);
-        const formData = new FormData();
-        const fields = ['name','email','code','position','state','zone','password'];
-        for (const k of fields) if (mm[k] != null && mm[k] !== '') formData.append(k, String(mm[k]));
+        try {
+          const mm = sanitizeMemberForFormData(member);
+          const formData = new FormData();
+          const fields = ['name','email','code','position','state','zone','password'];
+          for (const k of fields) if (mm[k] != null && mm[k] !== '') formData.append(k, String(mm[k]));
 
-        // Attach files using both key names to satisfy backend variance
-        const passFile = mm.passport || mm.passportFile || mm.passport_photo || mm.passportPhoto;
-        const sigFile  = mm.signature || mm.signatureFile || mm.signature_photo || mm.signaturePhoto;
-        if (passFile instanceof File) { formData.append('passport', passFile); formData.append('passportPhoto', passFile); }
-        if (sigFile  instanceof File) { formData.append('signature', sigFile); }
+          // Attach files using both key names to satisfy backend variance
+          const passFile = mm.passport || mm.passportFile || mm.passport_photo || mm.passportPhoto;
+          const sigFile  = mm.signature || mm.signatureFile || mm.signature_photo || mm.signaturePhoto;
+          if (passFile instanceof File) { formData.append('passport', passFile); formData.append('passportPhoto', passFile); }
+          if (sigFile  instanceof File) { formData.append('signature', sigFile); }
 
-        const upsertResult = await upsertMemberFormData(mm, formData);
-        if (upsertResult.ok) {
-          if (typeof counts !== 'undefined') { counts.updated = (counts.updated || 0) + 1; }
-        } else {
-          if (remain && remain.memberUpdates) {
-            if ((member.__attempts||0) >= 1) {
-              console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
-              if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
-            } else {
-              remain.memberUpdates.push(__bumpAttempts(member));
-            }
-          }
-          if (typeof errors !== 'undefined') errors.push({ member, error: 'Upsert failed', details: upsertResult });
-        }
-      } catch (err) {
-        if (remain && remain.memberUpdates) {
-          if ((member.__attempts||0) >= 1) {
-            console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
-            if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+          const upsertResult = await upsertMemberFormData(mm, formData);
+          if (upsertResult.ok) {
+            // increment counts if present; otherwise ignore
+            if (typeof counts !== 'undefined') { counts.updated = (counts.updated || 0) + 1; }
           } else {
-            remain.memberUpdates.push(__bumpAttempts(member));
+            if (remain && remain.memberUpdates) if ((member.__attempts||0) >= 1) {
+  console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
+  if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+} else {
+  remain.memberUpdates.push(__bumpAttempts(member));
+}
+            if (typeof errors !== 'undefined') errors.push({ member, error: 'Upsert failed', details: upsertResult });
           }
+        } catch (err) {
+          if (remain && remain.memberUpdates) if ((member.__attempts||0) >= 1) {
+  console.warn('Auto-dropping repeatedly failing UPDATE item:', {name: member.name, code: member.code, email: member.email});
+  if (typeof showMessage === 'function') showMessage('Dropped failing update for ' + (member.code||member.name||'unknown') + '.', 'warning');
+} else {
+  remain.memberUpdates.push(__bumpAttempts(member));
+}
+          if (typeof errors !== 'undefined') errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
         }
-        if (typeof errors !== 'undefined') errors.push({ member, error: 'Exception during upsert', details: err?.message || String(err) });
-      }
     }
 
     // ---- Members: DELETE ----
@@ -1380,16 +1374,16 @@ async function syncPendingChanges() {
     console.error('Failed to sync pending changes:', err);
     if (typeof showMessage === 'function') showMessage('Failed to sync pending changes', 'error');
   }
-
+  
   // === Finalize pending queue ===
-  // Ensure 'remain' exists (if earlier block failed to declare it)
-  if (typeof remain === 'undefined' || !remain) { var remain = { memberCreations: [], memberUpdates: [], memberDeletions: [] }; }
+  // Ensure 'remain' exists
+  if (typeof remain === 'undefined' || !remain) { var remain = { memberCreations: [], memberUpdates: [], memberDeletes: [] }; }
   try {
     // Drop items that exceeded retry threshold
     const droppedList = [
-      __droppedRetry(remain.memberCreations),
-      __droppedRetry(remain.memberUpdates),
-      __droppedRetry(remain.memberDeletions),
+      ...__droppedRetry(remain.memberCreations),
+      ...__droppedRetry(remain.memberUpdates),
+      ...__droppedRetry(remain.memberDeletes),
     ];
     if (droppedList.length) {
       console.warn('Dropping permanently failed pending items after 3 attempts:', droppedList);
@@ -1398,28 +1392,28 @@ async function syncPendingChanges() {
 
     remain.memberCreations = __filterRetry(remain.memberCreations);
     remain.memberUpdates   = __filterRetry(remain.memberUpdates);
-    remain.memberDeletions = __filterRetry(remain.memberDeletions);
+    remain.memberDeletes   = __filterRetry(remain.memberDeletes);
 
     /*logOnePending*/
-    const totalRemain =
+const totalRemain =
       (remain.memberCreations?.length || 0) +
       (remain.memberUpdates?.length || 0) +
-      (remain.memberDeletions?.length || 0);
+      (remain.memberDeletes?.length || 0);
 
     if (totalRemain === 1) {
-      try {
-        const qraw = localStorage.getItem('narap_pending_sync');
-        const q = qraw ? JSON.parse(qraw) : remain;
-        const item = (q.memberCreations && q.memberCreations[0]) ||
-                     (q.memberUpdates && q.memberUpdates[0])   ||
-                     (q.memberDeletions && q.memberDeletions[0])   || null;
-        console.warn('Exactly 1 pending remains. Item details:', item);
-        if (typeof showMessage === 'function' && item) {
-          showMessage('1 item still pending: ' + (item.code || item.name || 'unknown'), 'warning');
-        }
-      } catch(e) { console.warn('Could not log remaining pending item:', e); }
+  try {
+    const qraw = localStorage.getItem('narap_pending_sync');
+    const q = qraw ? JSON.parse(qraw) : remain;
+    const item = (q.memberCreations && q.memberCreations[0]) ||
+                 (q.memberUpdates && q.memberUpdates[0])   ||
+                 (q.memberDeletes && q.memberDeletes[0])   || null;
+    console.warn('Exactly 1 pending remains. Item details:', item);
+    if (typeof showMessage === 'function' && item) {
+      showMessage('1 item still pending: ' + (item.code || item.name || 'unknown'), 'warning');
     }
-    if (totalRemain === 0) {
+  } catch(e) { console.warn('Could not log remaining pending item:', e); }
+}
+if (totalRemain === 0) {
       localStorage.removeItem('narap_pending_sync'); // correct key
       localStorage.removeItem('pendingChanges');     // legacy key
     } else {
@@ -4657,97 +4651,498 @@ function closeImportModal() {
 }
 
 // ==================== MEMBER DISPLAY FUNCTIONS ====================
-// ==================== MEMBERS DISPLAY ====================
+
 function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
-  const tableBody = document.getElementById('membersTableBody');
-  if (!tableBody) return;
-
-  // Ensure members is an array
-  if (!Array.isArray(members)) members = [];
-
-  if (members.length === 0) {
-    tableBody.innerHTML = `
-      <tr>
-        <td colspan="9" class="no-data">No members found</td>
-      </tr>
-    `;
-    return;
-  }
-
-  tableBody.innerHTML = members.map((member, index) => {
-    if (!member || typeof member !== 'object') return '';
-
-    const memberId = member._id || member.id || '';
-    const name     = member.name || 'N/A';
-    const email    = member.email || 'N/A';
-    const code     = member.code || 'N/A';
-    const position = member.position || 'N/A';
-    const state    = member.state || 'N/A';
-    const zone     = member.zone || 'N/A';
-
-    // Photo URL resolution (kept lightweight; actual preview happens in viewMember())
-    const passportPhoto = member.passportPhoto || member.passport || '';
-    let validPhotoUrl = null;
-    try {
-      if (passportPhoto) {
-        if (/^(https?:|data:)/i.test(passportPhoto)) {
-          validPhotoUrl = passportPhoto;
-        } else if (passportPhoto.startsWith('/')) {
-          validPhotoUrl = `${backendUrl}${passportPhoto}`;
-        } else if (passportPhoto.includes('passportPhoto-') || passportPhoto.includes('signature-')) {
-          const fieldType = passportPhoto.includes('passportPhoto-') ? 'passports' : 'signatures';
-          validPhotoUrl = `${backendUrl}/api/uploads/${fieldType}/${passportPhoto}`;
-        } else {
-          validPhotoUrl = `${backendUrl}/api/uploads/passports/${passportPhoto}`;
-        }
-      }
-    } catch (e) {
-      console.warn('Photo URL parse error:', e);
-      validPhotoUrl = null;
+    const tableBody = document.getElementById('membersTableBody');
+    if (!tableBody) {
+        
+        return;
     }
-
-    // "View" button calls your existing viewMember(id) which should handle showing the modal
-    const actions = `
-      <button class="btn btn-sm btn-outline-primary" onclick="viewMember('${memberId}')" title="View Passport">View</button>
-    `;
-
-    // Render row (adapt the columns to your table head)
-    return `
-      <tr>
-        <td>${(index + 1) + (itemsPerPage * (currentPage - 1))}</td>
-        <td>${name}</td>
-        <td>${email}</td>
-        <td>${code}</td>
-        <td>${position}</td>
-        <td>${state}</td>
-        <td>${zone}</td>
-        <td>${validPhotoUrl ? '<i class="fas fa-image" title="Photo available"></i>' : '<span class="text-muted">—</span>'}</td>
-        <td>${actions}</td>
-      </tr>
-    `;
-  }).join('');
+    
+    // Ensure members is an array
+    if (!Array.isArray(members)) {
+        
+        members = [];
+    }
+    
+    if (members.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="no-data">No members found</td>
+            </tr>
+        `;
+        return;
+    }
+    
+    try {
+        tableBody.innerHTML = members.map((member, index) => {
+            // Ensure member is an object
+            if (!member || typeof member !== 'object') {
+                
+                return '';
+            }
+            
+            const memberId = member._id || member.id || '';
+            const name = member.name || 'N/A';
+            const email = member.email || 'N/A';
+            const code = member.code || 'N/A';
+            const position = member.position || 'N/A';
+            const state = member.state || 'N/A';
+            const zone = member.zone || 'N/A';
+            
+            // Get photo URL with improved logic (same as verification page)
+            const passportPhoto = member.passportPhoto || member.passport;
+            let validPhotoUrl = null;
+            
+            if (passportPhoto) {
+                try {
+                    // Handle different URL formats
+                    if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://') || passportPhoto.startsWith('data:')) {
+                        validPhotoUrl = passportPhoto;
+                    } else if (passportPhoto.startsWith('/')) {
+                        validPhotoUrl = `${backendUrl}${passportPhoto}`;
+                    } else if (passportPhoto.includes('passportPhoto-') || passportPhoto.includes('signature-')) {
+                        // Handle filename patterns
+                        const fieldType = passportPhoto.includes('passportPhoto-') ? 'passports' : 'signatures';
+                        validPhotoUrl = `${backendUrl}/api/uploads/${fieldType}/${passportPhoto}`;
+                    } else {
+                        // Fallback for other cases
+                        validPhotoUrl = `${backendUrl}/api/uploads/passports/${passportPhoto}`;
+                    }
+                } catch (error) {
+                    console.log('❌ Error processing photo URL:', error);
+                    validPhotoUrl = null;
+                }
+            }
+            
+            console.log('🔍 Image debug for member:', member.name, {
+                passportPhoto: member.passportPhoto,
+                passport: member.passport,
+                validPhotoUrl: validPhotoUrl
+            });
+            
+            // Enhanced error handling with multiple fallback URLs
+            const alternativeUrls = validPhotoUrl ? [
+                validPhotoUrl,
+                `${backendUrl}/api/uploads/passports/${passportPhoto}`,
+                `${backendUrl}/api/uploads/signatures/${passportPhoto}`,
+                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/${passportPhoto}`,
+                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/signature/${passportPhoto}`
+            ] : [];
+            
+            const imgElement = `\n                <button class=\"btn btn-sm btn-outline-primary\" onclick=\"viewMember('${memberId}')\" title=\"View Passport\">View</button>\n            `;
+            
+            const rowHTML = `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class=\"checkbox-cell\"><input type=\"checkbox\" class=\"member-checkbox\" value="${memberId}" 
+                               onchange="toggleMemberSelection(this)">
+                    </td>
+                    
+                    <td>${imgElement}</td>
+                    <td>${name}</td>
+                    <td>${email}</td>
+                    <td>${code}</td>
+                    <td>${position}</td>
+                    <td>${state}</td>
+                    <td>${zone}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewMember('${memberId}')" title="View Member">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            
+            return rowHTML;
+        }).join('');
+        
+        // Update members count
+        updateMembersCount();
+        
+    } catch (error) {
+        
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="error">Error displaying members</td>
+            </tr>
+        `;
+    }
 }
 
-// This function should ONLY manage the modal; keep it OUT of displayMembers()
+function filterMembers() {
+    const searchTerm = document.getElementById('memberSearch')?.value || '';
+    const positionFilter = document.getElementById('positionFilter')?.value || '';
+    const stateFilter = document.getElementById('stateFilter')?.value || '';
+    
+    console.log('🔍 Filtering members with:', {
+        searchTerm: `"${searchTerm}"`,
+        positionFilter: `"${positionFilter}"`,
+        stateFilter: `"${stateFilter}"`
+    });
+    
+    // Debug: Log the actual DOM elements
+    const stateFilterElement = document.getElementById('stateFilter');
+    console.log('🔍 State filter element:', {
+        value: stateFilterElement?.value,
+        selectedIndex: stateFilterElement?.selectedIndex,
+        options: stateFilterElement?.options ? Array.from(stateFilterElement.options).map(opt => ({ value: opt.value, text: opt.text })) : []
+    });
+    
+    // Get user's saved pagination preference
+    const savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
+    
+    // Reload members with all filters and reset to page 1
+    loadMembers(1, savedMembersPerPage, searchTerm, positionFilter, stateFilter);
+}
+
+function refreshMembers() {
+    // Clear any cached data
+    window.currentMembers = null;
+    
+    // Clear all filters
+    const searchInput = document.getElementById('memberSearch');
+    const positionFilter = document.getElementById('positionFilter');
+    const stateFilter = document.getElementById('stateFilter');
+    
+    if (searchInput) searchInput.value = '';
+    if (positionFilter) positionFilter.value = '';
+    if (stateFilter) stateFilter.value = '';
+    
+    // Get user's saved pagination preference
+    const savedMembersPerPage = parseInt(localStorage.getItem('narap_members_per_page')) || 10;
+    
+    // Force reload with pagination
+    loadMembers(1, savedMembersPerPage);
+}
+
+function clearMemberSearch() {
+    const searchInput = document.getElementById('memberSearch');
+    const positionFilter = document.getElementById('positionFilter');
+    const stateFilter = document.getElementById('stateFilter');
+    
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    if (positionFilter) {
+        positionFilter.value = '';
+    }
+    if (stateFilter) {
+        stateFilter.value = '';
+    }
+    
+    console.log('🧹 Cleared all member filters');
+    filterMembers(); // Reload without any filters
+}
+
+// Debug function to test state filtering
+function debugStateFilter() {
+    console.log('🔍 === STATE FILTER DEBUG ===');
+    
+    // Get current members
+    const currentMembers = window.currentMembers || [];
+    console.log('Total members:', currentMembers.length);
+    
+    // Get state filter value
+    const stateFilter = document.getElementById('stateFilter')?.value || '';
+    console.log('Current state filter value:', `"${stateFilter}"`);
+    
+    // Show all unique states in the data
+    const uniqueStates = [...new Set(currentMembers.map(m => m.state).filter(s => s))];
+    console.log('Unique states in data:', uniqueStates);
+    
+    // Test filtering manually
+    if (stateFilter) {
+        const filtered = currentMembers.filter(m => m.state === stateFilter);
+        console.log(`Manual filter results for "${stateFilter}":`, filtered.length, 'members');
+        console.log('Filtered members:', filtered.map(m => ({ name: m.name, state: m.state })));
+    }
+    
+    console.log('🔍 === END DEBUG ===');
+}
+
+async function deleteMember(memberId) {
+    if (!confirm('Are you sure you want to delete this member? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        showMessage('Deleting member...', 'info');
+        
+        const currentMembers = window.currentMembers || [];
+        const memberToDelete = currentMembers.find(member => 
+            member._id === memberId || member.id === memberId
+        );
+        
+        if (!memberToDelete) {
+            showMessage('Member not found', 'error');
+            return;
+        }
+        
+        let isOnline = navigator.onLine;
+        let backendDeleteSuccess = false;
+        
+        // Try to delete from backend if online and member exists in backend
+        if (isOnline && memberToDelete.isFromBackend !== false && !memberToDelete._id.startsWith('local_')) {
+            try {
+                const response = await fetch(`${backendUrl}/api/users/deleteUser/${memberToDelete._id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    backendDeleteSuccess = true;
+                    console.log('✅ Member deleted from backend successfully');
+                } else {
+                    const errorData = await tryJson(response).catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('❌ Backend deletion failed:', error);
+                isOnline = false;
+            }
+        }
+        
+        // Always remove from local storage and current members
+        const updatedMembers = currentMembers.filter(member => 
+            member._id !== memberId && member.id !== memberId
+        );
+        window.currentMembers = updatedMembers;
+        
+        // Save to local storage immediately
+        saveLocalMembers(updatedMembers);
+        // Activity log: member deleted
+        try {
+            if (typeof logMemberDelete === 'function') logMemberDelete(memberToDelete);
+            if (typeof loadRecentActivity === 'function') { setTimeout(loadRecentActivity, 0); }
+            if (typeof updateActivityOverlayVisibility === 'function') { setTimeout(updateActivityOverlayVisibility, 0); }
+        } catch (e) { try { console.warn('logMemberDelete failed:', e); } catch(_) {} }
+        // Add to pending sync if backend deletion failed or member was local
+        if (!backendDeleteSuccess) {
+            const pendingSync = getPendingSync();
+            pendingSync.memberDeletions.push({
+                _id: memberToDelete._id || memberToDelete.id,
+                code: memberToDelete.code,
+                name: memberToDelete.name,
+                email: memberToDelete.email
+            });
+            savePendingSync(pendingSync);
+            
+            if (!isOnline) {
+                showMessage('Member deleted locally. Will sync with database when online.', 'warning');
+            } else {
+                showMessage('Member deleted locally. Will retry database sync.', 'warning');
+            }
+        } else {
+            showMessage('Member deleted successfully from both local storage and database!', 'success');
+        }
+        
+        // Update display and sync status
+        displayMembers(updatedMembers);
+        updateSyncStatus();
+        
+        // Refresh dashboard stats and recent activity
+        if (typeof loadDashboardStats === 'function') {
+            await loadDashboardStats();
+        }
+        if (typeof loadRecentActivity === 'function') {
+            await loadRecentActivity();
+        }
+        
+    } catch (error) {
+        console.error('❌ Delete member error:', error);
+        showMessage('Failed to delete member: ' + error.message, 'error');
+    }
+}
+
+// ==================== VIEW MEMBER FUNCTION ====================
+
+async function viewMember(memberId) {
+    console.log('🔍 Viewing member with ID:', memberId);
+    try {
+        // 1) Try to fetch the freshest member from backend (do not rely on cached object for photo)
+        let fetched = null;
+        const bases = [window.backendUrl || (typeof getBackendUrl === 'function' ? getBackendUrl() : ''), window.location.origin].filter(Boolean);
+        const candidatePaths = [
+          `/api/users/${memberId}`,
+          `/api/users/getUser/${memberId}`,
+          `/api/users/get-user/${memberId}`,
+          `/api/users/find/${memberId}`
+        ];
+        for (const base of bases) {
+          for (const path of candidatePaths) {
+            try {
+              const res = await fetch(`${base}${path}`, { headers: { 'Accept': 'application/json' } });
+              if (res.ok) {
+                const json = await (async () => { try { return await res.json(); } catch { return null; } })();
+                // Accept common shapes: {data}, {success:{data}}, direct object
+                fetched = (json && (json.data || (json.success && json.success.data) || json.member || json.user)) || (Array.isArray(json) ? json[0] : json);
+                if (fetched) break;
+              }
+            } catch (_) {}
+          }
+          if (fetched) break;
+        }
+
+        // 2) Fallback to cached list if API call fails
+        if (!fetched) {
+          const currentMembers = window.currentMembers || [];
+          fetched = currentMembers.find(m => m && (m._id === memberId || m.id === memberId));
+        }
+
+        if (!fetched) {
+          console.error('❌ Member not found with ID:', memberId);
+          if (typeof showMessage === 'function') showMessage('Member not found', 'error');
+          return;
+        }
+
+        // 3) Show modal using the fresh object (has latest passportPhoto if changed)
+        showViewMemberModal(fetched);
+    } catch (error) {
+        console.error('❌ Error viewing member:', error);
+        if (typeof showMessage === 'function') showMessage('Failed to view member: ' + error.message, 'error');
+    }
+}
+
+function showViewMemberModal(member) {
+    console.log('🔍 Opening member preview for:', member.name, member);
+    
+    // Get image URL with debugging
+    const imageUrl = getImageUrl(member.passportPhoto || member.passport);
+    console.log('🔍 Image URL:', imageUrl);
+    
+    // Create modal HTML
+    const modalHTML = `
+        <div id="viewMemberModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+            <div class="modal-content" style="background: white; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; position: relative;">
+                <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0;">View Member Details</h3>
+                    <button class="close-btn" onclick="closeViewMemberModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <div class="member-view-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div class="member-photo-section" style="flex: 0 0 200px;">
+                            <img src="${imageUrl}" 
+                                 alt="Member Photo" 
+                                 class="member-view-photo"
+                                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;"
+                                 onerror="this.src='${DEFAULT_AVATAR}'; console.log('Image failed to load, using default avatar');"
+                                 onload="console.log('Image loaded successfully');">
+                            ${member.signature ? `
+                                <div style="margin-top: 15px; text-align: center;">
+                                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Signature:</div>
+                                    <img src="${getImageUrl(member.signature)}" 
+                                         alt="Member Signature" 
+                                         style="max-width: 150px; max-height: 60px; object-fit: contain; border: 1px solid #eee; border-radius: 4px;"
+                                         onerror="this.style.display='none'; console.log('Signature failed to load');"
+                                         onload="console.log('Signature loaded successfully');">
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="member-details-section" style="flex: 1; min-width: 300px;">
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Full Name:</label>
+                                <span style="color: #666;">${member.name || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Email:</label>
+                                <span style="color: #666;">${member.email || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">NARAP Code:</label>
+                                <span style="color: #666;">${member.code || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Position:</label>
+                                <span style="color: #666;">${member.position || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">State:</label>
+                                <span style="color: #666;">${member.state || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Zone:</label>
+                                <span style="color: #666;">${member.zone || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Phone:</label>
+                                <span style="color: #666;">${member.phone || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Address:</label>
+                                <span style="color: #666;">${member.address || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Member Since:</label>
+                                <span style="color: #666;">${member.dateAdded ? new Date(member.dateAdded).toLocaleDateString() : 
+                                        member.createdAt ? new Date(member.createdAt).toLocaleDateString() : 
+                                        member.joinDate ? new Date(member.joinDate).toLocaleDateString() : 'N/A'}</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px;">
+                                <label style="font-weight: bold; color: #333;">Status:</label>
+                                <span class="status-badge ${member.isActive !== false ? 'active' : 'inactive'}" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; ${member.isActive !== false ? 'background: #d4edda; color: #155724;' : 'background: #f8d7da; color: #721c24;'}">
+                                    ${member.isActive !== false ? 'Active' : 'Inactive'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding: 20px; border-top: 1px solid #eee; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="closeViewMemberModal()" style="padding: 10px 20px; border: 1px solid #ddd; background: #f8f9fa; color: #333; border-radius: 4px; cursor: pointer;">Close</button>
+                    <button class="btn btn-warning" onclick="showEditMemberModal('${member._id || member.id}')" style="padding: 10px 20px; border: 1px solid #ffc107; background: #ffc107; color: #000; border-radius: 4px; cursor: pointer;">Edit Member</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove any existing modal first
+    const existingModal = document.getElementById('viewMemberModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Show modal with error handling
+    try {
+        const modal = document.getElementById('viewMemberModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            console.log('✅ Member preview modal displayed successfully');
+        } else {
+            console.error('❌ Failed to find modal element');
+        }
+    } catch (error) {
+        console.error('❌ Error displaying member preview modal:', error);
+    }
+}
+
 function closeViewMemberModal() {
-  console.log('🔍 Closing member preview modal');
-  const modal = document.getElementById('viewMemberModal');
-  if (modal) {
-    modal.remove();
-    console.log('✅ Member preview modal closed successfully');
-  } else {
-    console.log('ℹ️ No modal found to close');
-  }
+    console.log('🔍 Closing member preview modal');
+    const modal = document.getElementById('viewMemberModal');
+    if (modal) {
+        modal.remove();
+        console.log('✅ Member preview modal closed successfully');
+    } else {
+        console.log('ℹ️ No modal found to close');
+    }
 }
 
-// ==================== EDIT MEMBER ====================
-async function editMember(event) {
+async function editMember(event) {var __stEl = document.getElementById('editMemberState'); var __STATE = __stEl ? (__stEl.value||'').toUpperCase().trim() : (typeof val==='function'? String(val('editMemberState')||'').toUpperCase().trim() : '');
+  if (__STATE) { formData.append('state', __STATE); }
+
   event.preventDefault();
 
   const form = event.target;
   const memberId = (form.dataset.memberId || '').trim();
   if (!memberId) {
-    showMessage && showMessage('Member ID not found', 'error');
+    showMessage('Member ID not found', 'error');
     return;
   }
 
@@ -4762,34 +5157,26 @@ async function editMember(event) {
   const zoneField     = form.querySelector('#editMemberZone');
   const passwordField = form.querySelector('#editMemberPassword');
 
+  // Basic presence check
   if (!nameField || !codeField || !positionField || !stateField || !zoneField) {
     console.error('❌ Form elements not found:', {
       nameField: !!nameField, codeField: !!codeField, positionField: !!positionField,
       stateField: !!stateField, zoneField: !!zoneField
     });
-    showMessage && showMessage('Form elements not found. Please refresh the page.', 'error');
+    showMessage('Form elements not found. Please refresh the page.', 'error');
     return;
   }
 
   // Collect values
   const formData = {
-    name: (nameField.value || '').trim(),
-    email: emailField ? (emailField.value || '').trim() : '',
-    code: (codeField.value || '').trim(),
+    name: nameField.value.trim(),
+    email: emailField ? emailField.value.trim() : '',
+    code: codeField.value.trim(),
     position: positionField.value,
-    state: (stateField.value || '').trim(),
-    zone: (zoneField.value || '').trim(),
+    state: stateField.value.trim(),
+    zone: zoneField.value.trim(),
     password: passwordField ? passwordField.value : ''
   };
-
-  // Normalize state to uppercase (was previously referencing undefined 'formData' before declare)
-  try {
-    const stEl = document.getElementById('editMemberState');
-    const __STATE = stEl ? (stEl.value || '').toUpperCase().trim()
-                         : (typeof val === 'function' ? String(val('editMemberState') || '').toUpperCase().trim() : '');
-    if (__STATE) formData.state = __STATE;
-  } catch(_) {}
-
   console.log('📋 Form data collected:', formData);
 
   // Build multipart body
@@ -4825,7 +5212,7 @@ async function editMember(event) {
   });
   if (missing.length) {
     console.error('❌ Missing required fields:', missing);
-    showMessage && showMessage(`Missing required fields: ${missing.join(', ')}`, 'error');
+    showMessage(`Missing required fields: ${missing.join(', ')}`, 'error');
     return;
   }
 
@@ -4833,13 +5220,13 @@ async function editMember(event) {
   const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
   const idx  = list.findIndex(m => (m._id === memberId) || (m.id === memberId));
   if (idx === -1) {
-    showMessage && showMessage('Member not found', 'error');
+    showMessage('Member not found', 'error');
     return;
   }
   const original = list[idx];
 
   try {
-    showMessage && showMessage('Updating member...', 'info');
+    showMessage('Updating member...', 'info');
 
     // Always try backend first
     const res = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
@@ -4851,7 +5238,7 @@ async function editMember(event) {
     if (!res.ok) {
       const err = await (typeof tryJson === 'function' ? tryJson(res) : res.json().catch(() => null));
       console.error('❌ Backend update failed:', res.status, err);
-      showMessage && showMessage(err?.message || `Failed to update member (HTTP ${res.status})`, 'error');
+      showMessage(err?.message || `Failed to update member (HTTP ${res.status})`, 'error');
       return; // IMPORTANT: do not fall back to local on server errors
     }
 
@@ -4866,21 +5253,21 @@ async function editMember(event) {
     };
     // If backend returned file names, prefer them
     if ((payload?.data?.passportPhoto) || (payload?.passportPhoto)) updated.passportPhoto = (payload?.data?.passportPhoto) || (payload?.passportPhoto);
-    if ((payload?.data?.signature) || (payload?.signature))         updated.signature     = (payload?.data?.signature) || (payload?.signature);
+    if ((payload?.data?.signature) || (payload?.signature))     updated.signature     = (payload?.data?.signature) || (payload?.signature);
 
     list[idx] = updated;
     window.currentMembers = list;
     if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
 
-    // Activity log: UPDATE
+    // Activity log: UPDATE (not delete)
     try { if (typeof logMemberUpdate === 'function') logMemberUpdate(updated); } catch(_) {}
 
-    showMessage && showMessage('Member updated successfully!', 'success');
-    typeof closeEditMemberModal === 'function' && closeEditMemberModal();
-    typeof displayMembers       === 'function' && displayMembers(list);
-    typeof updateSyncStatus     === 'function' && updateSyncStatus();
-    if (typeof loadDashboardStats === 'function') await loadDashboardStats();
-    if (typeof loadRecentActivity === 'function') await loadRecentActivity();
+    showMessage('Member updated successfully!', 'success');
+    if (typeof closeEditMemberModal   === 'function') closeEditMemberModal();
+    if (typeof displayMembers         === 'function') displayMembers(list);
+    if (typeof updateSyncStatus       === 'function') updateSyncStatus();
+    if (typeof loadDashboardStats     === 'function') await loadDashboardStats();
+    if (typeof loadRecentActivity     === 'function') await loadRecentActivity();
 
   } catch (networkErr) {
     // Only true network/offline errors reach here
@@ -4907,68 +5294,83 @@ async function editMember(event) {
     if (typeof savePendingSync === 'function') savePendingSync(pending);
 
     try { if (typeof logMemberUpdate === 'function') logMemberUpdate(updated); } catch(_) {}
-    showMessage && showMessage('Offline: member updated locally and queued for sync.', 'warning');
+    showMessage('Offline: member updated locally and queued for sync.', 'warning');
 
-    typeof closeEditMemberModal === 'function' && closeEditMemberModal();
-    typeof displayMembers       === 'function' && displayMembers(list);
-    typeof updateSyncStatus     === 'function' && updateSyncStatus();
+    if (typeof closeEditMemberModal   === 'function') closeEditMemberModal();
+    if (typeof displayMembers         === 'function') displayMembers(list);
+    if (typeof updateSyncStatus       === 'function') updateSyncStatus();
   }
 }
+
 
 // ==================== CERTIFICATE DISPLAY FUNCTIONS ====================
+
 function displayCertificates(certificates, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
-  const tableBody = document.getElementById('certificatesTableBody');
-  if (!tableBody) return;
-
-  if (!Array.isArray(certificates) || certificates.length === 0) {
-    tableBody.innerHTML = `
-      <tr>
-        <td colspan="7" class="no-data" style="text-align: center; padding: 40px; color: #6c757d; font-style: italic;">
-          No certificates found
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-  tableBody.innerHTML = certificates.map((certificate, index) => {
-    const certificateNumber = (typeof __extractCertNumber === 'function' ? __extractCertNumber(certificate) : (certificate?.certificateNumber || certificate?.number)) || 'N/A';
-    const recipientName     = certificate.recipientName || certificate.recipient || certificate.name || 'N/A';
-    const title             = certificate.title || certificate.certificateTitle || 'N/A';
-    const issueDate         = certificate.issueDate ? new Date(certificate.issueDate).toLocaleDateString() : 'N/A';
-    const status            = certificate.status || 'Active';
-    const statusClass       = String(status).toLowerCase();
-    const certificateId     = certificate._id || certificate.id || certificateNumber;
-
-    const formattedTitle = (title || '').trim() || 'N/A';
-
-    return `
-      <tr>
-        <td>${(index + 1) + (itemsPerPage * (currentPage - 1))}</td>
-        <td style="display:none;">
-          <input type="checkbox" class="certificate-checkbox" value="${certificateId}" onchange="toggleCertificateSelection(this)">
-        </td>
-        <td>${certificateNumber}</td>
-        <td>${recipientName}</td>
-        <td class="title-cell">${formattedTitle}</td>
-        <td>${issueDate}</td>
-        <td>
-          <span class="status-badge ${statusClass}">${status}</span>
-        </td>
-        <td>
-          <div class="btn-group">
-            <button class="btn btn-sm btn-info"    onclick="viewCertificate('${certificateId}')"    title="View Certificate"><i class="fas fa-eye"></i></button>
-            <button class="btn btn-sm btn-warning" onclick="editCertificate('${certificateId}')"     title="Edit Certificate"><i class="fas fa-edit"></i></button>
-            <button class="btn btn-sm btn-success" onclick="downloadCertificate('${certificateId}')" title="Download Certificate"><i class="fas fa-download"></i></button>
-            <button class="btn btn-sm btn-danger"  onclick="deleteCertificate('${certificateId}')"   title="Delete Certificate"><i class="fas fa-trash"></i></button>
-            <button class="btn btn-sm btn-secondary" onclick="revokeCertificate('${certificateId}')" title="Revoke Certificate"><i class="fas fa-ban"></i></button>
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
+    const tableBody = document.getElementById('certificatesTableBody');
+    if (!tableBody) return;
+    
+    if (!certificates || certificates.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="no-data" style="text-align: center; padding: 40px; color: #6c757d; font-style: italic;">
+                    No certificates found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tableBody.innerHTML = certificates.map((certificate, index) => {
+        // Ensure all data is properly formatted
+        const certificateNumber = __extractCertNumber(certificate) || 'N/A';
+        const recipientName = certificate.recipientName || certificate.recipient || certificate.name || 'N/A';
+        const title = certificate.title || certificate.certificateTitle || 'N/A';
+        const issueDate = certificate.issueDate ? new Date(certificate.issueDate).toLocaleDateString() : 'N/A';
+        const status = certificate.status || 'Active';
+        const statusClass = status.toLowerCase();
+        const certificateId = certificate._id || certificate.id || (__extractCertNumber(certificate) || '');
+        
+        // Ensure title is properly formatted and aligned
+        const formattedTitle = title.trim() || 'N/A';
+        
+        return `
+            <tr>
+                <td>${index + 1}</td><td style=\"display:none;\"><input type="checkbox" class="certificate-checkbox" value="${certificateId}" 
+                           onchange="toggleCertificateSelection(this)">
+                </td>
+                
+                    <td>${certificateNumber}</td>
+                <td>${recipientName}</td>
+                <td class="title-cell">${formattedTitle}</td>
+                <td>${issueDate}</td>
+                <td>
+                    <span class="status-badge ${statusClass}">
+                        ${status}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-info" onclick="viewCertificate('${certificateId}')" title="View Certificate">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="editCertificate('${certificateId}')" title="Edit Certificate">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="downloadCertificate('${certificateId}')" title="Download Certificate">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteCertificate('${certificateId}')" title="Delete Certificate">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="revokeCertificate('${certificateId}')" title="Revoke Certificate">
+                            <i class="fas fa-ban"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
-
 
 function viewCertificate(certificateId) {
     try {
@@ -13297,161 +13699,3 @@ try {
   };
 })();
 // === [/Injected Override] End ===
-
-
-// === Passport Popup & Cache ===
-(function(){
-
-  const CACHE_KEY = 'narap_passport_cache_v1';
-  const CACHE_LIMIT = 1000; // up to 1000 cached images (LRU)
-
-  function loadCache(){
-    try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {list:[], map:{}}; }
-    catch(_) { return {list:[], map:{}}; }
-  }
-  function saveCache(c){
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); }
-    catch(_){
-      try {
-        c.list = c.list.slice(-Math.floor(CACHE_LIMIT*0.9));
-        const newMap = {}; for (const id of c.list) newMap[id] = c.map[id];
-        c.map = newMap;
-        localStorage.setItem(CACHE_KEY, JSON.stringify(c));
-      } catch(__) {}
-    }
-  }
-
-  function touchLRU(cache, id){
-    const i = cache.list.indexOf(id);
-    if (i >= 0) cache.list.splice(i, 1);
-    cache.list.push(id);
-    if (cache.list.length > CACHE_LIMIT){
-      const evict = cache.list.shift();
-      delete cache.map[evict];
-    }
-  }
-
-  async function blobToDataURL(blob){
-    return await new Promise((resolve, reject)=>{
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-  }
-
-  async function fetchImageAsDataURL(url){
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Image fetch failed');
-    const blob = await res.blob();
-    return await blobToDataURL(blob);
-  }
-
-  async function getPassportDataURLForMember(member){
-    const memberId = member && (member._id || member.id);
-    const url = member && (member.passportPhoto || member.passport || member.photoUrl || member.photo);
-    if (!memberId || !url) return null;
-
-    const cache = loadCache();
-    const entry = cache.map[memberId];
-
-    if (entry && entry.url === url && entry.dataURL){
-      touchLRU(cache, memberId);
-      saveCache(cache);
-      return entry.dataURL; // cache hit
-    }
-
-    try {
-      const dataURL = await fetchImageAsDataURL(url);
-      cache.map[memberId] = { url, dataURL, ts: Date.now() };
-      touchLRU(cache, memberId);
-      saveCache(cache);
-      return dataURL;
-    } catch (err){
-      console.error('Passport fetch error:', err);
-      return null;
-    }
-  }
-
-  function ensurePassportPopupWiring(){
-    try{
-      const ov = document.getElementById('passportPopupOverlay');
-      const btnClose = document.getElementById('passportPopupClose');
-      const btnDownload = document.getElementById('passportPopupDownload');
-      if (!ov || !btnClose || !btnDownload) return;
-
-      btnClose.onclick = () => { ov.style.display = 'none'; };
-      ov.addEventListener('click', (e) => { if (e.target === ov) ov.style.display = 'none'; });
-      btnDownload.onclick = () => {
-        try{
-          const img = document.getElementById('passportPopupImg');
-          if (!img || !img.src) return;
-          const a = document.createElement('a');
-          a.href = img.src;
-          const title = (document.getElementById('passportPopupTitle')?.textContent || 'passport').replace(/\s+/g,'_');
-          a.download = `${title}.png`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        }catch(_e){}
-      };
-    }catch(_e){}
-  }
-  window.ensurePassportPopupWiring = ensurePassportPopupWiring;
-
-  async function showPassportPopup(member){
-    try { ensurePassportPopupWiring(); } catch(_) {}
-    const titleEl = document.getElementById('passportPopupTitle');
-    const imgEl = document.getElementById('passportPopupImg');
-    const ov = document.getElementById('passportPopupOverlay');
-    if (!imgEl || !ov) return;
-
-    const name = member?.name || member?.fullName || (member?.firstName ? (member.firstName + ' ' + (member.lastName||'')) : '');
-    const cert = member?.certificateNumber || member?.certNumber || member?.certificate_no || member?.code || '';
-    if (titleEl) titleEl.textContent = [name, cert].filter(Boolean).join(' — ') || 'Passport';
-
-    imgEl.src = '';
-    ov.style.display = 'block';
-
-    const dataURL = await getPassportDataURLForMember(member);
-    if (dataURL) imgEl.src = dataURL;
-    else {
-      const url = member?.passportPhoto || member?.passport || member?.photoUrl || member?.photo;
-      if (url) imgEl.src = url; else imgEl.alt = 'No passport available';
-    }
-  }
-  window.showPassportPopup = showPassportPopup;
-
-})();
-
-// (Injected) viewMember fallback
-async function viewMember(memberId) {
-    console.log('🔍 Viewing member with ID:', memberId);
-    try {
-        let fetched = null;
-        const bases = [window.backendUrl || (typeof getBackendUrl === 'function' ? getBackendUrl() : ''), window.location.origin].filter(Boolean);
-        const candidatePaths = [`/api/users/${memberId}`, `/api/users/getUser/${memberId}`, `/api/users/get-user/${memberId}`, `/api/users/find/${memberId}`];
-        for (const base of bases) {
-          for (const path of candidatePaths) {
-            try {
-              const res = await fetch(`${base}${path}`, { headers: { 'Accept': 'application/json' } });
-              if (res.ok) {
-                const json = await (async () => { try { return await res.json(); } catch { return null; } })();
-                fetched = (json && (json.data || (json.success && json.success.data) || json.member || json.user)) || (Array.isArray(json) ? json[0] : json);
-                if (fetched) break;
-              }
-            } catch (_) {}
-          }
-          if (fetched) break;
-        }
-        if (!fetched) {
-          const cm = window.currentMembers || window.members || [];
-          fetched = cm.find(m => m && (m._id === memberId || m.id === memberId));
-        }
-        if (!fetched) { if (typeof showMessage === 'function') showMessage('Member not found', 'error'); return; }
-        showPassportPopup(fetched);
-    } catch (error) {
-        console.error('❌ Error viewing member:', error);
-        if (typeof showMessage === 'function') showMessage('Failed to view member: ' + error.message, 'error');
-    }
-}
