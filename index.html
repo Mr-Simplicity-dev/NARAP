@@ -1845,25 +1845,6 @@ body {
   background: #c0392b;
 }
 
-/* Default: full title */
-.impersonation-title .short-label {
-  display: none;
-}
-
-.impersonation-title .full-label {
-  display: inline;
-}
-
-/* On mobile: only show short label */
-@media (max-width: 480px) {
-  .impersonation-title .short-label {
-    display: inline;
-  }
-  .impersonation-title .full-label {
-    display: none;
-  }
-}
-
 </style>
 </head>
 <body>
@@ -2491,8 +2472,6 @@ function displayMemberResult(member) {
   </div>
 `;
 
-      `;
-      
       // Insert after modal buttons
       modalButtons.parentNode.insertBefore(impersonationWarning, modalButtons.nextSibling);
     }
