@@ -1803,7 +1803,15 @@ body {
   font-weight: 600;
   color: #f39c12;
   margin-bottom: 8px;
-  display: inline-block; /* keeps the icon + text together */
+  display: flex;
+  flex-direction: column;   /* stack children vertically */
+  align-items: center;      /* center horizontally */
+  gap: 6px;                 /* space between icon and text */
+}
+
+.impersonation-warning .impersonation-title i {
+  font-size: 22px;          /* make icon a bit bigger */
+  margin: 0;                /* remove default spacing */
 }
 
 .impersonation-warning .impersonation-description {
