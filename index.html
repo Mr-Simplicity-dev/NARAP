@@ -1792,6 +1792,44 @@ body {
   display: block;
   text-align: center;
 }
+
+.impersonation-warning {
+  margin-top: 15px;
+  text-align: center; /* center everything inside */
+}
+
+.impersonation-warning .impersonation-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f39c12;
+  margin-bottom: 8px;
+  display: inline-block; /* keeps the icon + text together */
+}
+
+.impersonation-warning .impersonation-description {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.impersonation-warning .task-force-button {
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.impersonation-warning .task-force-button:hover {
+  background: #c0392b;
+}
+
 </style>
 </head>
 <body>
@@ -2405,7 +2443,7 @@ function displayMemberResult(member) {
         <div class="impersonation-content">
           <div class="impersonation-text">
             <h5 class="impersonation-title">
-              <i class="fas fa-exclamation-triangle" style="color: #f39c12; text-align: center;"></i>
+              <i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
               Impersonation Warning
             </h5>
             <p class="impersonation-description">
