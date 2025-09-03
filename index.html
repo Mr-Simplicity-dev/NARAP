@@ -1883,6 +1883,43 @@ body {
 }
 
 
+
+/* === FIX: Keep Help/Contact modals clear of the footer/task bar and fully readable === */
+.result-modal, .help-modal, .contact-modal {
+  z-index: 2000;                   /* ensure overlay is always above the fixed footer */
+  overscroll-behavior: contain;    /* prevent background scroll chaining */
+}
+
+/* Constrain modal inner content to viewport and make it scrollable */
+.help-modal-content, .contact-modal-content {
+  /* center with a little top/bottom breathing room */
+  margin: 6% auto;
+  /* never exceed viewport height; account for spacing above/below */
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  /* give the bottom some padding so nothing hides behind OS bars */
+  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  -webkit-overflow-scrolling: touch; /* smooth iOS scrolling */
+  scrollbar-gutter: stable;
+}
+
+/* Mobile tweaks: dynamic viewport units help when address bars collapse/expand */
+@media (max-width: 768px) {
+  .help-modal-content, .contact-modal-content {
+    width: 94%;
+    max-height: calc(100dvh - 120px);
+    padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* When any modal is visible, hide the fixed footer so it never overlaps */
+.help-modal[style*="display: block"] ~ .footer,
+.contact-modal[style*="display: block"] ~ .footer,
+.result-modal[style*="display: block"] ~ .footer {
+  display: none !important;
+}
+/* === END FIX === */
+
 </style>
 </head>
 <body>
