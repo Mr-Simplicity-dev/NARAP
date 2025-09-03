@@ -4730,12 +4730,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
                 `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/signature/${passportPhoto}`
             ] : [];
             
-            const imgElement = `
-                <img alt="Passport" class="img-thumbnail" height="50" width="50" 
-                     src="${validPhotoUrl || DEFAULT_AVATAR}" 
-                     onload="console.log('✅ Image loaded successfully:', this.src);" 
-                     onerror="handleMemberTableImageError(this, '${validPhotoUrl || DEFAULT_AVATAR}', ${JSON.stringify(alternativeUrls)});">
-            `;
+            const imgElement = `\n                <button class=\"btn btn-sm btn-outline-primary\" onclick=\"viewMember('${memberId}')\" title=\"View Passport\">View</button>\n            `;
             
             const rowHTML = `
                 <tr>
@@ -4969,29 +4964,48 @@ async function deleteMember(memberId) {
 
 async function viewMember(memberId) {
     console.log('🔍 Viewing member with ID:', memberId);
-    
     try {
-        const currentMembers = window.currentMembers || [];
-        console.log('🔍 Current members count:', currentMembers.length);
-        
-        const member = currentMembers.find(m => 
-            m._id === memberId || m.id === memberId
-        );
-        
-        if (!member) {
-            console.error('❌ Member not found with ID:', memberId);
-            showMessage('Member not found', 'error');
-            return;
+        // 1) Try to fetch the freshest member from backend (do not rely on cached object for photo)
+        let fetched = null;
+        const bases = [window.backendUrl || (typeof getBackendUrl === 'function' ? getBackendUrl() : ''), window.location.origin].filter(Boolean);
+        const candidatePaths = [
+          `/api/users/${memberId}`,
+          `/api/users/getUser/${memberId}`,
+          `/api/users/get-user/${memberId}`,
+          `/api/users/find/${memberId}`
+        ];
+        for (const base of bases) {
+          for (const path of candidatePaths) {
+            try {
+              const res = await fetch(`${base}${path}`, { headers: { 'Accept': 'application/json' } });
+              if (res.ok) {
+                const json = await (async () => { try { return await res.json(); } catch { return null; } })();
+                // Accept common shapes: {data}, {success:{data}}, direct object
+                fetched = (json && (json.data || (json.success && json.success.data) || json.member || json.user)) || (Array.isArray(json) ? json[0] : json);
+                if (fetched) break;
+              }
+            } catch (_) {}
+          }
+          if (fetched) break;
         }
-        
-        console.log('✅ Found member:', member.name, member);
-        
-        // Create and show the view modal
-        showViewMemberModal(member);
-        
+
+        // 2) Fallback to cached list if API call fails
+        if (!fetched) {
+          const currentMembers = window.currentMembers || [];
+          fetched = currentMembers.find(m => m && (m._id === memberId || m.id === memberId));
+        }
+
+        if (!fetched) {
+          console.error('❌ Member not found with ID:', memberId);
+          if (typeof showMessage === 'function') showMessage('Member not found', 'error');
+          return;
+        }
+
+        // 3) Show modal using the fresh object (has latest passportPhoto if changed)
+        showViewMemberModal(fetched);
     } catch (error) {
         console.error('❌ Error viewing member:', error);
-        showMessage('Failed to view member: ' + error.message, 'error');
+        if (typeof showMessage === 'function') showMessage('Failed to view member: ' + error.message, 'error');
     }
 }
 
