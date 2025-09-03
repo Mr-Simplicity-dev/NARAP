@@ -2087,125 +2087,217 @@ body {
 
   <script>
 
-// ==== BEGIN: Local Image Cache Helpers (passport & certificate signatures) ====
+
+
+// ==== BEGIN: Local Image Cache Helpers (IndexedDB version: passport & certificate signatures) ====
 (function(){
-  if (window.__NARAP_IMG_CACHE_INIT__) return;
-  window.__NARAP_IMG_CACHE_INIT__ = true;
+  // Avoid redefining
+  if (window.__NARAP_IMG_CACHE_IDB__) return;
+  window.__NARAP_IMG_CACHE_IDB__ = true;
 
-  const PASSPORT_CACHE_KEY = 'narapPhotoCache_v1';
-  const SIGNATURE_CACHE_KEY = 'narapSignatureCache_v1';
-  const CACHE_MAX = 1000; // per cache
-  const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+  const DB_NAME = 'narapMediaCache';
+  const DB_VER  = 1;
+  const STORE_MAP = { passport: 'passports', signature: 'signatures' };
+  const CACHE_MAX = 50000; // soft cap per store
+  const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days fallback if no validators
 
-  function __readCache(KEY){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch{ return {}; } }
-  function __writeCache(KEY, val){ try{ localStorage.setItem(KEY, JSON.stringify(val)); }catch{} }
-  function __prune(KEY, cache){
-    const entries = Object.entries(cache);
-    if (entries.length <= CACHE_MAX) return cache;
-    entries.sort((a,b)=> (a[1]?.updatedAt||0) - (b[1]?.updatedAt||0));
-    const keep = entries.slice(entries.length - CACHE_MAX);
-    const obj = Object.fromEntries(keep);
-    __writeCache(KEY, obj);
-    return obj;
-  }
-
-  async function __blobToDataURL(blob){
-    return await new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result);
-      r.onerror = rej;
-      r.readAsDataURL(blob);
+  function openDB(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = (ev) => {
+        const db = ev.target.result;
+        for (const storeName of Object.values(STORE_MAP)){
+          if (!db.objectStoreNames.contains(storeName)){
+            const store = db.createObjectStore(storeName, { keyPath: 'key' });
+            store.createIndex('updatedAt', 'updatedAt', { unique: false });
+          }
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror   = () => reject(req.error || new Error('IDB open failed'));
     });
   }
 
-  async function __headMeta(url){
+  function tx(db, storeName, mode='readonly'){
+    return db.transaction(storeName, mode).objectStore(storeName);
+  }
+
+  function idbGet(db, storeName, key){
+    return new Promise((resolve, reject) => {
+      const r = tx(db, storeName).get(key);
+      r.onsuccess = () => resolve(r.result || null);
+      r.onerror   = () => reject(r.error);
+    });
+  }
+
+  function idbPut(db, storeName, val){
+    return new Promise((resolve, reject) => {
+      const r = tx(db, storeName, 'readwrite').put(val);
+      r.onsuccess = () => resolve(true);
+      r.onerror   = () => reject(r.error);
+    });
+  }
+
+  function idbCount(db, storeName){
+    return new Promise((resolve, reject) => {
+      const r = tx(db, storeName).count();
+      r.onsuccess = () => resolve(r.result || 0);
+      r.onerror   = () => reject(r.error);
+    });
+  }
+
+  function idbDelete(db, storeName, key){
+    return new Promise((resolve, reject) => {
+      const r = tx(db, storeName, 'readwrite').delete(key);
+      r.onsuccess = () => resolve(true);
+      r.onerror   = () => reject(r.error);
+    });
+  }
+
+  async function pruneIfNeeded(db, storeName){
     try {
-      const r = await fetch(url, { method: 'HEAD' });
-      return { ok: r.ok, lm: r.headers.get('last-modified'), et: r.headers.get('etag'), cl: r.headers.get('content-length') };
-    } catch {
-      return { ok: false };
+      const count = await idbCount(db, storeName);
+      if (count <= CACHE_MAX) return;
+      const store = tx(db, storeName);
+      const idx = store.index('updatedAt');
+      const direction = 'next'; // oldest first
+      let toDelete = count - CACHE_MAX;
+      return await new Promise((resolve) => {
+        const cursorReq = idx.openCursor(null, direction);
+        cursorReq.onsuccess = async (e) => {
+          const cursor = e.target.result;
+          if (cursor && toDelete > 0){
+            const key = cursor.primaryKey;
+            const delReq = store.delete(key);
+            delReq.onsuccess = () => {
+              toDelete--;
+              cursor.continue();
+            };
+            delReq.onerror = () => cursor.continue();
+          } else {
+            resolve(true);
+          }
+        };
+        cursorReq.onerror = () => resolve(false);
+      });
+    } catch(e){
+      // ignore prune errors
     }
   }
 
-  async function __getDataUrl(url){
+  async function blobFromURL(url){
     const r = await fetch(url, { cache: 'no-cache' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    const blob = await r.blob();
+    const b = await r.blob();
     return {
-      dataUrl: await __blobToDataURL(blob),
+      blob: b,
       lm: r.headers.get('last-modified'),
       et: r.headers.get('etag'),
       cl: r.headers.get('content-length')
     };
   }
 
+  async function headMeta(url){
+    try{
+      const r = await fetch(url, { method: 'HEAD' });
+      return { ok: r.ok, lm: r.headers.get('last-modified'), et: r.headers.get('etag') };
+    } catch {
+      return { ok: false };
+    }
+  }
+
+  function setImgFromBlob(imgEl, blob){
+    try {
+      // Revoke old object URL to avoid leaks
+      const prev = imgEl && imgEl.dataset && imgEl.dataset.objurl;
+      if (prev) URL.revokeObjectURL(prev);
+    } catch{}
+    try {
+      const objURL = URL.createObjectURL(blob);
+      imgEl.src = objURL;
+      if (imgEl.dataset) imgEl.dataset.objurl = objURL;
+      imgEl.style.display = 'block';
+      const ph = imgEl.parentElement && imgEl.parentElement.querySelector('.member-photo-placeholder, .signature-placeholder');
+      if (ph) ph.style.display = 'none';
+    } catch (e){
+      // Fallback: read as dataURL
+      const fr = new FileReader();
+      fr.onload = () => { imgEl.src = fr.result; imgEl.style.display='block'; };
+      fr.readAsDataURL(blob);
+    }
+  }
+
   /**
-   * Generic cache loader: shows cached immediately (if any) then refreshes in background if changed/expired.
-   * @param {'passport'|'signature'} kind
-   * @param {string} key - unique identifier (e.g., member code or certificate number)
-   * @param {string} url - image URL
-   * @param {HTMLImageElement} imgEl - target <img>
+   * Public API: useImageCache(kind, key, url, imgEl)
+   * - Shows cached image instantly (if present)
+   * - Revalidates with HEAD (ETag/Last-Modified) or TTL, refreshes if changed/expired
    */
   window.useImageCache = async function(kind, key, url, imgEl){
-    if (!kind || !key || !url || !imgEl) return;
-    const STORE = (kind === 'signature') ? SIGNATURE_CACHE_KEY : PASSPORT_CACHE_KEY;
-    key = String(key).toUpperCase();
+    try{
+      const storeName = STORE_MAP[kind] || STORE_MAP.passport;
+      key = String(key || '').toUpperCase();
+      if (!key || !url || !imgEl) return;
 
-    const cache = __readCache(STORE);
-    const item = cache[key];
+      const db = await openDB();
+      const cached = await idbGet(db, storeName, key);
 
-    // 1) Show cached immediately
-    if (item?.dataUrl){
-      try { imgEl.src = item.dataUrl; imgEl.style.display='block'; } catch{}
-      const ph = imgEl.parentElement && imgEl.parentElement.querySelector('.member-photo-placeholder, .signature-placeholder');
-      if (ph) ph.style.display='none';
-    }
+      // 1) Show cached immediately
+      if (cached && cached.blob){
+        setImgFromBlob(imgEl, cached.blob);
+      }
 
-    // 2) Determine if refresh needed
-    let mustRefresh = !item;
-    if (!mustRefresh && !item.lm && !item.et){
-      mustRefresh = (Date.now() - (item.updatedAt || 0)) > CACHE_TTL_MS;
-    }
+      // 2) Determine refresh need
+      let mustRefresh = !cached;
+      if (!mustRefresh && !cached.lm && !cached.et){
+        mustRefresh = (Date.now() - (cached.updatedAt || 0)) > CACHE_TTL_MS;
+      }
 
-    if (!mustRefresh){
-      const meta = await __headMeta(url);
-      if (meta.ok){
-        if ((item.lm && meta.lm && item.lm !== meta.lm) || (item.et && meta.et && item.et !== meta.et)){
-          mustRefresh = true;
+      if (!mustRefresh){
+        const meta = await headMeta(url);
+        if (meta.ok){
+          if ((cached.lm && meta.lm && cached.lm !== meta.lm) ||
+              (cached.et && meta.et && cached.et !== meta.et)){
+            mustRefresh = true;
+          }
+          if (!cached.lm && meta.lm) mustRefresh = true;
+          if (!cached.et && meta.et) mustRefresh = true;
+        } else {
+          mustRefresh = (Date.now() - (cached.updatedAt || 0)) > CACHE_TTL_MS;
         }
-        if (!item.lm && meta.lm) mustRefresh = true;
-        if (!item.et && meta.et) mustRefresh = true;
-      } else {
-        mustRefresh = (Date.now() - (item.updatedAt || 0)) > CACHE_TTL_MS;
       }
-    }
 
-    // 3) Refresh if needed
-    if (mustRefresh){
-      try{
-        const fresh = await __getDataUrl(url);
-        const updated = {
-          dataUrl: fresh.dataUrl,
-          lm: fresh.lm || item?.lm || null,
-          et: fresh.et || item?.et || null,
-          cl: fresh.cl || item?.cl || null,
-          srcUrl: url,
-          updatedAt: Date.now()
-        };
-        const newCache = __prune(STORE, { ...cache, [key]: updated });
-        __writeCache(STORE, newCache);
-
-        try { imgEl.src = updated.dataUrl; imgEl.style.display='block'; } catch{}
-        const ph = imgEl.parentElement && imgEl.parentElement.querySelector('.member-photo-placeholder, .signature-placeholder');
-        if (ph) ph.style.display='none';
-      }catch(e){
-        console.log('[cache] refresh failed; using existing cache', e && e.message || e);
+      // 3) Refresh if needed
+      if (mustRefresh){
+        try{
+          const fresh = await blobFromURL(url);
+          const record = {
+            key,
+            blob: fresh.blob,
+            lm: fresh.lm || cached?.lm || null,
+            et: fresh.et || cached?.et || null,
+            cl: fresh.cl || cached?.cl || null,
+            srcUrl: url,
+            updatedAt: Date.now()
+          };
+          await idbPut(db, storeName, record);
+          await pruneIfNeeded(db, storeName);
+          setImgFromBlob(imgEl, record.blob);
+        }catch(e){
+          // Keep showing cached if available
+          if (!cached && imgEl && imgEl.src) {
+            // nothing else to do
+          }
+          console.log('[idb-cache] refresh failed', e && e.message || e);
+        }
       }
+    }catch(e){
+      console.log('[idb-cache] error', e && e.message || e);
     }
   };
 
 })();
-// ==== END: Local Image Cache Helpers ====
+// ==== END: Local Image Cache Helpers (IndexedDB version) ====
+
 
 
     let currentVerificationType = 'member';
