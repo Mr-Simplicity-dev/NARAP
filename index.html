@@ -1756,43 +1756,6 @@ body {
     display: none;
   }
 }
-/* Center the action buttons on mobile */
-.result-modal.mobile-fullscreen .modal-buttons {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;              /* space between Print / Close */
-}
-
-/* Stack on very small screens and keep text centered */
-@media (max-width: 768px) {
-  .result-modal.mobile-fullscreen .modal-buttons {
-    flex-direction: column;
-  }
-
-  /* Make both buttons center themselves like Print */
-  .result-modal.mobile-fullscreen #closeModalBtn,
-  .result-modal.mobile-fullscreen #printModalBtn,
-  .result-modal.mobile-fullscreen .modal-buttons .btn {
-    display: inline-flex;           /* centers the label inside the button */
-    justify-content: center;
-    align-items: center;
-    margin: 0 auto;                 /* centers the button itself */
-    float: none !important;         /* kill any legacy float */
-    text-align: center;
-    width: auto;                    /* or 100% if you want full-width buttons */
-  }
-}
-
-/* Safety: if “Close” is styled as a link in the header, center it too */
-.result-modal.mobile-fullscreen .result-modal-header .close,
-.result-modal.mobile-fullscreen .result-modal-header .close-btn {
-  float: none !important;
-  margin: 0 auto;
-  display: block;
-  text-align: center;
-}
-
   </style>
 </head>
 <body>
