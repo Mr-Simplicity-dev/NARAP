@@ -3031,7 +3031,7 @@ body {
 .data-table th:nth-child(4), /* Code */
 .data-table td:nth-child(4) {
     width: 20%;
-    min-width: 80px;
+    min-width: 120px;
 }
 
 .data-table th:nth-child(5), /* Position */
