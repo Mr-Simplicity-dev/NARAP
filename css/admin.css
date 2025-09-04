@@ -5686,3 +5686,20 @@ html, body { height: 100%; overflow-y: auto; }
 
 /* Keep the Photo header centered over its button */
 #membersTable th:nth-child(3) { text-align: center; }
+
+
+/* === Center specific columns in #membersTable (override) === */
+/* Columns: 4=Name, 6=Code, 7=Position, 8=State, 9=Zone */
+#membersTable th:nth-child(4), #membersTable td:nth-child(4),
+#membersTable th:nth-child(6), #membersTable td:nth-child(6),
+#membersTable th:nth-child(7), #membersTable td:nth-child(7),
+#membersTable th:nth-child(8), #membersTable td:nth-child(8),
+#membersTable th:nth-child(9), #membersTable td:nth-child(9) {
+  text-align: center !important;
+}
+
+/* (Optional) keep the Photo and Actions columns centered too */
+#membersTable th:nth-child(3), #membersTable td:nth-child(3),
+#membersTable th:nth-child(10), #membersTable td:nth-child(10) {
+  text-align: center !important;
+}
