@@ -4653,128 +4653,76 @@ function closeImportModal() {
 // ==================== MEMBER DISPLAY FUNCTIONS ====================
 
 function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
-    const tableBody = document.getElementById('membersTableBody');
-    if (!tableBody) {
-        
-        return;
-    }
-    
-    // Ensure members is an array
-    if (!Array.isArray(members)) {
-        
-        members = [];
-    }
-    
-    if (members.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="9" class="no-data">No members found</td>
-            </tr>
-        `;
-        return;
-    }
-    
-    try {
-        tableBody.innerHTML = members.map((member, index) => {
-            // Ensure member is an object
-            if (!member || typeof member !== 'object') {
-                
-                return '';
-            }
-            
-            const memberId = member._id || member.id || '';
-            const name = member.name || 'N/A';
-            const email = member.email || 'N/A';
-            const code = member.code || 'N/A';
-            const position = member.position || 'N/A';
-            const state = member.state || 'N/A';
-            const zone = member.zone || 'N/A';
-            
-            // Get photo URL with improved logic (same as verification page)
-            const passportPhoto = member.passportPhoto || member.passport;
-            let validPhotoUrl = null;
-            
-            if (passportPhoto) {
-                try {
-                    // Handle different URL formats
-                    if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://') || passportPhoto.startsWith('data:')) {
-                        validPhotoUrl = passportPhoto;
-                    } else if (passportPhoto.startsWith('/')) {
-                        validPhotoUrl = `${backendUrl}${passportPhoto}`;
-                    } else if (passportPhoto.includes('passportPhoto-') || passportPhoto.includes('signature-')) {
-                        // Handle filename patterns
-                        const fieldType = passportPhoto.includes('passportPhoto-') ? 'passports' : 'signatures';
-                        validPhotoUrl = `${backendUrl}/api/uploads/${fieldType}/${passportPhoto}`;
-                    } else {
-                        // Fallback for other cases
-                        validPhotoUrl = `${backendUrl}/api/uploads/passports/${passportPhoto}`;
-                    }
-                } catch (error) {
-                    console.log('❌ Error processing photo URL:', error);
-                    validPhotoUrl = null;
-                }
-            }
-            
-            console.log('🔍 Image debug for member:', member.name, {
-                passportPhoto: member.passportPhoto,
-                passport: member.passport,
-                validPhotoUrl: validPhotoUrl
-            });
-            
-            // Enhanced error handling with multiple fallback URLs
-            const alternativeUrls = validPhotoUrl ? [
-                validPhotoUrl,
-                `${backendUrl}/api/uploads/passports/${passportPhoto}`,
-                `${backendUrl}/api/uploads/signatures/${passportPhoto}`,
-                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/${passportPhoto}`,
-                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/signature/${passportPhoto}`
-            ] : [];
-            
-            const imgElement = `\n                <button class=\"btn btn-sm btn-outline-primary\" onclick=\"viewMember('${memberId}')\" title=\"View Passport\">View</button>\n            `;
-            
-            const rowHTML = `
-                <tr>
-                    <td>${index + 1}</td>
-                    <td class=\"checkbox-cell\"><input type=\"checkbox\" class=\"member-checkbox\" value="${memberId}" 
-                               onchange="toggleMemberSelection(this)">
-                    </td>
-                    
-                    <td>${imgElement}</td>
-                    <td>${name}</td>
-                    <td>${email}</td>
-                    <td>${code}</td>
-                    <td>${position}</td>
-                    <td>${state}</td>
-                    <td>${zone}</td>
-                    <td>
-                        <button class="btn btn-sm btn-info" onclick="viewMember('${memberId}')" title="View Member">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-            
-            return rowHTML;
-        }).join('');
-        
-        // Update members count
-        updateMembersCount();
-        
-    } catch (error) {
-        
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="9" class="error">Error displaying members</td>
-            </tr>
-        `;
-    }
+  const tableBody = document.getElementById('membersTableBody');
+  if (!tableBody) return;
+
+  // Normalize list + keep available for viewPassport()
+  if (!Array.isArray(members)) members = [];
+  window.currentMembers = members;
+
+  if (members.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td class="loading" colspan="10" style="text-align:center; padding:24px;">
+          No members found
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const per = Number(itemsPerPage || 10) || 10;
+  const page = Math.max(1, Number(currentPage) || 1);
+  const pageOffset = (page - 1) * per;
+
+  tableBody.innerHTML = members.map((member, idx) => {
+    if (!member || typeof member !== 'object') return '';
+
+    const memberIdRaw = member._id || member.id || '';
+    const memberId = String(memberIdRaw).replace(/'/g, "\\'"); // safe in onclick
+    const name     = member.name  || member.fullName || 'N/A';
+    const email    = member.email || 'N/A';
+    const code     = member.code  || 'N/A';
+    const position = member.position || 'N/A';
+    const state    = member.state || member.State || 'N/A';
+    const zone     = member.zone  || 'N/A';
+
+    return `
+      <tr>
+        <td>${pageOffset + idx + 1}</td>                                                <!-- S/N -->
+        <td><input type="checkbox" class="member-checkbox" value="${memberIdRaw}"></td> <!-- Select -->
+        <td>
+          <button class="btn btn-sm btn-outline-primary"
+                  onclick="viewPassport('${memberId}')"
+                  title="View Passport">View</button>
+        </td>                                                                           <!-- Photo (View) -->
+        <td>${name}</td>                                                                <!-- Name -->
+        <td>${email}</td>                                                               <!-- Email -->
+        <td>${code}</td>                                                                <!-- Code -->
+        <td>${position}</td>                                                            <!-- Position -->
+        <td>${state}</td>                                                               <!-- State -->
+        <td>${zone}</td>                                                                <!-- Zone -->
+        <td>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-info" title="View Member"
+                    onclick="try{openMember && openMember('${memberId}')}catch(_){}">
+              <i class="fas fa-eye"></i>
+            </button>
+            <button class="btn btn-sm btn-warning" title="Edit Member"
+                    onclick="try{openEditMember && openEditMember('${memberId}')}catch(_){}">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-danger" title="Delete Member"
+                    onclick="try{confirmDeleteMember && confirmDeleteMember('${memberId}')}catch(_){}">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>                                                                           <!-- Actions -->
+      </tr>
+    `;
+  }).join('');
 }
+
 
 function filterMembers() {
     const searchTerm = document.getElementById('memberSearch')?.value || '';
@@ -13698,5 +13646,189 @@ try {
     } catch(e){}
   };
   
+// ==================== PASSPORT VIEW (separate from member-details view) ====================
+// Cache-first, on-demand fetch, with backend revalidation (ETag / Last-Modified) and a small modal.
+
+function __passportCacheKey(member) {
+  const id = member && (member._id || member.id);
+  if (id) return `narap_passport_${id}`;
+  const c = String(member?.code || '').trim().toLowerCase();
+  if (c) return `narap_passport_c_${c}`;
+  const e = String(member?.email || '').trim().toLowerCase();
+  if (e) return `narap_passport_e_${e}`;
+  return null;
+}
+
+function __resolvePassportUrl(member) {
+  const f = member?.passportPhoto || member?.passport || '';
+  if (!f) return null;
+  if (/^(https?:|data:)/i.test(f)) return f;         // absolute URL or data URL
+  if (f.startsWith('/')) return `${backendUrl}${f}`; // backend absolute path
+  if (f.includes('passportPhoto-') || f.includes('signature-')) {
+    const folder = f.includes('passportPhoto-') ? 'passports' : 'signatures';
+    return `${backendUrl}/api/uploads/${folder}/${encodeURIComponent(f)}`;
+  }
+  // Default to passports folder for filenames
+  return `${backendUrl}/api/uploads/passports/${encodeURIComponent(f)}`;
+}
+
+function __readPassportCache(member) {
+  try {
+    const key = __passportCacheKey(member);
+    if (!key) return null;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    return obj?.dataUrl ? obj : null;
+  } catch (_) { return null; }
+}
+
+function __writePassportCache(member, payload) {
+  try {
+    const key = __passportCacheKey(member);
+    if (!key) return;
+    const data = {
+      dataUrl: payload.dataUrl,
+      etag: payload.etag || null,
+      lastModified: payload.lastModified || null,
+      updatedAt: new Date().toISOString(),
+      originalUrl: payload.originalUrl || null
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (_) {}
+}
+
+async function __respToDataUrl(resp) {
+  const blob = await resp.blob();
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+async function __fetchPassport(member, cached) {
+  const url = __resolvePassportUrl(member);
+  if (!url) return { status: 'no-url' };
+
+  const headers = {};
+  if (cached?.etag) headers['If-None-Match'] = cached.etag;
+  if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;
+
+  const resp = await fetch(url, { method: 'GET', headers });
+
+  if (resp.status === 304 && cached) return { status: 'not-modified', ...cached };
+  if (!resp.ok) return { status: 'error', http: resp.status };
+
+  const dataUrl = await __respToDataUrl(resp);
+  return {
+    status: 'ok',
+    dataUrl,
+    etag: resp.headers.get('ETag'),
+    lastModified: resp.headers.get('Last-Modified'),
+    originalUrl: url
+  };
+}
+
+function __ensurePassportModal() {
+  let modal = document.getElementById('viewPassportModal');
+  if (modal) return modal;
+
+  const html = `
+  <div id="viewPassportModal" class="result-modal" style="display:none;">
+    <div class="result-modal-content" style="max-width:640px;">
+      <div class="result-modal-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">Member Passport</h3>
+        <button id="closeViewPassportModalBtn" class="btn btn-sm btn-secondary" aria-label="Close">&times;</button>
+      </div>
+      <div id="viewPassportModalBody" style="text-align:center;min-height:240px;">
+        <div id="passportSpinner" style="padding:20px;">Loading passport…</div>
+        <img id="passportPreview" alt="Passport" style="max-width:100%;display:none;border-radius:10px;" />
+      </div>
+      <div style="margin-top:12px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
+        <button id="refreshPassportBtn" class="btn btn-sm btn-outline-info">Refresh</button>
+        <button id="closePassportBtn" class="btn btn-sm btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  modal = document.getElementById('viewPassportModal');
+
+  const close = () => { modal.style.display = 'none'; };
+  modal.querySelector('#closeViewPassportModalBtn')?.addEventListener('click', close);
+  modal.querySelector('#closePassportBtn')?.addEventListener('click', close);
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+  return modal;
+}
+
+function __showPassportInModal(dataUrl) {
+  const modal = __ensurePassportModal();
+  const img = modal.querySelector('#passportPreview');
+  const spin = modal.querySelector('#passportSpinner');
+  if (spin) spin.style.display = 'none';
+  img.src = dataUrl;
+  img.style.display = 'inline-block';
+  modal.style.display = 'flex';
+}
+
+// PUBLIC: Photo column button handler — only handles passport fetching/caching
+async function viewPassport(memberId) {
+  try {
+    const list = Array.isArray(window.currentMembers) ? window.currentMembers
+               : (Array.isArray(window.members) ? window.members : []);
+    const member = list.find(m => (m._id === memberId) || (m.id === memberId));
+    if (!member) {
+      if (typeof showMessage === 'function') showMessage('Member not found', 'error');
+      return;
+    }
+
+    const modal = __ensurePassportModal();
+    modal.style.display = 'flex';
+
+    const img = modal.querySelector('#passportPreview');
+    const spin = modal.querySelector('#passportSpinner');
+    img.style.display = 'none';
+    if (spin) spin.style.display = 'block';
+
+    // 1) cache-first display
+    const cached = __readPassportCache(member);
+    if (cached?.dataUrl) __showPassportInModal(cached.dataUrl);
+
+    // 2) network revalidation / fetch
+    const fresh = await __fetchPassport(member, cached);
+    if (fresh.status === 'ok') {
+      __writePassportCache(member, fresh);
+      __showPassportInModal(fresh.dataUrl);
+    } else if (fresh.status === 'error' && !cached?.dataUrl) {
+      if (spin) spin.style.display = 'none';
+      if (typeof showMessage === 'function') showMessage('Could not load passport image', 'error');
+    }
+
+    // Manual refresh
+    const refreshBtn = modal.querySelector('#refreshPassportBtn');
+    if (refreshBtn && !refreshBtn.__bound) {
+      refreshBtn.__bound = true;
+      refreshBtn.addEventListener('click', async () => {
+        img.style.display = 'none'; if (spin) spin.style.display = 'block';
+        const latest = await __fetchPassport(member, null);
+        if (latest.status === 'ok') {
+          __writePassportCache(member, latest);
+          __showPassportInModal(latest.dataUrl);
+          if (typeof showMessage === 'function') showMessage('Passport refreshed', 'success');
+        } else {
+          if (spin) spin.style.display = 'none';
+          if (typeof showMessage === 'function') showMessage('Refresh failed', 'error');
+        }
+      });
+    }
+  } catch (e) {
+    console.error('viewPassport failed:', e);
+    if (typeof showMessage === 'function') showMessage('Failed to open passport', 'error');
+  }
+}
+
+
 })();
 // === [/Injected Override] End ===
