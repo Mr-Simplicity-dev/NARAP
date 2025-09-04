@@ -4653,74 +4653,132 @@ function closeImportModal() {
 // ==================== MEMBER DISPLAY FUNCTIONS ====================
 
 function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
-  const tableBody = document.getElementById('membersTableBody');
-  if (!tableBody) return;
-
-  // Keep list in memory so viewPassport() and viewMember() can find the member
-  if (!Array.isArray(members)) members = [];
-  window.currentMembers = members;
-
-  if (members.length === 0) {
-    tableBody.innerHTML = `
-      <tr>
-        <td class="loading" colspan="10" style="text-align:center; padding:24px;">
-          No members found
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-  const per = Number(itemsPerPage || 10) || 10;
-  const page = Math.max(1, Number(currentPage) || 1);
-  const pageOffset = (page - 1) * per;
-
-  tableBody.innerHTML = members.map((member, idx) => {
-    if (!member || typeof member !== 'object') return '';
-
-    const memberIdRaw = member._id || member.id || '';
-    const memberId    = String(memberIdRaw).replace(/'/g, "\\'");
-    const name        = member.name  || member.fullName || 'N/A';
-    const email       = member.email || 'N/A';
-    const code        = member.code  || 'N/A';
-    const position    = member.position || 'N/A';
-    const state       = member.state || member.State || 'N/A';
-    const zone        = member.zone  || 'N/A';
-
-    return `
-      <tr>
-        <td>${pageOffset + idx + 1}</td>                                                <!-- S/N -->
-        <td class="checkbox-cell">
-          <input type="checkbox" class="member-checkbox" value="${memberIdRaw}"
-                 onchange="toggleMemberSelection(this)">
-        </td>                                                                           <!-- Select (hidden by CSS until active) -->
-        <td>
-          <button class="btn btn-sm btn-outline-primary"
-                  onclick="viewPassport('${memberId}')"
-                  title="View Passport">View</button>
-        </td>                                                                           <!-- Photo (View) -->
-        <td>${name}</td>                                                                <!-- Name -->
-        <td>${email}</td>                                                               <!-- Email -->
-        <td>${code}</td>                                                                <!-- Code -->
-        <td>${position}</td>                                                            <!-- Position -->
-        <td>${state}</td>                                                               <!-- State -->
-        <td>${zone}</td>                                                                <!-- Zone -->
-        <td>
-          <div class="btn-group">
-            <button class="btn btn-sm btn-info" onclick="viewMember('${memberId}')" title="View Member">
-              <i class="fas fa-eye"></i>
-            </button>
-            <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        </td>                                                                           <!-- Actions -->
-      </tr>
-    `;
-  }).join('');
+    const tableBody = document.getElementById('membersTableBody');
+    if (!tableBody) {
+        
+        return;
+    }
+    
+    // Ensure members is an array
+    if (!Array.isArray(members)) {
+        
+        members = [];
+    }
+    
+    if (members.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="no-data">No members found</td>
+            </tr>
+        `;
+        return;
+    }
+    
+    try {
+        tableBody.innerHTML = members.map((member, index) => {
+            // Ensure member is an object
+            if (!member || typeof member !== 'object') {
+                
+                return '';
+            }
+            
+            const memberId = member._id || member.id || '';
+            const name = member.name || 'N/A';
+            const email = member.email || 'N/A';
+            const code = member.code || 'N/A';
+            const position = member.position || 'N/A';
+            const state = member.state || 'N/A';
+            const zone = member.zone || 'N/A';
+            
+            // Get photo URL with improved logic (same as verification page)
+            const passportPhoto = member.passportPhoto || member.passport;
+            let validPhotoUrl = null;
+            
+            if (passportPhoto) {
+                try {
+                    // Handle different URL formats
+                    if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://') || passportPhoto.startsWith('data:')) {
+                        validPhotoUrl = passportPhoto;
+                    } else if (passportPhoto.startsWith('/')) {
+                        validPhotoUrl = `${backendUrl}${passportPhoto}`;
+                    } else if (passportPhoto.includes('passportPhoto-') || passportPhoto.includes('signature-')) {
+                        // Handle filename patterns
+                        const fieldType = passportPhoto.includes('passportPhoto-') ? 'passports' : 'signatures';
+                        validPhotoUrl = `${backendUrl}/api/uploads/${fieldType}/${passportPhoto}`;
+                    } else {
+                        // Fallback for other cases
+                        validPhotoUrl = `${backendUrl}/api/uploads/passports/${passportPhoto}`;
+                    }
+                } catch (error) {
+                    console.log('❌ Error processing photo URL:', error);
+                    validPhotoUrl = null;
+                }
+            }
+            
+            console.log('🔍 Image debug for member:', member.name, {
+                passportPhoto: member.passportPhoto,
+                passport: member.passport,
+                validPhotoUrl: validPhotoUrl
+            });
+            
+            // Enhanced error handling with multiple fallback URLs
+            const alternativeUrls = validPhotoUrl ? [
+                validPhotoUrl,
+                `${backendUrl}/api/uploads/passports/${passportPhoto}`,
+                `${backendUrl}/api/uploads/signatures/${passportPhoto}`,
+                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/${passportPhoto}`,
+                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/signature/${passportPhoto}`
+            ] : [];
+            
+            const imgElement = `
+                <img alt="Passport" class="img-thumbnail" height="50" width="50" 
+                     src="${validPhotoUrl || DEFAULT_AVATAR}" 
+                     onload="console.log('✅ Image loaded successfully:', this.src);" 
+                     onerror="handleMemberTableImageError(this, '${validPhotoUrl || DEFAULT_AVATAR}', ${JSON.stringify(alternativeUrls)});">
+            `;
+            
+            const rowHTML = `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class=\"checkbox-cell\"><input type=\"checkbox\" class=\"member-checkbox\" value="${memberId}" 
+                               onchange="toggleMemberSelection(this)">
+                    </td>
+                    
+                    <td>${imgElement}</td>
+                    <td>${name}</td>
+                    <td>${email}</td>
+                    <td>${code}</td>
+                    <td>${position}</td>
+                    <td>${state}</td>
+                    <td>${zone}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewMember('${memberId}')" title="View Member">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            
+            return rowHTML;
+        }).join('');
+        
+        // Update members count
+        updateMembersCount();
+        
+    } catch (error) {
+        
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="error">Error displaying members</td>
+            </tr>
+        `;
+    }
 }
 
 function filterMembers() {
@@ -5062,19 +5120,14 @@ function closeViewMemberModal() {
     }
 }
 
-
-// ✅ REPLACED: safer editMember that correctly builds FormData and updates UI
+// ===== Fixed editMember: direct PUT /api/users/updateUser/:id, clean FormData =====
 async function editMember(event) {
   event.preventDefault();
 
   const form = event.target;
   const memberId = (form.dataset.memberId || '').trim();
-  if (!memberId) {
-    if (typeof showMessage === 'function') showMessage('Member ID not found', 'error');
-    return;
-  }
+  if (!memberId) { showMessage && showMessage('Member ID not found', 'error'); return; }
 
-  // Grab fields
   const nameField     = form.querySelector('#editMemberName');
   const emailField    = form.querySelector('#editMemberEmail');
   const codeField     = form.querySelector('#editMemberCode');
@@ -5085,20 +5138,18 @@ async function editMember(event) {
 
   if (!nameField || !codeField || !positionField || !stateField || !zoneField) {
     console.error('Form elements missing', { nameField, codeField, positionField, stateField, zoneField });
-    if (typeof showMessage === 'function') showMessage('Form elements not found. Please refresh the page.', 'error');
+    showMessage && showMessage('Form elements not found. Please refresh the page.', 'error');
     return;
   }
 
-  // Normalize values
   const name     = nameField.value.trim();
   const email    = emailField ? emailField.value.trim() : '';
   const code     = codeField.value.trim();
   const position = positionField.value;
-  const state    = (stateField.value || '').toString().trim().toUpperCase(); // normalize to match backend
+  const state    = (stateField.value || '').toString().trim().toUpperCase();
   const zone     = (zoneField.value || '').toString().trim();
   const password = passwordField ? passwordField.value : '';
 
-  // Build multipart body
   const body = new FormData();
   body.append('name', name);
   if (email) body.append('email', email);
@@ -5108,81 +5159,64 @@ async function editMember(event) {
   body.append('zone', zone);
   if (password && password.trim()) body.append('password', password.trim());
 
-  // Files (use backend’s expected names)
   const passportInput  = document.getElementById('editMemberPassport');
   const signatureInput = document.getElementById('editMemberSignature');
   if (passportInput?.files?.[0])  body.append('passportPhoto', passportInput.files[0]);
   if (signatureInput?.files?.[0]) body.append('signature', signatureInput.files[0]);
 
-  // Required fields check
   for (const k of ['name','code','position','state','zone']) {
     const v = body.get(k);
     if (!v || String(v).trim() === '') {
-      if (typeof showMessage === 'function') showMessage(`Missing required fields: ${k}`, 'error');
+      showMessage && showMessage(`Missing required fields: ${k}`, 'error');
       return;
     }
   }
 
+  const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
+  const idx  = list.findIndex(m => (m?._id === memberId) || (m?.id === memberId));
+  if (idx === -1) { showMessage && showMessage('Member not found', 'error'); return; }
+  const original = list[idx];
+
   try {
-    if (typeof showMessage === 'function') showMessage('Updating member...', 'info');
+    showMessage && showMessage('Updating member...', 'info');
 
-    const res = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
-      method: 'PUT',
-      body
-    });
-
+    const res = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, { method: 'PUT', body });
     if (!res.ok) {
-      let err = null;
-      try { err = await res.json(); } catch {}
+      let err=null; try { err = await res.json(); } catch(_){}
       console.error('Update failed', res.status, err);
-      if (typeof showMessage === 'function')
-        showMessage(err?.message || `Failed to update member (HTTP ${res.status})`, 'error');
+      showMessage && showMessage(err?.message || `Failed to update member (HTTP ${res.status})`, 'error');
       return;
     }
 
-    // Update local cache/UI
-    let payload = {};
-    try { payload = await res.json(); } catch {}
+    let payload={}; try { payload = await res.json(); } catch(_){}
     const updatedFromServer = payload?.data || payload || {};
 
-    const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
-    const idx  = list.findIndex(m => (m?._id === memberId) || (m?.id === memberId));
-    if (idx !== -1) {
-      const original = list[idx];
-      const updated = {
-        ...original,
-        name, email, code, position, state, zone,
-        updatedAt: new Date().toISOString(),
-        pendingSync: false
-      };
-      // prefer filenames returned by backend if present
-      if (updatedFromServer.passportPhoto || updatedFromServer?.data?.passportPhoto) {
-        updated.passportPhoto = updatedFromServer.passportPhoto || updatedFromServer.data.passportPhoto;
-      }
-      if (updatedFromServer.signature || updatedFromServer?.data?.signature) {
-        updated.signature = updatedFromServer.signature || updatedFromServer.data.signature;
-      }
-      list[idx] = updated;
-      window.currentMembers = list;
-      if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+    const updated = { ...original, name, email, code, position, state, zone, updatedAt: new Date().toISOString(), pendingSync: false };
+    if (updatedFromServer.passportPhoto || updatedFromServer?.data?.passportPhoto) {
+      updated.passportPhoto = updatedFromServer.passportPhoto || updatedFromServer.data.passportPhoto;
+    }
+    if (updatedFromServer.signature || updatedFromServer?.data?.signature) {
+      updated.signature = updatedFromServer.signature || updatedFromServer.data.signature;
     }
 
-    try { if (typeof logMemberUpdate === 'function') logMemberUpdate(updatedFromServer); } catch {}
-    if (typeof showMessage === 'function') showMessage('Member updated successfully!', 'success');
+    list[idx] = updated;
+    window.currentMembers = list;
+    if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+
+    try { if (typeof logMemberUpdate === 'function') logMemberUpdate(updated); } catch(_){}
+    showMessage && showMessage('Member updated successfully!', 'success');
 
     if (typeof closeEditMemberModal   === 'function') closeEditMemberModal();
-    if (typeof displayMembers         === 'function') displayMembers(window.currentMembers || []);
+    if (typeof displayMembers         === 'function') displayMembers(list);
     if (typeof updateSyncStatus       === 'function') updateSyncStatus();
     if (typeof loadDashboardStats     === 'function') await loadDashboardStats();
     if (typeof loadRecentActivity     === 'function') await loadRecentActivity();
 
-  } catch (networkErr) {
-    console.warn('Network error during update, queueing for sync:', networkErr);
-    if (typeof showMessage === 'function')
-      showMessage('Offline: member updated locally and queued for sync.', 'warning');
+  } catch (e) {
+    console.warn('Network error during update:', e);
+    showMessage && showMessage('Network error while updating member.', 'error');
   }
 }
-
 
 
 // ==================== CERTIFICATE DISPLAY FUNCTIONS ====================
@@ -13289,28 +13323,37 @@ try {
   if (window.__activityLiveBound) return;
   window.__activityLiveBound = true;
 
+  
   function startSSE(){
     if (!window.EventSource || !window.backendUrl) return null;
-    try {
-      const url = `${backendUrl}/api/activity/stream?entities=member,certificate`;
-      const es = new EventSource(url);
-      es.onmessage = function(ev){
+    const url = `${backendUrl}/api/activity/stream?entities=member,certificate`;
+    // Preflight: HEAD request to avoid noisy 404 loops
+    const ctrl = new AbortController();
+    setTimeout(()=>ctrl.abort(), 2000);
+    return fetch(url, { method: 'HEAD', signal: ctrl.signal })
+      .then(resp => {
+        if (!resp || !resp.ok) return null;
         try {
-          const item = JSON.parse(ev.data);
-          if (typeof window.__recentActivityPassFilter === 'function' && !window.__recentActivityPassFilter(item)) return;
-          // Keep a local rolling buffer and re-render
-          const buf = (window.__recentLiveBuffer = Array.isArray(window.__recentLiveBuffer) ? window.__recentLiveBuffer : []);
-          buf.unshift(item);
-          window.__recentLiveBuffer = buf.slice(0, 200);
-          if (typeof window.renderRecentActivity === 'function') window.renderRecentActivity(window.__recentLiveBuffer);
-        } catch(_){}
-      };
-      es.onerror = function(){
-        try { es.close(); } catch(_){}
-        setTimeout(startSSE, 5000);
-      };
-      return es;
-    } catch(_){ return null; }
+          const es = new EventSource(url);
+          es.onmessage = function(ev){
+            try {
+              const item = JSON.parse(ev.data);
+              if (typeof window.__recentActivityPassFilter === 'function' && !window.__recentActivityPassFilter(item)) return;
+              const buf = (window.__recentLiveBuffer = Array.isArray(window.__recentLiveBuffer) ? window.__recentLiveBuffer : []);
+              buf.unshift(item);
+              window.__recentLiveBuffer = buf.slice(0, 200);
+              if (typeof window.renderRecentActivity === 'function') window.renderRecentActivity(window.__recentLiveBuffer);
+            } catch(_){}
+          };
+          es.onerror = function(){
+            try { es.close(); } catch(_){}
+            // do not auto-retry if server later goes away; switch to polling
+            if (!window.__activityPollingStarted) startPolling();
+          };
+          return es;
+        } catch(_){ return null; }
+      })
+      .catch(()=>null);
   }
 
   // Fallback polling (15s) if SSE is unavailable
@@ -13581,383 +13624,3 @@ try {
   };
 })();
 // === [/Injected Override] End ===
-
-
-// ==================== PASSPORT VIEW: CACHE-FIRST WITH ON-DEMAND FETCH ====================
-(function(){
-  function keyFor(member){
-    const id = member && (member._id || member.id);
-    if (id) return `narap_passport_${id}`;
-    const c = String(member?.code || '').trim().toLowerCase();
-    if (c) return `narap_passport_c_${c}`;
-    const e = String(member?.email || '').trim().toLowerCase();
-    if (e) return `narap_passport_e_${e}`;
-    return null;
-  }
-
-  function resolvePassportUrl(member){
-    const f = member?.passportPhoto || member?.passport || '';
-    if (!f) return null;
-    if (/^(https?:|data:)/i.test(f)) return f;
-    if (f.startsWith('/')) return `${backendUrl}${f}`;
-    if (f.includes('passportPhoto-') || f.includes('signature-')) {
-      const folder = f.includes('passportPhoto-') ? 'passports' : 'signatures';
-      return `${backendUrl}/api/uploads/${folder}/${encodeURIComponent(f)}`;
-    }
-    return `${backendUrl}/api/uploads/passports/${encodeURIComponent(f)}`;
-  }
-
-  function readCache(member){
-    try {
-      const raw = localStorage.getItem(keyFor(member));
-      if (!raw) return null;
-      const obj = JSON.parse(raw);
-      return obj?.dataUrl ? obj : null;
-    } catch { return null; }
-  }
-
-  function writeCache(member, payload){
-    try {
-      const data = {
-        dataUrl: payload.dataUrl,
-        etag: payload.etag || null,
-        lastModified: payload.lastModified || null,
-        updatedAt: new Date().toISOString(),
-        originalUrl: payload.originalUrl || null
-      };
-      const k = keyFor(member);
-      if (k) localStorage.setItem(k, JSON.stringify(data));
-    } catch {}
-  }
-
-  async function respToDataUrl(resp){
-    const blob = await resp.blob();
-    return await new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-  }
-
-  async function fetchPassport(member, cached){
-    const url = resolvePassportUrl(member);
-    if (!url) return { status: 'no-url' };
-
-    const headers = {};
-    if (cached?.etag) headers['If-None-Match'] = cached.etag;
-    if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;
-
-    const resp = await fetch(url, { method: 'GET', headers });
-    if (resp.status === 304 && cached) return { status: 'not-modified', ...cached };
-    if (!resp.ok) return { status: 'error', http: resp.status };
-
-    const dataUrl = await respToDataUrl(resp);
-    return {
-      status: 'ok',
-      dataUrl,
-      etag: resp.headers.get('ETag'),
-      lastModified: resp.headers.get('Last-Modified'),
-      originalUrl: url
-    };
-  }
-
-  function ensureModal(){
-    let modal = document.getElementById('viewMemberPassportModal');
-    if (modal) return modal;
-
-    const html = `
-    <div id="viewMemberPassportModal" class="modal show" style="display:none;">
-      <div class="modal-content" style="max-width:640px;">
-        <div class="modal-header">
-          <h3 class="modal-title">Member Passport</h3>
-          <button class="close-btn" id="passportCloseBtn" aria-label="Close">&times;</button>
-        </div>
-        <div class="modal-body" style="text-align:center;min-height:240px;">
-          <div id="passportSpinner">Loading passport…</div>
-          <img id="passportPreview" alt="Passport" style="max-width:100%;display:none;" />
-        </div>
-        <div style="margin-top:12px;text-align:right;">
-          <button id="refreshPassportBtn" class="btn btn-sm btn-outline-info">Refresh</button>
-          <button id="passportCloseBtn2" class="btn btn-sm btn-secondary">Close</button>
-        </div>
-      </div>
-    </div>`;
-    document.body.insertAdjacentHTML('beforeend', html);
-    modal = document.getElementById('viewMemberPassportModal');
-
-    const close = () => { modal.style.display = 'none'; };
-    modal.querySelector('#passportCloseBtn').addEventListener('click', close);
-    modal.querySelector('#passportCloseBtn2').addEventListener('click', close);
-    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-
-    return modal;
-  }
-
-  function showInModal(dataUrl){
-    const modal = ensureModal();
-    const img = modal.querySelector('#passportPreview');
-    const spin = modal.querySelector('#passportSpinner');
-    if (spin) spin.style.display = 'none';
-    img.src = dataUrl;
-    img.style.display = 'inline-block';
-    modal.style.display = 'flex';
-  }
-
-  // Public API: Photo → View button
-  window.viewPassport = async function(memberId){
-    try {
-      const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
-      const member = list.find(m => (m._id === memberId) || (m.id === memberId));
-      if (!member) { if (typeof showMessage === 'function') showMessage('Member not found', 'error'); return; }
-
-      const modal = ensureModal();
-      modal.style.display = 'flex';
-      const img  = modal.querySelector('#passportPreview');
-      const spin = modal.querySelector('#passportSpinner');
-      img.style.display = 'none'; if (spin) spin.style.display = 'block';
-
-      const cached = readCache(member);
-      if (cached?.dataUrl) showInModal(cached.dataUrl);
-
-      const fresh = await fetchPassport(member, cached);
-      if (fresh.status === 'ok') {
-        writeCache(member, fresh);
-        showInModal(fresh.dataUrl);
-      } else if (fresh.status === 'error' && !cached?.dataUrl) {
-        if (spin) spin.style.display = 'none';
-        if (typeof showMessage === 'function') showMessage('Could not load passport image', 'error');
-      }
-
-      const refreshBtn = modal.querySelector('#refreshPassportBtn');
-      if (refreshBtn && !refreshBtn.__bound) {
-        refreshBtn.__bound = true;
-        refreshBtn.addEventListener('click', async () => {
-          img.style.display = 'none'; if (spin) spin.style.display = 'block';
-          const latest = await fetchPassport(member, null);
-          if (latest.status === 'ok') {
-            writeCache(member, latest);
-            showInModal(latest.dataUrl);
-            if (typeof showMessage === 'function') showMessage('Passport refreshed', 'success');
-          } else {
-            if (spin) spin.style.display = 'none';
-            if (typeof showMessage === 'function') showMessage('Refresh failed', 'error');
-          }
-        });
-      }
-    } catch (e) {
-      console.error('viewPassport failed:', e);
-      if (typeof showMessage === 'function') showMessage('Failed to open passport', 'error');
-    }
-  };
-
-  /* ======================= NARAP: Pagination Hardening Patch ======================= */
-
-/** Jump to a given members page (keeps per-page selection). */
-function goToMembersPage(page) {
-  const sel = document.getElementById('membersPerPage');
-  const per = sel ? parseInt(sel.value, 10) : 25;
-  if (typeof loadMembers === 'function') loadMembers(page, per);
-}
-
-/** Jump to a given certificates page (keeps per-page selection). */
-function goToCertificatesPage(page) {
-  const sel = document.getElementById('certificatesPerPage');
-  const per = sel ? parseInt(sel.value, 10) : 25;
-  if (typeof loadCertificates === 'function') loadCertificates(page, per);
-}
-
-/**
- * Render pagination controls (numbers + enable/disable buttons) for Members/Certificates.
- * Keeps localStorage in sync so First/Prev/Next/Last work from event handlers.
- */
-function renderPagination(currentPage, totalPages, totalItems, itemsPerPage, type = 'members') {
-  const isMembers = (type === 'members');
-
-  // Containers/IDs by type
-  const ids = isMembers ? {
-    wrap: 'membersPagination',
-    count: 'membersCount',
-    first: 'firstPage',
-    prev: 'prevPage',
-    next: 'nextPage',
-    last: 'lastPage',
-    nums: 'pageNumbers',
-    lsCur: 'narap_members_current_page',
-    lsTot: 'narap_members_total_pages'
-  } : {
-    wrap: 'certificatesPagination',
-    count: 'certificatesCount',
-    first: 'certificatesFirstPage',
-    prev: 'certificatesPrevPage',
-    next: 'certificatesNextPage',
-    last: 'certificatesLastPage',
-    nums: 'certificatesPageNumbers',
-    lsCur: 'narap_certificates_current_page',
-    lsTot: 'narap_certificates_total_pages'
-  };
-
-  // Guard values
-  currentPage = Math.max(1, Number(currentPage) || 1);
-  totalPages  = Math.max(1, Number(totalPages)  || 1);
-  itemsPerPage = Math.max(1, Number(itemsPerPage) || 10);
-  totalItems = Math.max(0, Number(totalItems) || 0);
-
-  // Update visible "Showing X–Y of Z"
-  const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem   = Math.min(currentPage * itemsPerPage, totalItems);
-  const countEl = document.getElementById(ids.count);
-  if (countEl) {
-    if (totalItems === 0) {
-      countEl.textContent = 'Showing 0 of 0';
-    } else {
-      countEl.textContent = `Showing ${startItem}–${endItem} of ${totalItems}`;
-    }
-  }
-
-  // Show/hide the whole pager
-  const wrap = document.getElementById(ids.wrap);
-  if (wrap) {
-    wrap.style.display = (totalItems > itemsPerPage) ? 'block' : 'none';
-  }
-
-  // Persist numbers for Prev/Next/First/Last handlers
-  try {
-    localStorage.setItem(ids.lsCur, String(currentPage));
-    localStorage.setItem(ids.lsTot, String(totalPages));
-  } catch (_) {}
-
-  // Enable/disable buttons
-  const atFirst = currentPage <= 1;
-  const atLast  = currentPage >= totalPages;
-
-  const btnFirst = document.getElementById(ids.first);
-  const btnPrev  = document.getElementById(ids.prev);
-  const btnNext  = document.getElementById(ids.next);
-  const btnLast  = document.getElementById(ids.last);
-
-  [btnFirst, btnPrev].forEach(b => { if (b) b.disabled = atFirst; });
-  [btnNext,  btnLast].forEach(b => { if (b) b.disabled = atLast; });
-
-  // Build page numbers (… window around current page)
-  const nums = document.getElementById(ids.nums);
-  if (nums) {
-    nums.innerHTML = '';
-
-    const makeBtn = (label, page, isActive = false, isEllipsis = false) => {
-      const el = document.createElement('button');
-      el.className = 'page-number';
-      el.textContent = label;
-      if (isActive) el.classList.add('active');
-      if (isEllipsis) {
-        el.classList.add('ellipsis');
-        el.disabled = true;
-      } else {
-        el.addEventListener('click', () => {
-          if (isMembers) {
-            goToMembersPage(page);
-          } else {
-            goToCertificatesPage(page);
-          }
-        });
-      }
-      return el;
-    };
-
-    // Simple case: few pages
-    if (totalPages <= 7) {
-      for (let p = 1; p <= totalPages; p++) {
-        nums.appendChild(makeBtn(String(p), p, p === currentPage));
-      }
-    } else {
-      // Complex window: 1 … window … last
-      const windowSize = 2;
-      const left  = Math.max(2, currentPage - windowSize);
-      const right = Math.min(totalPages - 1, currentPage + windowSize);
-
-      // First
-      nums.appendChild(makeBtn('1', 1, currentPage === 1));
-
-      // Left ellipsis
-      if (left > 2) nums.appendChild(makeBtn('…', 0, false, true));
-
-      // Middle window
-      for (let p = left; p <= right; p++) {
-        nums.appendChild(makeBtn(String(p), p, p === currentPage));
-      }
-
-      // Right ellipsis
-      if (right < totalPages - 1) nums.appendChild(makeBtn('…', 0, false, true));
-
-      // Last
-      nums.appendChild(makeBtn(String(totalPages), totalPages, currentPage === totalPages));
-    }
-  }
-}
-
-/** Bind pagination controls once. */
-function setupPaginationEventListeners() {
-  // MEMBERS
-  const perSelM = document.getElementById('membersPerPage');
-  if (perSelM && !perSelM.__bound) {
-    perSelM.addEventListener('change', function () {
-      try { localStorage.setItem('narap_members_per_page', String(this.value)); } catch (_){}
-      goToMembersPage(1);
-    });
-    perSelM.__bound = true;
-  }
-
-  const bindClick = (id, handler) => {
-    const el = document.getElementById(id);
-    if (el && !el.__bound) { el.addEventListener('click', handler); el.__bound = true; }
-  };
-
-  bindClick('firstPage', () => goToMembersPage(1));
-  bindClick('prevPage',  () => {
-    const cur = parseInt(localStorage.getItem('narap_members_current_page') || '1', 10);
-    if (cur > 1) goToMembersPage(cur - 1);
-  });
-  bindClick('nextPage',  () => {
-    const cur = parseInt(localStorage.getItem('narap_members_current_page') || '1', 10);
-    const tot = parseInt(localStorage.getItem('narap_members_total_pages')  || '1', 10);
-    if (cur < tot) goToMembersPage(cur + 1);
-  });
-  bindClick('lastPage',  () => {
-    const tot = parseInt(localStorage.getItem('narap_members_total_pages') || '1', 10);
-    goToMembersPage(tot);
-  });
-
-  // CERTIFICATES
-  const perSelC = document.getElementById('certificatesPerPage');
-  if (perSelC && !perSelC.__bound) {
-    perSelC.addEventListener('change', function () {
-      try { localStorage.setItem('narap_certificates_per_page', String(this.value)); } catch (_){}
-      goToCertificatesPage(1);
-    });
-    perSelC.__bound = true;
-  }
-
-  bindClick('certificatesFirstPage', () => goToCertificatesPage(1));
-  bindClick('certificatesPrevPage',  () => {
-    const cur = parseInt(localStorage.getItem('narap_certificates_current_page') || '1', 10);
-    if (cur > 1) goToCertificatesPage(cur - 1);
-  });
-  bindClick('certificatesNextPage',  () => {
-    const cur = parseInt(localStorage.getItem('narap_certificates_current_page') || '1', 10);
-    const tot = parseInt(localStorage.getItem('narap_certificates_total_pages')  || '1', 10);
-    if (cur < tot) goToCertificatesPage(cur + 1);
-  });
-  bindClick('certificatesLastPage',  () => {
-    const tot = parseInt(localStorage.getItem('narap_certificates_total_pages') || '1', 10);
-    goToCertificatesPage(tot);
-  });
-}
-
-/* Ensure listeners + first render happen on load. */
-document.addEventListener('DOMContentLoaded', function () {
-  try { setupPaginationEventListeners(); } catch (e) { console.warn('Pagination listener init failed:', e); }
-  try { if (typeof loadInitialData === 'function') loadInitialData(); } catch (e) { console.warn('Initial data load failed:', e); }
-});
-/* ==================== /Pagination Hardening Patch ==================== */
-
-})();
