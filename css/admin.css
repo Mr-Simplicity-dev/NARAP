@@ -3018,8 +3018,8 @@ body {
 
 .data-table th:nth-child(2), /* Name */
 .data-table td:nth-child(2) {
-    width: 7%;
-    min-width: 60px;
+    width: 10%;
+    min-width: 80px;
 }
 
 .data-table th:nth-child(3), /* Email */
