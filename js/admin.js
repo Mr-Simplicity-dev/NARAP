@@ -13796,4 +13796,214 @@ try {
       if (typeof showMessage === 'function') showMessage('Failed to open passport', 'error');
     }
   };
+
+  /* ======================= NARAP: Pagination Hardening Patch ======================= */
+
+/** Jump to a given members page (keeps per-page selection). */
+function goToMembersPage(page) {
+  const sel = document.getElementById('membersPerPage');
+  const per = sel ? parseInt(sel.value, 10) : 25;
+  if (typeof loadMembers === 'function') loadMembers(page, per);
+}
+
+/** Jump to a given certificates page (keeps per-page selection). */
+function goToCertificatesPage(page) {
+  const sel = document.getElementById('certificatesPerPage');
+  const per = sel ? parseInt(sel.value, 10) : 25;
+  if (typeof loadCertificates === 'function') loadCertificates(page, per);
+}
+
+/**
+ * Render pagination controls (numbers + enable/disable buttons) for Members/Certificates.
+ * Keeps localStorage in sync so First/Prev/Next/Last work from event handlers.
+ */
+function renderPagination(currentPage, totalPages, totalItems, itemsPerPage, type = 'members') {
+  const isMembers = (type === 'members');
+
+  // Containers/IDs by type
+  const ids = isMembers ? {
+    wrap: 'membersPagination',
+    count: 'membersCount',
+    first: 'firstPage',
+    prev: 'prevPage',
+    next: 'nextPage',
+    last: 'lastPage',
+    nums: 'pageNumbers',
+    lsCur: 'narap_members_current_page',
+    lsTot: 'narap_members_total_pages'
+  } : {
+    wrap: 'certificatesPagination',
+    count: 'certificatesCount',
+    first: 'certificatesFirstPage',
+    prev: 'certificatesPrevPage',
+    next: 'certificatesNextPage',
+    last: 'certificatesLastPage',
+    nums: 'certificatesPageNumbers',
+    lsCur: 'narap_certificates_current_page',
+    lsTot: 'narap_certificates_total_pages'
+  };
+
+  // Guard values
+  currentPage = Math.max(1, Number(currentPage) || 1);
+  totalPages  = Math.max(1, Number(totalPages)  || 1);
+  itemsPerPage = Math.max(1, Number(itemsPerPage) || 10);
+  totalItems = Math.max(0, Number(totalItems) || 0);
+
+  // Update visible "Showing X–Y of Z"
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem   = Math.min(currentPage * itemsPerPage, totalItems);
+  const countEl = document.getElementById(ids.count);
+  if (countEl) {
+    if (totalItems === 0) {
+      countEl.textContent = 'Showing 0 of 0';
+    } else {
+      countEl.textContent = `Showing ${startItem}–${endItem} of ${totalItems}`;
+    }
+  }
+
+  // Show/hide the whole pager
+  const wrap = document.getElementById(ids.wrap);
+  if (wrap) {
+    wrap.style.display = (totalItems > itemsPerPage) ? 'block' : 'none';
+  }
+
+  // Persist numbers for Prev/Next/First/Last handlers
+  try {
+    localStorage.setItem(ids.lsCur, String(currentPage));
+    localStorage.setItem(ids.lsTot, String(totalPages));
+  } catch (_) {}
+
+  // Enable/disable buttons
+  const atFirst = currentPage <= 1;
+  const atLast  = currentPage >= totalPages;
+
+  const btnFirst = document.getElementById(ids.first);
+  const btnPrev  = document.getElementById(ids.prev);
+  const btnNext  = document.getElementById(ids.next);
+  const btnLast  = document.getElementById(ids.last);
+
+  [btnFirst, btnPrev].forEach(b => { if (b) b.disabled = atFirst; });
+  [btnNext,  btnLast].forEach(b => { if (b) b.disabled = atLast; });
+
+  // Build page numbers (… window around current page)
+  const nums = document.getElementById(ids.nums);
+  if (nums) {
+    nums.innerHTML = '';
+
+    const makeBtn = (label, page, isActive = false, isEllipsis = false) => {
+      const el = document.createElement('button');
+      el.className = 'page-number';
+      el.textContent = label;
+      if (isActive) el.classList.add('active');
+      if (isEllipsis) {
+        el.classList.add('ellipsis');
+        el.disabled = true;
+      } else {
+        el.addEventListener('click', () => {
+          if (isMembers) {
+            goToMembersPage(page);
+          } else {
+            goToCertificatesPage(page);
+          }
+        });
+      }
+      return el;
+    };
+
+    // Simple case: few pages
+    if (totalPages <= 7) {
+      for (let p = 1; p <= totalPages; p++) {
+        nums.appendChild(makeBtn(String(p), p, p === currentPage));
+      }
+    } else {
+      // Complex window: 1 … window … last
+      const windowSize = 2;
+      const left  = Math.max(2, currentPage - windowSize);
+      const right = Math.min(totalPages - 1, currentPage + windowSize);
+
+      // First
+      nums.appendChild(makeBtn('1', 1, currentPage === 1));
+
+      // Left ellipsis
+      if (left > 2) nums.appendChild(makeBtn('…', 0, false, true));
+
+      // Middle window
+      for (let p = left; p <= right; p++) {
+        nums.appendChild(makeBtn(String(p), p, p === currentPage));
+      }
+
+      // Right ellipsis
+      if (right < totalPages - 1) nums.appendChild(makeBtn('…', 0, false, true));
+
+      // Last
+      nums.appendChild(makeBtn(String(totalPages), totalPages, currentPage === totalPages));
+    }
+  }
+}
+
+/** Bind pagination controls once. */
+function setupPaginationEventListeners() {
+  // MEMBERS
+  const perSelM = document.getElementById('membersPerPage');
+  if (perSelM && !perSelM.__bound) {
+    perSelM.addEventListener('change', function () {
+      try { localStorage.setItem('narap_members_per_page', String(this.value)); } catch (_){}
+      goToMembersPage(1);
+    });
+    perSelM.__bound = true;
+  }
+
+  const bindClick = (id, handler) => {
+    const el = document.getElementById(id);
+    if (el && !el.__bound) { el.addEventListener('click', handler); el.__bound = true; }
+  };
+
+  bindClick('firstPage', () => goToMembersPage(1));
+  bindClick('prevPage',  () => {
+    const cur = parseInt(localStorage.getItem('narap_members_current_page') || '1', 10);
+    if (cur > 1) goToMembersPage(cur - 1);
+  });
+  bindClick('nextPage',  () => {
+    const cur = parseInt(localStorage.getItem('narap_members_current_page') || '1', 10);
+    const tot = parseInt(localStorage.getItem('narap_members_total_pages')  || '1', 10);
+    if (cur < tot) goToMembersPage(cur + 1);
+  });
+  bindClick('lastPage',  () => {
+    const tot = parseInt(localStorage.getItem('narap_members_total_pages') || '1', 10);
+    goToMembersPage(tot);
+  });
+
+  // CERTIFICATES
+  const perSelC = document.getElementById('certificatesPerPage');
+  if (perSelC && !perSelC.__bound) {
+    perSelC.addEventListener('change', function () {
+      try { localStorage.setItem('narap_certificates_per_page', String(this.value)); } catch (_){}
+      goToCertificatesPage(1);
+    });
+    perSelC.__bound = true;
+  }
+
+  bindClick('certificatesFirstPage', () => goToCertificatesPage(1));
+  bindClick('certificatesPrevPage',  () => {
+    const cur = parseInt(localStorage.getItem('narap_certificates_current_page') || '1', 10);
+    if (cur > 1) goToCertificatesPage(cur - 1);
+  });
+  bindClick('certificatesNextPage',  () => {
+    const cur = parseInt(localStorage.getItem('narap_certificates_current_page') || '1', 10);
+    const tot = parseInt(localStorage.getItem('narap_certificates_total_pages')  || '1', 10);
+    if (cur < tot) goToCertificatesPage(cur + 1);
+  });
+  bindClick('certificatesLastPage',  () => {
+    const tot = parseInt(localStorage.getItem('narap_certificates_total_pages') || '1', 10);
+    goToCertificatesPage(tot);
+  });
+}
+
+/* Ensure listeners + first render happen on load. */
+document.addEventListener('DOMContentLoaded', function () {
+  try { setupPaginationEventListeners(); } catch (e) { console.warn('Pagination listener init failed:', e); }
+  try { if (typeof loadInitialData === 'function') loadInitialData(); } catch (e) { console.warn('Initial data load failed:', e); }
+});
+/* ==================== /Pagination Hardening Patch ==================== */
+
 })();
