@@ -4652,11 +4652,12 @@ function closeImportModal() {
 
 // ==================== MEMBER DISPLAY FUNCTIONS ====================
 
+// ==================== MEMBERS TABLE RENDER ====================
 function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
   const tableBody = document.getElementById('membersTableBody');
   if (!tableBody) return;
 
-  // Keep list in memory so viewPassport() can find the member
+  // Normalize + keep globally for viewPassport()
   if (!Array.isArray(members)) members = [];
   window.currentMembers = members;
 
@@ -4671,26 +4672,37 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
     return;
   }
 
-  const per = Number(itemsPerPage || 10) || 10;
+  const per  = Number(itemsPerPage || 10) || 10;
   const page = Math.max(1, Number(currentPage) || 1);
   const pageOffset = (page - 1) * per;
+
+  // Helper: update selection-active state
+  const updateSelectionState = () => {
+    const table = document.getElementById('membersTable');
+    if (!table) return;
+    const anyChecked = !!tableBody.querySelector('.member-checkbox:checked');
+    table.classList.toggle('selection-active', anyChecked);
+  };
 
   tableBody.innerHTML = members.map((member, idx) => {
     if (!member || typeof member !== 'object') return '';
 
     const memberIdRaw = member._id || member.id || '';
-    const memberId = String(memberIdRaw).replace(/'/g, "\\'");
-    const name     = member.name  || member.fullName || 'N/A';
-    const email    = member.email || 'N/A';
-    const code     = member.code  || 'N/A';
-    const position = member.position || 'N/A';
-    const state    = member.state || member.State || 'N/A';
-    const zone     = member.zone  || 'N/A';
+    const memberId    = String(memberIdRaw).replace(/'/g, "\\'");
+    const name        = member.name  || member.fullName || 'N/A';
+    const email       = member.email || 'N/A';
+    const code        = member.code  || 'N/A';
+    const position    = member.position || 'N/A';
+    const state       = member.state || member.State || 'N/A';
+    const zone        = member.zone  || 'N/A';
 
     return `
       <tr>
         <td>${pageOffset + idx + 1}</td>                                                <!-- S/N -->
-        <td class="select-col"><input type="checkbox" class="member-checkbox" value="${memberIdRaw}"></td> <!-- Select (hidden by default) -->
+        <td class="checkbox-cell">
+          <input type="checkbox" class="member-checkbox" value="${memberIdRaw}"
+                 onchange="(${updateSelectionState.toString()})()">
+        </td>                                                                           <!-- (hidden by CSS until needed) -->
         <td>
           <button class="btn btn-sm btn-outline-primary"
                   onclick="viewPassport('${memberId}')"
@@ -4705,7 +4717,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
         <td>
           <div class="btn-group">
             <button class="btn btn-sm btn-info" title="View Member"
-                    onclick="try{openMember && openMember('${memberId}')}catch(_){}">
+                    onclick="try{viewMember && viewMember('${memberId}')}catch(_){}">
               <i class="fas fa-eye"></i>
             </button>
             <button class="btn btn-sm btn-warning" title="Edit Member"
@@ -4721,7 +4733,17 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
       </tr>
     `;
   }).join('');
+
+  // Keep header select-all in sync
+  window.selectAllMembers = function(){
+    const header = document.getElementById('selectAllMembers');
+    const boxes = tableBody.querySelectorAll('.member-checkbox');
+    boxes.forEach(cb => { cb.checked = !!header.checked; });
+    const table = document.getElementById('membersTable');
+    if (table) table.classList.toggle('selection-active', !!header.checked);
+  };
 }
+
 
 /* Call this to toggle selection mode on/off */
 function toggleMemberSelectionMode(on) {
