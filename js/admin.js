@@ -13882,6 +13882,170 @@ async function viewMember(memberId) {
   }
 }
 
+// ==================== PASSPORT VIEW: CACHE-FIRST WITH ON-DEMAND FETCH ====================
+
+function __passportCacheKey(member) {
+  const id = member && (member._id || member.id);
+  if (id) return `narap_passport_${id}`;
+  const c = String(member?.code || '').trim().toLowerCase();
+  if (c) return `narap_passport_c_${c}`;
+  const e = String(member?.email || '').trim().toLowerCase();
+  if (e) return `narap_passport_e_${e}`;
+  return null;
+}
+
+function __resolvePassportUrl(member) {
+  const f = member?.passportPhoto || member?.passport || '';
+  if (!f) return null;
+  if (/^(https?:|data:)/i.test(f)) return f;
+  if (f.startsWith('/')) return `${backendUrl}${f}`;
+  if (f.includes('passportPhoto-') || f.includes('signature-')) {
+    const folder = f.includes('passportPhoto-') ? 'passports' : 'signatures';
+    return `${backendUrl}/api/uploads/${folder}/${encodeURIComponent(f)}`;
+  }
+  return `${backendUrl}/api/uploads/passports/${encodeURIComponent(f)}`;
+}
+
+function __readPassportCache(member) {
+  try {
+    const key = __passportCacheKey(member);
+    if (!key) return null;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    return obj?.dataUrl ? obj : null;
+  } catch (_) { return null; }
+}
+
+function __writePassportCache(member, payload) {
+  try {
+    const key = __passportCacheKey(member);
+    if (!key) return;
+    const data = {
+      dataUrl: payload.dataUrl,
+      etag: payload.etag || null,
+      lastModified: payload.lastModified || null,
+      updatedAt: new Date().toISOString(),
+      originalUrl: payload.originalUrl || null
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (_) {}
+}
+
+async function __respToDataUrl(resp) {
+  const blob = await resp.blob();
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+async function __fetchPassport(member, cached) {
+  const url = __resolvePassportUrl(member);
+  if (!url) return { status: 'no-url' };
+
+  const headers = {};
+  if (cached?.etag) headers['If-None-Match'] = cached.etag;
+  if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;
+
+  const resp = await fetch(url, { method: 'GET', headers });
+
+  if (resp.status === 304 && cached) return { status: 'not-modified', ...cached };
+
+  if (!resp.ok) return { status: 'error', http: resp.status };
+
+  const dataUrl = await __respToDataUrl(resp);
+  return {
+    status: 'ok',
+    dataUrl,
+    etag: resp.headers.get('ETag'),
+    lastModified: resp.headers.get('Last-Modified'),
+    originalUrl: url
+  };
+}
+
+function __ensurePassportModal() {
+  let modal = document.getElementById('viewMemberModal');
+  if (modal) return modal;
+
+  const html = `
+  <div id="viewMemberModal" class="result-modal" style="display:none;">
+    <div class="result-modal-content" style="max-width:640px;">
+      <div class="result-modal-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">Member Passport</h3>
+        <button id="closeViewMemberModalBtn" class="btn btn-sm btn-secondary">&times;</button>
+      </div>
+      <div id="viewMemberModalBody" style="text-align:center;min-height:240px;">
+        <div id="passportSpinner">Loading passport…</div>
+        <img id="passportPreview" alt="Passport" style="max-width:100%;display:none;" />
+      </div>
+      <div style="margin-top:12px;text-align:right;">
+        <button id="refreshPassportBtn" class="btn btn-sm btn-outline-info">Refresh</button>
+        <button id="closeModalBtn" class="btn btn-sm btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  modal = document.getElementById('viewMemberModal');
+
+  const close = () => { modal.style.display = 'none'; };
+  modal.querySelector('#closeViewMemberModalBtn').addEventListener('click', close);
+  modal.querySelector('#closeModalBtn').addEventListener('click', close);
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+  return modal;
+}
+
+function __showPassportInModal(dataUrl) {
+  const modal = __ensurePassportModal();
+  const img = modal.querySelector('#passportPreview');
+  const spin = modal.querySelector('#passportSpinner');
+  if (spin) spin.style.display = 'none';
+  img.src = dataUrl;
+  img.style.display = 'inline-block';
+  modal.style.display = 'flex';
+}
+
+async function viewMember(memberId) {
+  try {
+    const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
+    const member = list.find(m => (m._id === memberId) || (m.id === memberId));
+    if (!member) {
+      showMessage('Member not found', 'error');
+      return;
+    }
+
+    const modal = __ensurePassportModal();
+    modal.style.display = 'flex';
+    const img = modal.querySelector('#passportPreview');
+    const spin = modal.querySelector('#passportSpinner');
+    img.style.display = 'none'; if (spin) spin.style.display = 'block';
+
+    const cached = __readPassportCache(member);
+    if (cached?.dataUrl) __showPassportInModal(cached.dataUrl);
+
+    const fresh = await __fetchPassport(member, cached);
+    if (fresh.status === 'ok') {
+      __writePassportCache(member, fresh);
+      __showPassportInModal(fresh.dataUrl);
+    }
+
+    modal.querySelector('#refreshPassportBtn').onclick = async () => {
+      img.style.display = 'none'; if (spin) spin.style.display = 'block';
+      const latest = await __fetchPassport(member, null);
+      if (latest.status === 'ok') {
+        __writePassportCache(member, latest);
+        __showPassportInModal(latest.dataUrl);
+        showMessage('Passport refreshed', 'success');
+      }
+    };
+  } catch (e) {
+    console.error('viewMember failed:', e);
+    showMessage('Failed to open passport', 'error');
+  }
+}
 
 
 })();
