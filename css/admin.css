@@ -5156,7 +5156,7 @@ td.checkbox-cell {
 #membersTable td:nth-child(6) {
     width: 140px;       /* reduce from overly wide */
     white-space: nowrap;
-    text-align: left;
+    text-align: center;
 }
 
 /* STATE and ZONE sensible widths */
@@ -5164,7 +5164,7 @@ td.checkbox-cell {
 #membersTable td:nth-child(7) {
     width: 120px;
     white-space: nowrap;
-    text-align: left;
+    text-align: center;
 }
 #membersTable th:nth-child(8),
 #membersTable td:nth-child(8) {
