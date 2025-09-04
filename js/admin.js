@@ -4656,7 +4656,6 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
   const tableBody = document.getElementById('membersTableBody');
   if (!tableBody) return;
 
-  // Normalize list + keep available for viewPassport()
   if (!Array.isArray(members)) members = [];
   window.currentMembers = members;
 
@@ -4679,7 +4678,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
     if (!member || typeof member !== 'object') return '';
 
     const memberIdRaw = member._id || member.id || '';
-    const memberId = String(memberIdRaw).replace(/'/g, "\\'"); // safe in onclick
+    const memberId = String(memberIdRaw).replace(/'/g, "\\'");
     const name     = member.name  || member.fullName || 'N/A';
     const email    = member.email || 'N/A';
     const code     = member.code  || 'N/A';
@@ -4690,18 +4689,18 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
     return `
       <tr>
         <td>${pageOffset + idx + 1}</td>                                                <!-- S/N -->
-        <td><input type="checkbox" class="member-checkbox" value="${memberIdRaw}"></td> <!-- Select -->
+        <td class="select-col"><input type="checkbox" class="member-checkbox" value="${memberIdRaw}"></td> <!-- Select (hidden by default) -->
         <td>
           <button class="btn btn-sm btn-outline-primary"
                   onclick="viewPassport('${memberId}')"
                   title="View Passport">View</button>
-        </td>                                                                           <!-- Photo (View) -->
-        <td>${name}</td>                                                                <!-- Name -->
-        <td>${email}</td>                                                               <!-- Email -->
-        <td>${code}</td>                                                                <!-- Code -->
-        <td>${position}</td>                                                            <!-- Position -->
-        <td>${state}</td>                                                               <!-- State -->
-        <td>${zone}</td>                                                                <!-- Zone -->
+        </td>                                                                           <!-- Photo -->
+        <td>${name}</td>
+        <td>${email}</td>
+        <td>${code}</td>
+        <td>${position}</td>
+        <td>${state}</td>
+        <td>${zone}</td>
         <td>
           <div class="btn-group">
             <button class="btn btn-sm btn-info" title="View Member"
@@ -4717,7 +4716,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
               <i class="fas fa-trash"></i>
             </button>
           </div>
-        </td>                                                                           <!-- Actions -->
+        </td>
       </tr>
     `;
   }).join('');
