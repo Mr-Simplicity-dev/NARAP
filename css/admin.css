@@ -5130,6 +5130,21 @@ td.checkbox-cell {
     text-align: center;
 }
 
+/* Select column sizing + centering */
+#membersTable th.select-col,
+#membersTable td.checkbox-cell {
+  width: 80px;
+  text-align: center;
+}
+
+/* Hidden by default */
+#membersTable th.select-col,
+#membersTable td.checkbox-cell { display: none; }
+
+/* Show when selection mode is active */
+#membersTable.selection-active th.select-col,
+#membersTable.selection-active td.checkbox-cell { display: table-cell !important; }
+
 
 
 /* Allow long names to wrap nicely */
