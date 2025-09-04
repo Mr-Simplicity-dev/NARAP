@@ -4652,12 +4652,11 @@ function closeImportModal() {
 
 // ==================== MEMBER DISPLAY FUNCTIONS ====================
 
-// ==================== MEMBERS TABLE RENDER ====================
 function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
   const tableBody = document.getElementById('membersTableBody');
   if (!tableBody) return;
 
-  // Normalize + keep globally for viewPassport()
+  // Keep list in memory so viewPassport() and viewMember() can find the member
   if (!Array.isArray(members)) members = [];
   window.currentMembers = members;
 
@@ -4672,17 +4671,9 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
     return;
   }
 
-  const per  = Number(itemsPerPage || 10) || 10;
+  const per = Number(itemsPerPage || 10) || 10;
   const page = Math.max(1, Number(currentPage) || 1);
   const pageOffset = (page - 1) * per;
-
-  // Helper: update selection-active state
-  const updateSelectionState = () => {
-    const table = document.getElementById('membersTable');
-    if (!table) return;
-    const anyChecked = !!tableBody.querySelector('.member-checkbox:checked');
-    table.classList.toggle('selection-active', anyChecked);
-  };
 
   tableBody.innerHTML = members.map((member, idx) => {
     if (!member || typeof member !== 'object') return '';
@@ -4701,8 +4692,8 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
         <td>${pageOffset + idx + 1}</td>                                                <!-- S/N -->
         <td class="checkbox-cell">
           <input type="checkbox" class="member-checkbox" value="${memberIdRaw}"
-                 onchange="(${updateSelectionState.toString()})()">
-        </td>                                                                           <!-- (hidden by CSS until needed) -->
+                 onchange="toggleMemberSelection(this)">
+        </td>                                                                           <!-- Select (hidden by CSS until active) -->
         <td>
           <button class="btn btn-sm btn-outline-primary"
                   onclick="viewPassport('${memberId}')"
@@ -4716,16 +4707,13 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
         <td>${zone}</td>                                                                <!-- Zone -->
         <td>
           <div class="btn-group">
-            <button class="btn btn-sm btn-info" title="View Member"
-                    onclick="try{viewMember && viewMember('${memberId}')}catch(_){}">
+            <button class="btn btn-sm btn-info" onclick="viewMember('${memberId}')" title="View Member">
               <i class="fas fa-eye"></i>
             </button>
-            <button class="btn btn-sm btn-warning" title="Edit Member"
-                    onclick="try{openEditMember && openEditMember('${memberId}')}catch(_){}">
+            <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="btn btn-sm btn-danger" title="Delete Member"
-                    onclick="try{confirmDeleteMember && confirmDeleteMember('${memberId}')}catch(_){}">
+            <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
               <i class="fas fa-trash"></i>
             </button>
           </div>
@@ -4733,24 +4721,7 @@ function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1
       </tr>
     `;
   }).join('');
-
-  // Keep header select-all in sync
-  window.selectAllMembers = function(){
-    const header = document.getElementById('selectAllMembers');
-    const boxes = tableBody.querySelectorAll('.member-checkbox');
-    boxes.forEach(cb => { cb.checked = !!header.checked; });
-    const table = document.getElementById('membersTable');
-    if (table) table.classList.toggle('selection-active', !!header.checked);
-  };
 }
-
-
-/* Call this to toggle selection mode on/off */
-function toggleMemberSelectionMode(on) {
-  const table = document.getElementById('membersTable'); // your <table id="membersTable">
-  if (table) table.classList.toggle('show-select', !!on);
-}
-
 
 function filterMembers() {
     const searchTerm = document.getElementById('memberSearch')?.value || '';
@@ -4940,48 +4911,29 @@ async function deleteMember(memberId) {
 
 async function viewMember(memberId) {
     console.log('🔍 Viewing member with ID:', memberId);
+    
     try {
-        // 1) Try to fetch the freshest member from backend (do not rely on cached object for photo)
-        let fetched = null;
-        const bases = [window.backendUrl || (typeof getBackendUrl === 'function' ? getBackendUrl() : ''), window.location.origin].filter(Boolean);
-        const candidatePaths = [
-          `/api/users/${memberId}`,
-          `/api/users/getUser/${memberId}`,
-          `/api/users/get-user/${memberId}`,
-          `/api/users/find/${memberId}`
-        ];
-        for (const base of bases) {
-          for (const path of candidatePaths) {
-            try {
-              const res = await fetch(`${base}${path}`, { headers: { 'Accept': 'application/json' } });
-              if (res.ok) {
-                const json = await (async () => { try { return await res.json(); } catch { return null; } })();
-                // Accept common shapes: {data}, {success:{data}}, direct object
-                fetched = (json && (json.data || (json.success && json.success.data) || json.member || json.user)) || (Array.isArray(json) ? json[0] : json);
-                if (fetched) break;
-              }
-            } catch (_) {}
-          }
-          if (fetched) break;
+        const currentMembers = window.currentMembers || [];
+        console.log('🔍 Current members count:', currentMembers.length);
+        
+        const member = currentMembers.find(m => 
+            m._id === memberId || m.id === memberId
+        );
+        
+        if (!member) {
+            console.error('❌ Member not found with ID:', memberId);
+            showMessage('Member not found', 'error');
+            return;
         }
-
-        // 2) Fallback to cached list if API call fails
-        if (!fetched) {
-          const currentMembers = window.currentMembers || [];
-          fetched = currentMembers.find(m => m && (m._id === memberId || m.id === memberId));
-        }
-
-        if (!fetched) {
-          console.error('❌ Member not found with ID:', memberId);
-          if (typeof showMessage === 'function') showMessage('Member not found', 'error');
-          return;
-        }
-
-        // 3) Show modal using the fresh object (has latest passportPhoto if changed)
-        showViewMemberModal(fetched);
+        
+        console.log('✅ Found member:', member.name, member);
+        
+        // Create and show the view modal
+        showViewMemberModal(member);
+        
     } catch (error) {
         console.error('❌ Error viewing member:', error);
-        if (typeof showMessage === 'function') showMessage('Failed to view member: ' + error.message, 'error');
+        showMessage('Failed to view member: ' + error.message, 'error');
     }
 }
 
@@ -13673,6 +13625,175 @@ try {
       }
     } catch(e){}
   };
-  
 })();
 // === [/Injected Override] End ===
+
+
+// ==================== PASSPORT VIEW: CACHE-FIRST WITH ON-DEMAND FETCH ====================
+(function(){
+  function keyFor(member){
+    const id = member && (member._id || member.id);
+    if (id) return `narap_passport_${id}`;
+    const c = String(member?.code || '').trim().toLowerCase();
+    if (c) return `narap_passport_c_${c}`;
+    const e = String(member?.email || '').trim().toLowerCase();
+    if (e) return `narap_passport_e_${e}`;
+    return null;
+  }
+
+  function resolvePassportUrl(member){
+    const f = member?.passportPhoto || member?.passport || '';
+    if (!f) return null;
+    if (/^(https?:|data:)/i.test(f)) return f;
+    if (f.startsWith('/')) return `${backendUrl}${f}`;
+    if (f.includes('passportPhoto-') || f.includes('signature-')) {
+      const folder = f.includes('passportPhoto-') ? 'passports' : 'signatures';
+      return `${backendUrl}/api/uploads/${folder}/${encodeURIComponent(f)}`;
+    }
+    return `${backendUrl}/api/uploads/passports/${encodeURIComponent(f)}`;
+  }
+
+  function readCache(member){
+    try {
+      const raw = localStorage.getItem(keyFor(member));
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return obj?.dataUrl ? obj : null;
+    } catch { return null; }
+  }
+
+  function writeCache(member, payload){
+    try {
+      const data = {
+        dataUrl: payload.dataUrl,
+        etag: payload.etag || null,
+        lastModified: payload.lastModified || null,
+        updatedAt: new Date().toISOString(),
+        originalUrl: payload.originalUrl || null
+      };
+      const k = keyFor(member);
+      if (k) localStorage.setItem(k, JSON.stringify(data));
+    } catch {}
+  }
+
+  async function respToDataUrl(resp){
+    const blob = await resp.blob();
+    return await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async function fetchPassport(member, cached){
+    const url = resolvePassportUrl(member);
+    if (!url) return { status: 'no-url' };
+
+    const headers = {};
+    if (cached?.etag) headers['If-None-Match'] = cached.etag;
+    if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;
+
+    const resp = await fetch(url, { method: 'GET', headers });
+    if (resp.status === 304 && cached) return { status: 'not-modified', ...cached };
+    if (!resp.ok) return { status: 'error', http: resp.status };
+
+    const dataUrl = await respToDataUrl(resp);
+    return {
+      status: 'ok',
+      dataUrl,
+      etag: resp.headers.get('ETag'),
+      lastModified: resp.headers.get('Last-Modified'),
+      originalUrl: url
+    };
+  }
+
+  function ensureModal(){
+    let modal = document.getElementById('viewMemberPassportModal');
+    if (modal) return modal;
+
+    const html = `
+    <div id="viewMemberPassportModal" class="modal show" style="display:none;">
+      <div class="modal-content" style="max-width:640px;">
+        <div class="modal-header">
+          <h3 class="modal-title">Member Passport</h3>
+          <button class="close-btn" id="passportCloseBtn" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body" style="text-align:center;min-height:240px;">
+          <div id="passportSpinner">Loading passport…</div>
+          <img id="passportPreview" alt="Passport" style="max-width:100%;display:none;" />
+        </div>
+        <div style="margin-top:12px;text-align:right;">
+          <button id="refreshPassportBtn" class="btn btn-sm btn-outline-info">Refresh</button>
+          <button id="passportCloseBtn2" class="btn btn-sm btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    modal = document.getElementById('viewMemberPassportModal');
+
+    const close = () => { modal.style.display = 'none'; };
+    modal.querySelector('#passportCloseBtn').addEventListener('click', close);
+    modal.querySelector('#passportCloseBtn2').addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+    return modal;
+  }
+
+  function showInModal(dataUrl){
+    const modal = ensureModal();
+    const img = modal.querySelector('#passportPreview');
+    const spin = modal.querySelector('#passportSpinner');
+    if (spin) spin.style.display = 'none';
+    img.src = dataUrl;
+    img.style.display = 'inline-block';
+    modal.style.display = 'flex';
+  }
+
+  // Public API: Photo → View button
+  window.viewPassport = async function(memberId){
+    try {
+      const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
+      const member = list.find(m => (m._id === memberId) || (m.id === memberId));
+      if (!member) { if (typeof showMessage === 'function') showMessage('Member not found', 'error'); return; }
+
+      const modal = ensureModal();
+      modal.style.display = 'flex';
+      const img  = modal.querySelector('#passportPreview');
+      const spin = modal.querySelector('#passportSpinner');
+      img.style.display = 'none'; if (spin) spin.style.display = 'block';
+
+      const cached = readCache(member);
+      if (cached?.dataUrl) showInModal(cached.dataUrl);
+
+      const fresh = await fetchPassport(member, cached);
+      if (fresh.status === 'ok') {
+        writeCache(member, fresh);
+        showInModal(fresh.dataUrl);
+      } else if (fresh.status === 'error' && !cached?.dataUrl) {
+        if (spin) spin.style.display = 'none';
+        if (typeof showMessage === 'function') showMessage('Could not load passport image', 'error');
+      }
+
+      const refreshBtn = modal.querySelector('#refreshPassportBtn');
+      if (refreshBtn && !refreshBtn.__bound) {
+        refreshBtn.__bound = true;
+        refreshBtn.addEventListener('click', async () => {
+          img.style.display = 'none'; if (spin) spin.style.display = 'block';
+          const latest = await fetchPassport(member, null);
+          if (latest.status === 'ok') {
+            writeCache(member, latest);
+            showInModal(latest.dataUrl);
+            if (typeof showMessage === 'function') showMessage('Passport refreshed', 'success');
+          } else {
+            if (spin) spin.style.display = 'none';
+            if (typeof showMessage === 'function') showMessage('Refresh failed', 'error');
+          }
+        });
+      }
+    } catch (e) {
+      console.error('viewPassport failed:', e);
+      if (typeof showMessage === 'function') showMessage('Failed to open passport', 'error');
+    }
+  };
+})();
