@@ -495,86 +495,33 @@
        </button>
       </div>
       <!-- Members Table -->
-      <div class="data-table-container">
-       <table class="data-table" id="membersTable">
-        <thead>
-         <tr>
-          <th>
-           S/N
-          </th>
-          <th>
-           <input type="checkbox" id="selectAllMembers" onchange="selectAllMembers()">
-          </th>
-          <th>
-           Photo
-          </th>
-          <th>
-           Name
-          </th>
-          <th>
-           Email
-          </th>
-          <th>
-           Code
-          </th>
-          <th>
-           Position
-          </th>
-          <th>
-           State
-          </th>
-          <th>
-           Zone
-          </th>
-          <th>
-           Actions
-          </th>
-         </tr>
-        </thead>
-        <tbody id="membersTableBody">
-         <tr>
-          <td>
-           <input type="checkbox" class="member-checkbox" value="member-id">
-          </td>
-          <td><button class="btn btn-sm btn-outline-primary" title="View Passport">View</button></td>
-          <td>
-           Member Name
-          </td>
-          <td>
-           member@example.com
-          </td>
-          <td>
-           2E/NEO/01
-          </td>
-          <td>
-           Position
-          </td>
-          <td>
-           State
-          </td>
-          <td>
-           Zone
-          </td>
-          <td>
-           <button class="btn btn-sm btn-info" title="View Member">
-             <i class="fas fa-eye"></i>
-           </button>
-           <button class="btn btn-sm btn-warning" title="Edit Member">
-             <i class="fas fa-edit"></i>
-           </button>
-           <button class="btn btn-sm btn-danger" title="Delete Member">
-             <i class="fas fa-trash"></i>
-           </button>
-          </td>
-         </tr>
-         <tr>
-          <td class="loading" colspan="9">
-           Loading members...
-          </td>
-         </tr>
-        </tbody>
-       </table>
-      </div>
+      <tr>
+  <td>1</td> <!-- S/N -->
+  <td><input type="checkbox" class="member-checkbox" value="member-id"></td> <!-- Select -->
+  <td>
+    <button class="btn btn-sm btn-outline-primary"
+            onclick="viewMember('member-id')"
+            title="View Passport">View</button>
+  </td> <!-- Photo -->
+  <td>Member Name</td> <!-- Name -->
+  <td>member@example.com</td> <!-- Email -->
+  <td>2E/NEO/01</td> <!-- Code -->
+  <td>Position</td> <!-- Position -->
+  <td>State</td> <!-- State -->
+  <td>Zone</td> <!-- Zone -->
+  <td>
+    <button class="btn btn-sm btn-info" title="View Member">
+      <i class="fas fa-eye"></i>
+    </button>
+    <button class="btn btn-sm btn-warning" title="Edit Member">
+      <i class="fas fa-edit"></i>
+    </button>
+    <button class="btn btn-sm btn-danger" title="Delete Member">
+      <i class="fas fa-trash"></i>
+    </button>
+  </td> <!-- Actions -->
+</tr>
+
      </div>
      <!-- Modern Pagination Container -->
      <div class="modern-pagination" id="membersPagination" style="display: none;">
