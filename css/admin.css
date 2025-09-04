@@ -5667,8 +5667,22 @@ html, body { height: 100%; overflow-y: auto; }
   cursor: pointer;
 }
 
-/* Selection column hidden by default */
-.select-col { display: none; }
+/* ===== [OVERRIDES] Members table only ===== */
+#membersTable { table-layout: fixed; width: 100%; }
+#membersTable th, #membersTable td { vertical-align: middle; }
 
-/* When table has .show-select, reveal selection column (header + cells) */
-.data-table.show-select .select-col { display: table-cell; }
+/* Column sizing/align for Members: S/N(1), Select(2), Photo(3), Name(4), Email(5), Code(6), Position(7), State(8), Zone(9), Actions(10) */
+#membersTable th:nth-child(1), #membersTable td:nth-child(1) { width: 60px; text-align: center; white-space: nowrap; }
+#membersTable th:nth-child(3), #membersTable td:nth-child(3) { width: 80px; text-align: center; } /* Photo = View button */
+#membersTable th:nth-child(10), #membersTable td:nth-child(10) { text-align: center; }
+
+/* Hide selection column by default (header + cells) */
+th:has(#selectAllMembers) { display: none; }
+td.checkbox-cell { display: none; }
+
+/* When any row is selected (or select-all used), show the select column */
+#membersTable.selection-active th:has(#selectAllMembers),
+#membersTable.selection-active td.checkbox-cell { display: table-cell !important; }
+
+/* Ensure 'Photo' header centers above its content */
+#membersTable th:nth-child(3) { text-align: center; }
