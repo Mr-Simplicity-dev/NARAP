@@ -4653,133 +4653,68 @@ function closeImportModal() {
 // ==================== MEMBER DISPLAY FUNCTIONS ====================
 
 function displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
-    const tableBody = document.getElementById('membersTableBody');
-    if (!tableBody) {
-        
-        return;
-    }
-    
-    // Ensure members is an array
-    if (!Array.isArray(members)) {
-        
-        members = [];
-    }
-    
-    if (members.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="9" class="no-data">No members found</td>
-            </tr>
-        `;
-        return;
-    }
-    
-    try {
-        tableBody.innerHTML = members.map((member, index) => {
-            // Ensure member is an object
-            if (!member || typeof member !== 'object') {
-                
-                return '';
-            }
-            
-            const memberId = member._id || member.id || '';
-            const name = member.name || 'N/A';
-            const email = member.email || 'N/A';
-            const code = member.code || 'N/A';
-            const position = member.position || 'N/A';
-            const state = member.state || 'N/A';
-            const zone = member.zone || 'N/A';
-            
-            // Get photo URL with improved logic (same as verification page)
-            const passportPhoto = member.passportPhoto || member.passport;
-            let validPhotoUrl = null;
-            
-            if (passportPhoto) {
-                try {
-                    // Handle different URL formats
-                    if (passportPhoto.startsWith('http://') || passportPhoto.startsWith('https://') || passportPhoto.startsWith('data:')) {
-                        validPhotoUrl = passportPhoto;
-                    } else if (passportPhoto.startsWith('/')) {
-                        validPhotoUrl = `${backendUrl}${passportPhoto}`;
-                    } else if (passportPhoto.includes('passportPhoto-') || passportPhoto.includes('signature-')) {
-                        // Handle filename patterns
-                        const fieldType = passportPhoto.includes('passportPhoto-') ? 'passports' : 'signatures';
-                        validPhotoUrl = `${backendUrl}/api/uploads/${fieldType}/${passportPhoto}`;
-                    } else {
-                        // Fallback for other cases
-                        validPhotoUrl = `${backendUrl}/api/uploads/passports/${passportPhoto}`;
-                    }
-                } catch (error) {
-                    console.log('❌ Error processing photo URL:', error);
-                    validPhotoUrl = null;
-                }
-            }
-            
-            console.log('🔍 Image debug for member:', member.name, {
-                passportPhoto: member.passportPhoto,
-                passport: member.passport,
-                validPhotoUrl: validPhotoUrl
-            });
-            
-            // Enhanced error handling with multiple fallback URLs
-            const alternativeUrls = validPhotoUrl ? [
-                validPhotoUrl,
-                `${backendUrl}/api/uploads/passports/${passportPhoto}`,
-                `${backendUrl}/api/uploads/signatures/${passportPhoto}`,
-                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/passportPhoto/${passportPhoto}`,
-                `https://res.cloudinary.com/dh5wjtvlf/image/upload/v1/NARAP/signature/${passportPhoto}`
-            ] : [];
-            
-            const imgElement = `
-                <img alt="Passport" class="img-thumbnail" height="50" width="50" 
-                     src="${validPhotoUrl || DEFAULT_AVATAR}" 
-                     onload="console.log('✅ Image loaded successfully:', this.src);" 
-                     onerror="handleMemberTableImageError(this, '${validPhotoUrl || DEFAULT_AVATAR}', ${JSON.stringify(alternativeUrls)});">
-            `;
-            
-            const rowHTML = `
-                <tr>
-                    <td>${index + 1}</td>
-                    <td class=\"checkbox-cell\"><input type=\"checkbox\" class=\"member-checkbox\" value="${memberId}" 
-                               onchange="toggleMemberSelection(this)">
-                    </td>
-                    
-                    <td>${imgElement}</td>
-                    <td>${name}</td>
-                    <td>${email}</td>
-                    <td>${code}</td>
-                    <td>${position}</td>
-                    <td>${state}</td>
-                    <td>${zone}</td>
-                    <td>
-                        <button class="btn btn-sm btn-info" onclick="viewMember('${memberId}')" title="View Member">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-            
-            return rowHTML;
-        }).join('');
-        
-        // Update members count
-        updateMembersCount();
-        
-    } catch (error) {
-        
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="9" class="error">Error displaying members</td>
-            </tr>
-        `;
-    }
+  const tableBody = document.getElementById('membersTableBody');
+  if (!tableBody) return;
+
+  // Normalize list
+  if (!Array.isArray(members)) members = [];
+  window.currentMembers = members; // keep in memory for viewMember()
+
+  if (members.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td class="loading" colspan="10" style="text-align:center; padding:24px;">No members found</td>
+      </tr>
+    `;
+    return;
+  }
+
+  const pageOffset = (Math.max(1, Number(currentPage)) - 1) * Number(itemsPerPage || 10);
+
+  tableBody.innerHTML = members.map((member, idx) => {
+    if (!member || typeof member !== 'object') return '';
+    const memberIdRaw = member._id || member.id || '';
+    const memberId = String(memberIdRaw).replace(/'/g, "\\'"); // safe for onclick
+    const name     = member.name || 'N/A';
+    const email    = member.email || 'N/A';
+    const code     = member.code || 'N/A';
+    const position = member.position || 'N/A';
+    const state    = member.state || 'N/A';
+    const zone     = member.zone || 'N/A';
+
+    return `
+      <tr>
+        <td>${pageOffset + idx + 1}</td>                                                <!-- S/N -->
+        <td><input type="checkbox" class="member-checkbox" value="${memberIdRaw}"></td> <!-- Select -->
+        <td>
+          <button class="btn btn-sm btn-outline-primary"
+                  onclick="viewMember('${memberId}')"
+                  title="View Passport">View</button>
+        </td>                                                                           <!-- Photo (View) -->
+        <td>${name}</td>                                                                <!-- Name -->
+        <td>${email}</td>                                                               <!-- Email -->
+        <td>${code}</td>                                                                <!-- Code -->
+        <td>${position}</td>                                                            <!-- Position -->
+        <td>${state}</td>                                                               <!-- State -->
+        <td>${zone}</td>                                                                <!-- Zone -->
+        <td>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-info" title="View Member" onclick="try{openMember('${memberId}')}catch(_){}">
+              <i class="fas fa-eye"></i>
+            </button>
+            <button class="btn btn-sm btn-warning" title="Edit Member" onclick="try{openEditMember('${memberId}')}catch(_){}">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-danger" title="Delete Member" onclick="try{confirmDeleteMember('${memberId}')}catch(_){}">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>                                                                           <!-- Actions -->
+      </tr>
+    `;
+  }).join('');
 }
+
 
 function filterMembers() {
     const searchTerm = document.getElementById('memberSearch')?.value || '';
