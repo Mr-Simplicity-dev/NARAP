@@ -496,12 +496,43 @@
       </div>
       <!-- Members Table -->
       <tbody id="membersTableBody">
+ <tbody id="membersTableBody">
+  <tr>
+    <td>1</td> <!-- S/N -->
+    <td>
+      <input type="checkbox" class="member-checkbox" value="member-id">
+    </td> <!-- Select -->
+    <td>
+      <button class="btn btn-sm btn-outline-primary"
+              onclick="viewMember('member-id')"
+              title="View Passport">View</button>
+    </td> <!-- Photo (View button) -->
+    <td>Member Name</td>        <!-- Name -->
+    <td>member@example.com</td> <!-- Email -->
+    <td>2E/NEO/01</td>          <!-- Code -->
+    <td>Position</td>           <!-- Position -->
+    <td>State</td>              <!-- State -->
+    <td>Zone</td>               <!-- Zone -->
+    <td>                        <!-- Actions -->
+      <button class="btn btn-sm btn-info" title="View Member">
+        <i class="fas fa-eye"></i>
+      </button>
+      <button class="btn btn-sm btn-warning" title="Edit Member">
+        <i class="fas fa-edit"></i>
+      </button>
+      <button class="btn btn-sm btn-danger" title="Delete Member">
+        <i class="fas fa-trash"></i>
+      </button>
+    </td>
+  </tr>
+
   <tr>
     <td class="loading" colspan="10" style="text-align:center; padding:24px;">
       Loading members...
     </td>
   </tr>
 </tbody>
+
 
      </div>
      <!-- Modern Pagination Container -->
