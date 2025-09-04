@@ -497,30 +497,47 @@
       <!-- Members Table -->
       <div class="data-table-container">
        <table class="data-table" id="membersTable">
-    <thead>
-  <tr>
-    <th>S/N</th>
-    <th class="select-col">
-      <input type="checkbox" id="selectAllMembers" onchange="selectAllMembers()">
-    </th>
-    <th>Photo</th>
-    <th>Name</th>
-    <th>Email</th>
-    <th>Code</th>
-    <th>Position</th>
-    <th>State</th>
-    <th>Zone</th>
-    <th>Actions</th>
-  </tr>
-</thead>
-<tbody id="membersTableBody">
+        <thead>
+         <tr>
+          <th>
+           S/N
+          </th>
+          <th class="select-col">
+           <input type="checkbox" id="selectAllMembers" onchange="selectAllMembers()">
+          </th>
+          <th>
+           Photo
+          </th>
+          <th>
+           Name
+          </th>
+          <th>
+           Email
+          </th>
+          <th>
+           Code
+          </th>
+          <th>
+           Position
+          </th>
+          <th>
+           State
+          </th>
+          <th>
+           Zone
+          </th>
+          <th>
+           Actions
+          </th>
+         </tr>
+        </thead>
+        <tbody id="membersTableBody">
   <tr>
     <td class="loading" colspan="10" style="text-align:center; padding:24px;">
       Loading members...
     </td>
   </tr>
 </tbody>
-
        </table>
       </div>
      </div>
@@ -1917,23 +1934,5 @@
 })();
 </script>
 
-
-    <!-- Passport-only Popup (injected) -->
-    <div id="passportPopupOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999;">
-      <div id="passportPopup" role="dialog" aria-modal="true" aria-label="Passport preview"
-           style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:12px; padding:16px; width:min(92vw, 520px); box-shadow:0 10px 30px rgba(0,0,0,0.25);">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
-          <div style="font-weight:600; font-size:16px;" id="passportPopupTitle">Passport</div>
-          <div style="display:flex; gap:8px;">
-            <button id="passportPopupDownload" class="btn btn-sm btn-outline-secondary" title="Download">Download</button>
-            <button id="passportPopupClose" class="btn btn-sm btn-primary" title="Close">Close</button>
-          </div>
-        </div>
-        <div style="max-height:70vh; overflow:auto; text-align:center;">
-          <img id="passportPopupImg" alt="Passport photo" style="max-width:100%; height:auto; border-radius:8px;"/>
-        </div>
-      </div>
-    </div>
-    
 </body>
 </html>
