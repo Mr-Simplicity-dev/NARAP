@@ -5064,6 +5064,7 @@ function closeViewMemberModal() {
 
 
 // ✅ REPLACED: safer editMember that correctly builds FormData and updates UI
+// === FIXED editMember: uses PUT /api/users/updateUser/:id and correct FormData ===
 async function editMember(event) {
   event.preventDefault();
 
@@ -5074,7 +5075,7 @@ async function editMember(event) {
     return;
   }
 
-  // Grab fields
+  // Fields
   const nameField     = form.querySelector('#editMemberName');
   const emailField    = form.querySelector('#editMemberEmail');
   const codeField     = form.querySelector('#editMemberCode');
@@ -5084,17 +5085,20 @@ async function editMember(event) {
   const passwordField = form.querySelector('#editMemberPassword');
 
   if (!nameField || !codeField || !positionField || !stateField || !zoneField) {
-    console.error('Form elements missing', { nameField, codeField, positionField, stateField, zoneField });
+    console.error('❌ Form elements not found:', {
+      nameField: !!nameField, codeField: !!codeField, positionField: !!positionField,
+      stateField: !!stateField, zoneField: !!zoneField
+    });
     if (typeof showMessage === 'function') showMessage('Form elements not found. Please refresh the page.', 'error');
     return;
   }
 
-  // Normalize values
+  // Collect & normalize
   const name     = nameField.value.trim();
   const email    = emailField ? emailField.value.trim() : '';
   const code     = codeField.value.trim();
   const position = positionField.value;
-  const state    = (stateField.value || '').toString().trim().toUpperCase(); // normalize to match backend
+  const state    = (stateField.value || '').toString().trim().toUpperCase();
   const zone     = (zoneField.value || '').toString().trim();
   const password = passwordField ? passwordField.value : '';
 
@@ -5108,13 +5112,13 @@ async function editMember(event) {
   body.append('zone', zone);
   if (password && password.trim()) body.append('password', password.trim());
 
-  // Files (use backend’s expected names)
+  // Files (backend expects these names)
   const passportInput  = document.getElementById('editMemberPassport');
   const signatureInput = document.getElementById('editMemberSignature');
   if (passportInput?.files?.[0])  body.append('passportPhoto', passportInput.files[0]);
   if (signatureInput?.files?.[0]) body.append('signature', signatureInput.files[0]);
 
-  // Required fields check
+  // Required checks
   for (const k of ['name','code','position','state','zone']) {
     const v = body.get(k);
     if (!v || String(v).trim() === '') {
@@ -5123,9 +5127,19 @@ async function editMember(event) {
     }
   }
 
+  // Locate in local list (for instant UI update)
+  const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
+  const idx  = list.findIndex(m => (m?._id === memberId) || (m?.id === memberId));
+  if (idx === -1) {
+    if (typeof showMessage === 'function') showMessage('Member not found', 'error');
+    return;
+  }
+  const original = list[idx];
+
   try {
     if (typeof showMessage === 'function') showMessage('Updating member...', 'info');
 
+    // ✅ Correct route (your server supports PUT here)
     const res = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
       method: 'PUT',
       body
@@ -5134,52 +5148,44 @@ async function editMember(event) {
     if (!res.ok) {
       let err = null;
       try { err = await res.json(); } catch {}
-      console.error('Update failed', res.status, err);
-      if (typeof showMessage === 'function')
-        showMessage(err?.message || `Failed to update member (HTTP ${res.status})`, 'error');
+      console.error('❌ Backend update failed:', res.status, err);
+      if (typeof showMessage === 'function') showMessage(err?.message || `Failed to update member (HTTP ${res.status})`, 'error');
       return;
     }
 
-    // Update local cache/UI
-    let payload = {};
-    try { payload = await res.json(); } catch {}
-    const updatedFromServer = payload?.data || payload || {};
+    const payload = await (typeof tryJson === 'function' ? tryJson(res) : res.json().catch(() => ({})));
+    const serverData = payload?.data || payload || {};
 
-    const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
-    const idx  = list.findIndex(m => (m?._id === memberId) || (m?.id === memberId));
-    if (idx !== -1) {
-      const original = list[idx];
-      const updated = {
-        ...original,
-        name, email, code, position, state, zone,
-        updatedAt: new Date().toISOString(),
-        pendingSync: false
-      };
-      // prefer filenames returned by backend if present
-      if (updatedFromServer.passportPhoto || updatedFromServer?.data?.passportPhoto) {
-        updated.passportPhoto = updatedFromServer.passportPhoto || updatedFromServer.data.passportPhoto;
-      }
-      if (updatedFromServer.signature || updatedFromServer?.data?.signature) {
-        updated.signature = updatedFromServer.signature || updatedFromServer.data.signature;
-      }
-      list[idx] = updated;
-      window.currentMembers = list;
-      if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+    // Build updated local object
+    const updated = {
+      ...original,
+      name, email, code, position, state, zone,
+      updatedAt: new Date().toISOString(),
+      pendingSync: false
+    };
+    if (serverData.passportPhoto || serverData?.data?.passportPhoto) {
+      updated.passportPhoto = serverData.passportPhoto || serverData.data.passportPhoto;
+    }
+    if (serverData.signature || serverData?.data?.signature) {
+      updated.signature = serverData.signature || serverData.data.signature;
     }
 
-    try { if (typeof logMemberUpdate === 'function') logMemberUpdate(updatedFromServer); } catch {}
-    if (typeof showMessage === 'function') showMessage('Member updated successfully!', 'success');
+    list[idx] = updated;
+    window.currentMembers = list;
+    if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
 
+    try { if (typeof logMemberUpdate === 'function') logMemberUpdate(updated); } catch (_) {}
+
+    if (typeof showMessage === 'function') showMessage('Member updated successfully!', 'success');
     if (typeof closeEditMemberModal   === 'function') closeEditMemberModal();
-    if (typeof displayMembers         === 'function') displayMembers(window.currentMembers || []);
+    if (typeof displayMembers         === 'function') displayMembers(list);
     if (typeof updateSyncStatus       === 'function') updateSyncStatus();
     if (typeof loadDashboardStats     === 'function') await loadDashboardStats();
     if (typeof loadRecentActivity     === 'function') await loadRecentActivity();
 
   } catch (networkErr) {
-    console.warn('Network error during update, queueing for sync:', networkErr);
-    if (typeof showMessage === 'function')
-      showMessage('Offline: member updated locally and queued for sync.', 'warning');
+    console.warn('🌐 Network error during update:', networkErr);
+    if (typeof showMessage === 'function') showMessage('Network error while updating member.', 'error');
   }
 }
 
