@@ -5069,6 +5069,14 @@ async function editMember(event) {
   event.preventDefault();
 
   const form = event.target;
+  // Safe list of API base URLs to try
+const urlBases = [
+  (typeof API_BASE !== 'undefined' ? API_BASE : ''),                // configured API_BASE
+  window.location.origin,                                           // current origin (same-host dev/prod)
+  (window.__narapApiBase || ''),                                    // any discovered override
+  'https://narap-backend.onrender.com'                              // Render deployment
+].filter(Boolean); // removes empty strings
+
   const memberId = (
   form?.dataset?.memberId ||
   document.getElementById('editMemberId')?.value ||
