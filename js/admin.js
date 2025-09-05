@@ -5067,23 +5067,21 @@ function closeViewMemberModal() {
 // === FIXED editMember: uses PUT /api/users/updateUser/:id and correct FormData ===
 async function editMember(event) {
   event.preventDefault();
+// --- ensure urlBases exists for multi-endpoint fallbacks ---
+try {
+  var urlBases = [
+    (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '',
+    (window && window.location && window.location.origin) ? window.location.origin : '',
+    (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '',
+    'https://narap-backend.onrender.com'
+  ].filter(function(x){ return !!x; });
+} catch(_){
+  var urlBases = ['https://narap-backend.onrender.com'];
+}
+
 
   const form = event.target;
-  // Safe list of API base URLs to try
-const urlBases = [
-  (typeof API_BASE !== 'undefined' ? API_BASE : ''),                // configured API_BASE
-  window.location.origin,                                           // current origin (same-host dev/prod)
-  (window.__narapApiBase || ''),                                    // any discovered override
-  'https://narap-backend.onrender.com'                              // Render deployment
-].filter(Boolean); // removes empty strings
-
-  const memberId = (
-  form?.dataset?.memberId ||
-  document.getElementById('editMemberId')?.value ||
-  document.getElementById('editMemberModal')?.dataset?.memberId ||
-  window.__editingMemberId ||
-  ''
-).trim();
+  const memberId = (form.dataset.memberId || '').trim();
   if (!memberId) {
     if (typeof showMessage === 'function') showMessage('Member ID not found', 'error');
     return;
@@ -12328,39 +12326,163 @@ try {
 
     const url = `/api/users/updateUser/${id}`;
     let updated;
-const candidates = [];
-for (const base of (urlBases && urlBases.length ? urlBases : [''])) {
-  for (const ep of endpoints) {
-    const u = (base ? (base + ep) : ep);
-    const fns = [putJSON, putForm, postOverrideJSON, postOverrideForm, postPlainJSON, postPlainForm];
-    for (const fn of fns) {
-      try { updated = await fn(u, payload); if (updated) break; } catch(_){}
+    try {
+      updated = await putJSON(url, payload);
+    } catch (e1){
+      try {
+        updated = await putForm(url, payload);
+      } catch(e2){
+        try {
+          updated = await postOverrideJSON(url, payload);
+        } catch (e3){
+          try {
+            updated = await postOverrideForm(url, payload);
+          } catch (e4){
+            console.error('editMember(v10): backend update failed', e1, e2, e3, e4);
+            if (typeof window.showMessage === 'function')
+              window.showMessage('Backend update failed: ' + (e4?.message || e3?.message || e2?.message || e1?.message || 'Unknown error'), 'danger');
+            return false;
+          }
+        }
+      }
     }
-    if (updated) break;
+
+    applyToCaches(updated);
+
+    const newState = up(updated.state || updated.State);
+    if (prevState && newState && prevState !== newState) {
+      try {
+        if (typeof window.activityLogger?.member === 'function') {
+          window.activityLogger.member('state_moved', {
+            id: updated._id || updated.id || id,
+            name: updated.name || prev?.name,
+            code: updated.code || prev?.code,
+            from: prevState,
+            to: newState
+          });
+        }
+      } catch(_){}
+      if (typeof window.showMessage === 'function') window.showMessage(`Member moved to ${newState} from ${prevState}`, 'success');
+    } else {
+      if (typeof window.showMessage === 'function') window.showMessage('Member updated', 'success');
+    }
+
+    return false;
+  };
+
+  console.log('✅ NARAP v10 override active (method-override fallback)');
+})();
+
+
+
+/* ===================== NARAP - All-in-One Edit Override (v11 extended fallbacks) =====================
+   Adds more fallbacks for strict servers that block PUT and POST override paths.
+====================================================================================================== */
+(function(){
+  function $ (id){ return document.getElementById(id); }
+  function val(id){ const el = $(id); return el && typeof el.value !== 'undefined' ? el.value : ''; }
+  function up (s){ return (s||'').toString().trim().toUpperCase(); }
+
+  async function postPlainJSON(url, payload){
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error(`POST JSON ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
+    return res.json();
   }
-  if (updated) break;
-}
-// Extra body-based fallbacks (no :id in path)
-if (!updated) {
-  for (const base of (urlBases && urlBases.length ? urlBases : [''])) {
-    const u1 = (base ? base : '') + '/api/users/update';
-    const u2 = (base ? base : '') + '/api/users';
-    try { updated = await postPlainJSON(u1, { id, ...payload }); } catch(_){}
-    if (updated) break;
-    try { updated = await postPlainForm(u1, { id, ...payload }); } catch(_){}
-    if (updated) break;
-    try { updated = await postPlainJSON(u2, { id, ...payload }); } catch(_){}
-    if (updated) break;
-    try { updated = await postPlainForm(u2, { id, ...payload }); } catch(_){}
-    if (updated) break;
+  async function postPlainForm(url, payload){
+    const fd = new FormData(); for (const [k,v] of Object.entries(payload)) fd.append(k, v==null?'':v);
+    const res = await fetch(url, { method: 'POST', body: fd });
+    if (!res.ok) throw new Error(`POST FORM ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
+    return res.json();
   }
-}
-if (!updated) {
-  console.error('editMember(v12): all fallbacks failed');
-  if (typeof window.showMessage === 'function') window.showMessage('Backend update failed (all fallbacks). Ensure backend allows PUT/POST on /api/users/updateUser/:id or POST /api/users/update', 'danger');
-  return false;
-}
-// Apply to caches and activity log
+
+  // Patch the existing v10 override by replacing its window.editMember with extended sequence
+  const prevEdit = window.editMember;
+  window.editMember = async function(ev){
+    try{ if (ev && typeof ev.preventDefault==='function') ev.preventDefault(); }catch(_){}
+
+    // Borrow helpers from v10 already attached in scope
+    const getId = (function(){
+      const modal = $('editMemberModal');
+      const form = $('editMemberForm') || (modal ? modal.querySelector('form') : null);
+      return function(){
+        return ( $('editMemberId')?.value )
+            || ( modal && modal.dataset && modal.dataset.memberId )
+            || ( form && form.dataset && (form.dataset.memberId || form.dataset.id) )
+            || window.__editingMemberId || '';
+      };
+    })();
+
+    const codeFromForm = (val('editMemberCode') || '').trim();
+    let id = getId();
+    if (!id && codeFromForm && Array.isArray(window.currentMembers || window.members)) {
+      const coll = (window.currentMembers || window.members || []);
+      const m = coll.find(mm => mm && (mm.code === codeFromForm));
+      if (m) {
+        id = m._id || m.id || '';
+        window.__editingMemberId = id;
+        const hid = $('editMemberId'); if (hid) hid.value = id;
+        if (modal) { if (!modal.dataset) modal.dataset = {}; modal.dataset.memberId = id; }
+      }
+    }
+    if (!id){
+      console.error('editMember(v11): missing member ID');
+      if (typeof window.showMessage === 'function') window.showMessage('Missing member ID', 'danger');
+      return false;
+    }
+
+    const coll = (window.currentMembers || window.members || []);
+    const prev = Array.isArray(coll) ? coll.find(m => m && (m._id === id || m.id === id)) : null;
+    const prevState = prev ? up(prev.state || prev.State) : null;
+
+    const payload = {
+      name: val('editMemberName') || prev?.name || '',
+      code: codeFromForm || prev?.code || '',
+      position: val('editMemberPosition') || prev?.position || '',
+      state: up(val('editMemberState') || prev?.state || prev?.State || ''),
+      zone: val('editMemberZone') || prev?.zone || ''
+    };
+
+    const url = `/api/users/${id}`;
+
+    // Reuse the helper functions defined by v10 patch if present
+    const putJSON = async (u,p)=>{
+      const r = await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+      if(!r.ok) throw new Error(`PUT JSON ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
+    };
+    const putForm = async (u,p)=>{
+      const fd=new FormData(); for(const [k,v] of Object.entries(p)) fd.append(k,v==null?'':v);
+      const r=await fetch(u,{method:'PUT',body:fd});
+      if(!r.ok) throw new Error(`PUT FORM ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
+    };
+    const postOverrideJSON = async (u,p)=>{
+      const r = await fetch(u + (u.includes('?')?'&':'?') + 'method=PUT', {
+        method:'POST', headers:{'Content-Type':'application/json','X-HTTP-Method-Override':'PUT'}, body: JSON.stringify(p)
+      });
+      if(!r.ok) throw new Error(`POST(override) JSON ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
+    };
+    const postOverrideForm = async (u,p)=>{
+      const fd=new FormData(); for(const [k,v] of Object.entries(p)) fd.append(k,v==null?'':v);
+      const r = await fetch(u + (u.includes('?')?'&':'?') + 'method=PUT', { method:'POST', headers:{'X-HTTP-Method-Override':'PUT'}, body:fd });
+      if(!r.ok) throw new Error(`POST(override) FORM ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
+    };
+
+    let updated;
+    try { updated = await putJSON(url, payload); }
+    catch(e1){ try { updated = await putForm(url, payload); }
+    catch(e2){ try { updated = await postOverrideJSON(url, payload); }
+    catch(e3){ try { updated = await postOverrideForm(url, payload); }
+    catch(e4){ try { updated = await postPlainJSON(url, payload); }            // 5) POST JSON /:id
+    catch(e5){ try { updated = await postPlainForm(url, payload); }            // 6) POST FORM /:id
+    catch(e6){ try { updated = await postPlainJSON('/api/users/update', { id, ...payload }); } // 7) POST JSON /update
+    catch(e7){ try { updated = await postPlainForm('/api/users/update', { id, ...payload }); } // 8) POST FORM /update
+    catch(e8){ try { updated = await postPlainJSON('/api/users', { id, ...payload }); }        // 9) POST JSON /users
+    catch(e9){ try { updated = await postPlainForm('/api/users', { id, ...payload }); }        // 10) POST FORM /users
+    catch(e10){ console.error('editMember(v11): all fallbacks failed', e1,e2,e3,e4,e5,e6,e7,e8,e9,e10);
+      if (typeof window.showMessage === 'function')
+        window.showMessage('Backend update failed (all fallbacks). Check server routes to allow POST /api/users/:id or /api/users/update.', 'danger');
+      return false; }}}}}}}}}}
+
+    // Apply to caches and activity log
     try{
       const m = prev || (Array.isArray(coll) ? coll.find(x => x && (x._id === (updated._id||updated.id) || x.id === (updated._id||updated.id))) : null);
       if (m){
