@@ -1143,7 +1143,7 @@ async function syncPendingChanges() {
     const ctrl = new AbortController();
     const id = setTimeout(() => ctrl.abort(), ms);
     try {
-      return await fetch(url, { ...opts, signal: ctrl.signal });
+      return await fetch(absUrl(url), { ...opts, signal: ctrl.signal });
     } finally {
       clearTimeout(id);
     }
@@ -2186,6 +2186,99 @@ function logout() {
     showMessage('Logged out successfully', 'info');
 }
 
+// ✅ REPLACED: safer editMember that correctly builds FormData and updates UI
+async function editMember(event) {
+  try { if (event && event.preventDefault) event.preventDefault(); } catch(_) {}
+
+  const form = (event && event.target) ? event.target : document.getElementById('editMemberForm');
+  if (!form) { if (typeof showMessage==='function') showMessage('Edit form not found', 'error'); return; }
+
+  // Resolve member id from form/modal/hidden/global
+  const memberId = (form.dataset.memberId || document.getElementById('editMemberId')?.value || document.getElementById('editMemberModal')?.dataset?.memberId || window.__editingMemberId || '').trim();
+  if (!memberId) { if (typeof showMessage==='function') showMessage('Member ID not found', 'error'); return; }
+
+  // Fields
+  const nameField     = form.querySelector('#editMemberName');
+  const emailField    = form.querySelector('#editMemberEmail');
+  const codeField     = form.querySelector('#editMemberCode');
+  const positionField = form.querySelector('#editMemberPosition');
+  const stateField    = form.querySelector('#editMemberState');
+  const zoneField     = form.querySelector('#editMemberZone');
+  const passwordField = form.querySelector('#editMemberPassword');
+
+  if (!nameField || !codeField || !positionField || !stateField || !zoneField) {
+    console.error('❌ Form elements not found:', {nameField:!!nameField, codeField:!!codeField, positionField:!!positionField, stateField:!!stateField, zoneField:!!zoneField});
+    if (typeof showMessage==='function') showMessage('Form elements not found. Please refresh the page.', 'error');
+    return;
+  }
+
+  // Collect & normalize
+  const name     = nameField.value.trim();
+  const email    = emailField ? emailField.value.trim() : '';
+  const code     = codeField.value.trim();
+  const position = positionField.value;
+  const state    = (stateField.value || '').toString().trim().toUpperCase();
+  const zone     = (zoneField.value || '').toString().trim();
+  const password = passwordField ? passwordField.value : '';
+
+  // Build multipart
+  const body = new FormData();
+  body.append('name', name);
+  if (email) body.append('email', email);
+  body.append('code', code);
+  body.append('position', position);
+  body.append('state', state);
+  body.append('zone', zone);
+  if (password && password.trim()) body.append('password', password.trim());
+
+  // Files
+  const passportInput  = document.getElementById('editMemberPassport');
+  const signatureInput = document.getElementById('editMemberSignature');
+  if (passportInput?.files?.[0])  body.append('passportPhoto', passportInput.files[0]);
+  if (signatureInput?.files?.[0]) body.append('signature',     signatureInput.files[0]);
+
+  for (const k of ['name','code','position','state','zone']) {
+    const v = body.get(k); if (!v || String(v).trim()==='') { if (typeof showMessage==='function') showMessage('Missing required fields: '+k, 'error'); return; }
+  }
+
+  // Backend URL
+  const base = (typeof getBackendUrl==='function') ? getBackendUrl() : (window.backendUrl || '');
+  const url  = (base ? base.replace(/\/+$/,'') : '') + `/api/users/updateUser/${memberId}`;
+
+  // Send PUT multipart
+  let resp;
+  try {
+    resp = await fetch(url, { method: 'PUT', body });
+  } catch (e) {
+    console.error('Network error updating member:', e);
+    if (typeof showMessage==='function') showMessage('Network error updating member', 'error');
+    return;
+  }
+
+  const ok = resp && resp.ok;
+  const data = ok ? (await (typeof tryJson==='function' ? tryJson(resp) : resp.json().catch(()=>null))) : null;
+  if (!ok) {
+    const msg = (data && (data.message || data.error)) || `HTTP ${resp.status}`;
+    if (typeof showMessage==='function') showMessage('Update failed: '+ msg, 'error');
+    return;
+  }
+
+  // Update caches/UI
+  try {
+    const updated = (data && (data.user || data.data || data.updated || data)) || {};
+    if (updated) {
+      if (typeof window.applyToCaches === 'function') window.applyToCaches(updated);
+      if (typeof window.logMemberUpdate === 'function') window.logMemberUpdate(updated);
+    }
+  } catch(_){}
+
+  try { if (typeof closeEditMemberModal==='function') closeEditMemberModal(); } catch(_){}
+  if (typeof showMessage==='function') showMessage('Member updated successfully', 'success');
+  try {
+    if (typeof window.reloadMembersBackendFirst==='function') { await window.reloadMembersBackendFirst(true); }
+    else if (typeof window.loadMembers==='function') { await window.loadMembers(); }
+  } catch(_){}
+}
 // ==================== DASHBOARD FUNCTIONS ====================
 
 async function loadDashboardStats() {
@@ -5065,35 +5158,7 @@ function closeViewMemberModal() {
 
 // ✅ REPLACED: safer editMember that correctly builds FormData and updates UI
 // === FIXED editMember: uses PUT /api/users/updateUser/:id and correct FormData ===
-async function editMember(event) {
-  event.preventDefault();
-// --- ensure urlBases exists for multi-endpoint fallbacks ---
-try {
-  var urlBases = [
-    'https://narap-backend.onrender.com',                                   // Render backend FIRST
-    (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '',           // any configured API_BASE
-    (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '' // discovered override
-  ].filter(function(x){ return !!x;
-  /*__NARAP_V12_ENDPOINTS__*/ 
-  var __endpoints = function(id){ 
-    return [
-      '/api/users/updateUser/' + id,   // preferred
-      '/api/users/update',             // fallback (expects id in body)
-      '/api/users'                     // last resort
-    ];
-  };
- });
-} catch(_){
-  var urlBases = ['https://narap-backend.onrender.com'];
-}
 
-
-  const form = event.target;
-  const memberId = (form.dataset.memberId || '').trim();
-  if (!memberId) {
-    if (typeof showMessage === 'function') showMessage('Member ID not found', 'error');
-    return;
-  }
 
   // Fields
   const nameField     = form.querySelector('#editMemberName');
@@ -5207,7 +5272,7 @@ try {
     console.warn('🌐 Network error during update:', networkErr);
     if (typeof showMessage === 'function') showMessage('Network error while updating member.', 'error');
   }
-}
+
 
 
 
@@ -7680,7 +7745,7 @@ async function importMembersData(parsedData, withProgress = false) {
       try {
         const baseUrl = (typeof backendUrl !== 'undefined' && backendUrl) ? backendUrl : 'https://narap-backend.onrender.com';
         const url = baseUrl + '/api/users/addUser';
-        const res = await fetch(url, {
+        const res = await fetch(absUrl(url), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(member),
@@ -8085,7 +8150,7 @@ async function importCertificateData(parsedData, withProgress) {
           url = base + '/api/certificates/' + (dup._id || dup.id);
           method = 'PUT';
         }
-        var res = await fetch(url, {
+        var res = await fetch(absUrl(url), {
           method: method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -8415,7 +8480,7 @@ async function importCertificateData(parsedData, withProgress) {
           method = 'PUT';
         }
 
-        var res = await fetch(url, {
+        var res = await fetch(absUrl(url), {
           method: method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -12048,7 +12113,7 @@ try {
 
   async function safeBackendUpdate(memberId, payload){
     const url = `/api/users/updateUser/${memberId}`;
-    const res = await fetch(url, {
+    const res = await fetch(absUrl(url), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -12258,8 +12323,19 @@ try {
     }catch(_){}
   }
 
-  async function putJSON(url, payload){
-    const res = await fetch(url, {
+  
+  // Resolve absolute API URL against backend base
+  function absUrl(u){
+    try {
+      if (/^https?:\/\//i.test(u)) return u;
+      var base = (typeof getBackendUrl==='function') ? getBackendUrl() :
+                 (typeof backendUrl!=='undefined' ? backendUrl : '');
+      if (!base) return u;
+      return base.replace(/\/+$/,'') + (u.startsWith('/') ? u : ('/' + u));
+    } catch(_){ return u; }
+  }
+async function putJSON(url, payload){
+    const res = await fetch(absUrl(url), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -12271,13 +12347,13 @@ try {
   async function putForm(url, payload){
     const fd = new FormData();
     for (const [k,v] of Object.entries(payload)) fd.append(k, v==null?'':v);
-    const res = await fetch(url, { method: 'PUT', body: fd });
+    const res = await fetch(absUrl(url), { method: 'PUT', body: fd });
     if (!res.ok) throw new Error(`PUT FORM ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
     return res.json();
   }
 
   async function postOverrideJSON(url, payload){
-    const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'method=PUT', {
+    const res = await fetch(absUrl(url) + (url.includes('?') ? '&' : '?') + 'method=PUT', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -12292,7 +12368,7 @@ try {
   async function postOverrideForm(url, payload){
     const fd = new FormData();
     for (const [k,v] of Object.entries(payload)) fd.append(k, v==null?'':v);
-    const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'method=PUT', {
+    const res = await fetch(absUrl(url) + (url.includes('?') ? '&' : '?') + 'method=PUT', {
       method: 'POST',
       headers: { 'X-HTTP-Method-Override': 'PUT' },
       body: fd
@@ -12305,7 +12381,18 @@ try {
   window.editMember = async function(ev){
     try{ if (ev && typeof ev.preventDefault==='function') ev.preventDefault(); }catch(_){}
 
-    let id = getEditingMemberId();
+    let id = (function(){ 
+      try { 
+        var f = (event && event.target) ? event.target : null;
+        var fromForm = (f && f.dataset && f.dataset.memberId) ? f.dataset.memberId : '';
+        var hid = document.getElementById('editMemberId'); 
+        var fromHidden = hid && hid.value ? hid.value : '';
+        var modal = document.getElementById('editMemberModal'); 
+        var fromModal = (modal && modal.dataset && modal.dataset.memberId) ? modal.dataset.memberId : '';
+        var fromGlobal = (typeof window!=='undefined' && window.__editingMemberId) ? window.__editingMemberId : '';
+        return (fromForm || fromHidden || fromModal || fromGlobal || getEditingMemberId() || '').trim();
+      } catch(_){ return getEditingMemberId(); } 
+    })();
     const codeFromForm = (val('editMemberCode') || '').trim();
     if (!id && codeFromForm) {
       id = findMemberIdByCode(codeFromForm);
@@ -12332,7 +12419,7 @@ try {
       zone: val('editMemberZone') || prev?.zone || ''
     };
 
-    const url = `/api/users/updateUser/${id}`;
+    const url = absUrl(`/api/users/updateUser/${id}`);
     let updated;
     try {
       updated = await putJSON(url, payload);
@@ -12392,13 +12479,13 @@ try {
   function up (s){ return (s||'').toString().trim().toUpperCase(); }
 
   async function postPlainJSON(url, payload){
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await fetch(absUrl(url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error(`POST JSON ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
     return res.json();
   }
   async function postPlainForm(url, payload){
     const fd = new FormData(); for (const [k,v] of Object.entries(payload)) fd.append(k, v==null?'':v);
-    const res = await fetch(url, { method: 'POST', body: fd });
+    const res = await fetch(absUrl(url), { method: 'POST', body: fd });
     if (!res.ok) throw new Error(`POST FORM ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
     return res.json();
   }
@@ -12845,7 +12932,7 @@ try {
       if (navigator.onLine) {
         try {
           const url = `${backendUrl}/api/activity?limit=${encodeURIComponent(limit)}`;
-          const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+          const resp = await fetch(absUrl(url), { method: 'GET', headers: { 'Accept': 'application/json' } });
           if (resp.ok) {
             const body = await (typeof tryJson === 'function' ? tryJson(resp) : resp.json().catch(()=>null));
             // Accept common shapes: [], {data:[]}, {success:{data:[]}} 
@@ -13674,7 +13761,7 @@ try {
     if (cached?.etag) headers['If-None-Match'] = cached.etag;
     if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;
 
-    const resp = await fetch(url, { method: 'GET', headers });
+    const resp = await fetch(absUrl(url), { method: 'GET', headers });
     if (resp.status === 304 && cached) return { status: 'not-modified', ...cached };
     if (!resp.ok) return { status: 'error', http: resp.status };
 
