@@ -2186,6 +2186,99 @@ function logout() {
     showMessage('Logged out successfully', 'info');
 }
 
+// ✅ REPLACED: safer editMember that correctly builds FormData and updates UI
+async function editMember(event) {
+  try { if (event && event.preventDefault) event.preventDefault(); } catch(_) {}
+
+  const form = (event && event.target) ? event.target : document.getElementById('editMemberForm');
+  if (!form) { if (typeof showMessage==='function') showMessage('Edit form not found', 'error'); return; }
+
+  // Resolve member id from form/modal/hidden/global
+  const memberId = (form.dataset.memberId || document.getElementById('editMemberId')?.value || document.getElementById('editMemberModal')?.dataset?.memberId || window.__editingMemberId || '').trim();
+  if (!memberId) { if (typeof showMessage==='function') showMessage('Member ID not found', 'error'); return; }
+
+  // Fields
+  const nameField     = form.querySelector('#editMemberName');
+  const emailField    = form.querySelector('#editMemberEmail');
+  const codeField     = form.querySelector('#editMemberCode');
+  const positionField = form.querySelector('#editMemberPosition');
+  const stateField    = form.querySelector('#editMemberState');
+  const zoneField     = form.querySelector('#editMemberZone');
+  const passwordField = form.querySelector('#editMemberPassword');
+
+  if (!nameField || !codeField || !positionField || !stateField || !zoneField) {
+    console.error('❌ Form elements not found:', {nameField:!!nameField, codeField:!!codeField, positionField:!!positionField, stateField:!!stateField, zoneField:!!zoneField});
+    if (typeof showMessage==='function') showMessage('Form elements not found. Please refresh the page.', 'error');
+    return;
+  }
+
+  // Collect & normalize
+  const name     = nameField.value.trim();
+  const email    = emailField ? emailField.value.trim() : '';
+  const code     = codeField.value.trim();
+  const position = positionField.value;
+  const state    = (stateField.value || '').toString().trim().toUpperCase();
+  const zone     = (zoneField.value || '').toString().trim();
+  const password = passwordField ? passwordField.value : '';
+
+  // Build multipart
+  const body = new FormData();
+  body.append('name', name);
+  if (email) body.append('email', email);
+  body.append('code', code);
+  body.append('position', position);
+  body.append('state', state);
+  body.append('zone', zone);
+  if (password && password.trim()) body.append('password', password.trim());
+
+  // Files
+  const passportInput  = document.getElementById('editMemberPassport');
+  const signatureInput = document.getElementById('editMemberSignature');
+  if (passportInput?.files?.[0])  body.append('passportPhoto', passportInput.files[0]);
+  if (signatureInput?.files?.[0]) body.append('signature',     signatureInput.files[0]);
+
+  for (const k of ['name','code','position','state','zone']) {
+    const v = body.get(k); if (!v || String(v).trim()==='') { if (typeof showMessage==='function') showMessage('Missing required fields: '+k, 'error'); return; }
+  }
+
+  // Backend URL
+  const base = (typeof getBackendUrl==='function') ? getBackendUrl() : (window.backendUrl || '');
+  const url  = (base ? base.replace(/\/+$/,'') : '') + `/api/users/updateUser/${memberId}`;
+
+  // Send PUT multipart
+  let resp;
+  try {
+    resp = await fetch(url, { method: 'PUT', body });
+  } catch (e) {
+    console.error('Network error updating member:', e);
+    if (typeof showMessage==='function') showMessage('Network error updating member', 'error');
+    return;
+  }
+
+  const ok = resp && resp.ok;
+  const data = ok ? (await (typeof tryJson==='function' ? tryJson(resp) : resp.json().catch(()=>null))) : null;
+  if (!ok) {
+    const msg = (data && (data.message || data.error)) || `HTTP ${resp.status}`;
+    if (typeof showMessage==='function') showMessage('Update failed: '+ msg, 'error');
+    return;
+  }
+
+  // Update caches/UI
+  try {
+    const updated = (data && (data.user || data.data || data.updated || data)) || {};
+    if (updated) {
+      if (typeof window.applyToCaches === 'function') window.applyToCaches(updated);
+      if (typeof window.logMemberUpdate === 'function') window.logMemberUpdate(updated);
+    }
+  } catch(_){}
+
+  try { if (typeof closeEditMemberModal==='function') closeEditMemberModal(); } catch(_){}
+  if (typeof showMessage==='function') showMessage('Member updated successfully', 'success');
+  try {
+    if (typeof window.reloadMembersBackendFirst==='function') { await window.reloadMembersBackendFirst(true); }
+    else if (typeof window.loadMembers==='function') { await window.loadMembers(); }
+  } catch(_){}
+}
 // ==================== DASHBOARD FUNCTIONS ====================
 
 async function loadDashboardStats() {
@@ -5065,7 +5158,7 @@ function closeViewMemberModal() {
 
 // ✅ REPLACED: safer editMember that correctly builds FormData and updates UI
 // === FIXED editMember: uses PUT /api/users/updateUser/:id and correct FormData ===
-async function editMember(event){ try{ if(event && event.preventDefault) event.preventDefault(); }catch(_){} return await (window.editMember ? window.editMember(event) : Promise.resolve(false)); }
+
 
   // Fields
   const nameField     = form.querySelector('#editMemberName');
