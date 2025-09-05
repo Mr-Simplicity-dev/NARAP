@@ -1143,7 +1143,7 @@ async function syncPendingChanges() {
     const ctrl = new AbortController();
     const id = setTimeout(() => ctrl.abort(), ms);
     try {
-      return await fetch(absUrl(url), { ...opts, signal: ctrl.signal });
+      return await fetch(url, { ...opts, signal: ctrl.signal });
     } finally {
       clearTimeout(id);
     }
@@ -5065,7 +5065,35 @@ function closeViewMemberModal() {
 
 // ✅ REPLACED: safer editMember that correctly builds FormData and updates UI
 // === FIXED editMember: uses PUT /api/users/updateUser/:id and correct FormData ===
-async function editMember(event){ try{ if(event && event.preventDefault) event.preventDefault(); }catch(_){} return await (window.editMember ? window.editMember(event) : Promise.resolve(false)); }
+async function editMember(event) {
+  event.preventDefault();
+// --- ensure urlBases exists for multi-endpoint fallbacks ---
+try {
+  var urlBases = [
+    'https://narap-backend.onrender.com',                                   // Render backend FIRST
+    (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '',           // any configured API_BASE
+    (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '' // discovered override
+  ].filter(function(x){ return !!x;
+  /*__NARAP_V12_ENDPOINTS__*/ 
+  var __endpoints = function(id){ 
+    return [
+      '/api/users/updateUser/' + id,   // preferred
+      '/api/users/update',             // fallback (expects id in body)
+      '/api/users'                     // last resort
+    ];
+  };
+ });
+} catch(_){
+  var urlBases = ['https://narap-backend.onrender.com'];
+}
+
+
+  const form = event.target;
+  const memberId = (form.dataset.memberId || '').trim();
+  if (!memberId) {
+    if (typeof showMessage === 'function') showMessage('Member ID not found', 'error');
+    return;
+  }
 
   // Fields
   const nameField     = form.querySelector('#editMemberName');
@@ -5179,7 +5207,7 @@ async function editMember(event){ try{ if(event && event.preventDefault) event.p
     console.warn('🌐 Network error during update:', networkErr);
     if (typeof showMessage === 'function') showMessage('Network error while updating member.', 'error');
   }
-
+}
 
 
 
@@ -7652,7 +7680,7 @@ async function importMembersData(parsedData, withProgress = false) {
       try {
         const baseUrl = (typeof backendUrl !== 'undefined' && backendUrl) ? backendUrl : 'https://narap-backend.onrender.com';
         const url = baseUrl + '/api/users/addUser';
-        const res = await fetch(absUrl(url), {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(member),
@@ -8057,7 +8085,7 @@ async function importCertificateData(parsedData, withProgress) {
           url = base + '/api/certificates/' + (dup._id || dup.id);
           method = 'PUT';
         }
-        var res = await fetch(absUrl(url), {
+        var res = await fetch(url, {
           method: method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -8387,7 +8415,7 @@ async function importCertificateData(parsedData, withProgress) {
           method = 'PUT';
         }
 
-        var res = await fetch(absUrl(url), {
+        var res = await fetch(url, {
           method: method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -12020,7 +12048,7 @@ try {
 
   async function safeBackendUpdate(memberId, payload){
     const url = `/api/users/updateUser/${memberId}`;
-    const res = await fetch(absUrl(url), {
+    const res = await fetch(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -12230,19 +12258,8 @@ try {
     }catch(_){}
   }
 
-  
-  // Resolve absolute API URL against backend base
-  function absUrl(u){
-    try {
-      if (/^https?:\/\//i.test(u)) return u;
-      var base = (typeof getBackendUrl==='function') ? getBackendUrl() :
-                 (typeof backendUrl!=='undefined' ? backendUrl : '');
-      if (!base) return u;
-      return base.replace(/\/+$/,'') + (u.startsWith('/') ? u : ('/' + u));
-    } catch(_){ return u; }
-  }
-async function putJSON(url, payload){
-    const res = await fetch(absUrl(url), {
+  async function putJSON(url, payload){
+    const res = await fetch(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -12254,13 +12271,13 @@ async function putJSON(url, payload){
   async function putForm(url, payload){
     const fd = new FormData();
     for (const [k,v] of Object.entries(payload)) fd.append(k, v==null?'':v);
-    const res = await fetch(absUrl(url), { method: 'PUT', body: fd });
+    const res = await fetch(url, { method: 'PUT', body: fd });
     if (!res.ok) throw new Error(`PUT FORM ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
     return res.json();
   }
 
   async function postOverrideJSON(url, payload){
-    const res = await fetch(absUrl(url) + (url.includes('?') ? '&' : '?') + 'method=PUT', {
+    const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'method=PUT', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -12275,7 +12292,7 @@ async function putJSON(url, payload){
   async function postOverrideForm(url, payload){
     const fd = new FormData();
     for (const [k,v] of Object.entries(payload)) fd.append(k, v==null?'':v);
-    const res = await fetch(absUrl(url) + (url.includes('?') ? '&' : '?') + 'method=PUT', {
+    const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'method=PUT', {
       method: 'POST',
       headers: { 'X-HTTP-Method-Override': 'PUT' },
       body: fd
@@ -12288,18 +12305,7 @@ async function putJSON(url, payload){
   window.editMember = async function(ev){
     try{ if (ev && typeof ev.preventDefault==='function') ev.preventDefault(); }catch(_){}
 
-    let id = (function(){ 
-      try { 
-        var f = (event && event.target) ? event.target : null;
-        var fromForm = (f && f.dataset && f.dataset.memberId) ? f.dataset.memberId : '';
-        var hid = document.getElementById('editMemberId'); 
-        var fromHidden = hid && hid.value ? hid.value : '';
-        var modal = document.getElementById('editMemberModal'); 
-        var fromModal = (modal && modal.dataset && modal.dataset.memberId) ? modal.dataset.memberId : '';
-        var fromGlobal = (typeof window!=='undefined' && window.__editingMemberId) ? window.__editingMemberId : '';
-        return (fromForm || fromHidden || fromModal || fromGlobal || getEditingMemberId() || '').trim();
-      } catch(_){ return getEditingMemberId(); } 
-    })();
+    let id = getEditingMemberId();
     const codeFromForm = (val('editMemberCode') || '').trim();
     if (!id && codeFromForm) {
       id = findMemberIdByCode(codeFromForm);
@@ -12326,7 +12332,7 @@ async function putJSON(url, payload){
       zone: val('editMemberZone') || prev?.zone || ''
     };
 
-    const url = absUrl(`/api/users/updateUser/${id}`);
+    const url = `/api/users/updateUser/${id}`;
     let updated;
     try {
       updated = await putJSON(url, payload);
@@ -12386,13 +12392,13 @@ async function putJSON(url, payload){
   function up (s){ return (s||'').toString().trim().toUpperCase(); }
 
   async function postPlainJSON(url, payload){
-    const res = await fetch(absUrl(url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error(`POST JSON ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
     return res.json();
   }
   async function postPlainForm(url, payload){
     const fd = new FormData(); for (const [k,v] of Object.entries(payload)) fd.append(k, v==null?'':v);
-    const res = await fetch(absUrl(url), { method: 'POST', body: fd });
+    const res = await fetch(url, { method: 'POST', body: fd });
     if (!res.ok) throw new Error(`POST FORM ${res.status}: ${await res.text().catch(()=>res.statusText)}`);
     return res.json();
   }
@@ -12839,7 +12845,7 @@ async function putJSON(url, payload){
       if (navigator.onLine) {
         try {
           const url = `${backendUrl}/api/activity?limit=${encodeURIComponent(limit)}`;
-          const resp = await fetch(absUrl(url), { method: 'GET', headers: { 'Accept': 'application/json' } });
+          const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
           if (resp.ok) {
             const body = await (typeof tryJson === 'function' ? tryJson(resp) : resp.json().catch(()=>null));
             // Accept common shapes: [], {data:[]}, {success:{data:[]}} 
@@ -13668,7 +13674,7 @@ async function putJSON(url, payload){
     if (cached?.etag) headers['If-None-Match'] = cached.etag;
     if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified;
 
-    const resp = await fetch(absUrl(url), { method: 'GET', headers });
+    const resp = await fetch(url, { method: 'GET', headers });
     if (resp.status === 304 && cached) return { status: 'not-modified', ...cached };
     if (!resp.ok) return { status: 'error', http: resp.status };
 
@@ -13980,13 +13986,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 /* ==================== /Pagination Hardening Patch ==================== */
 
-})();
-
-
-
-;(() => {
-  try { if (typeof fillAdminCredentials === 'function' && (!window.fillAdminCredentials || window.fillAdminCredentials.name !== 'fillAdminCredentials')) window.fillAdminCredentials = fillAdminCredentials; } catch(_){}
-  try { if (typeof login === 'function' && (!window.login || window.login.name !== 'login')) window.login = login; } catch(_){}
-  try { if (typeof clearLoginForm === 'function' && (!window.clearLoginForm || window.clearLoginForm.name !== 'clearLoginForm')) window.clearLoginForm = clearLoginForm; } catch(_){}
-  try { if (typeof refreshMembers === 'function' && (!window.refreshMembers || window.refreshMembers.name !== 'refreshMembers')) window.refreshMembers = refreshMembers; } catch(_){}
 })();
