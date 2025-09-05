@@ -14072,5 +14072,4 @@ document.addEventListener('DOMContentLoaded', function () {
   try { if (typeof loadInitialData === 'function') loadInitialData(); } catch (e) { console.warn('Initial data load failed:', e); }
 });
 /* ==================== /Pagination Hardening Patch ==================== */
-
 })();
