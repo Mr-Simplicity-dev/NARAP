@@ -5070,11 +5070,19 @@ async function editMember(event) {
 // --- ensure urlBases exists for multi-endpoint fallbacks ---
 try {
   var urlBases = [
-    (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '',
-    (window && window.location && window.location.origin) ? window.location.origin : '',
-    (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '',
-    'https://narap-backend.onrender.com'
-  ].filter(function(x){ return !!x; });
+    'https://narap-backend.onrender.com',                                   // Render backend FIRST
+    (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '',           // any configured API_BASE
+    (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '' // discovered override
+  ].filter(function(x){ return !!x;
+  /*__NARAP_V12_ENDPOINTS__*/ 
+  var __endpoints = function(id){ 
+    return [
+      '/api/users/updateUser/' + id,   // preferred
+      '/api/users/update',             // fallback (expects id in body)
+      '/api/users'                     // last resort
+    ];
+  };
+ });
 } catch(_){
   var urlBases = ['https://narap-backend.onrender.com'];
 }
