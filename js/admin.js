@@ -5069,7 +5069,13 @@ async function editMember(event) {
   event.preventDefault();
 
   const form = event.target;
-  const memberId = (form.dataset.memberId || '').trim();
+  const memberId = (
+    (form && form.dataset && form.dataset.memberId) ||
+    (document.getElementById('editMemberId') && document.getElementById('editMemberId').value) ||
+    (document.getElementById('editMemberModal') && document.getElementById('editMemberModal').dataset && document.getElementById('editMemberModal').dataset.memberId) ||
+    (typeof window !== 'undefined' && window.__editingMemberId) ||
+    ''
+  ).trim();
   if (!memberId) {
     if (typeof showMessage === 'function') showMessage('Member ID not found', 'error');
     return;
