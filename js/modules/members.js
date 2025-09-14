@@ -56,9 +56,18 @@ class MembersManager {
 
     async loadInitialData() {
         try {
+            // Only load data if user is logged in
+            const isLoggedIn = localStorage.getItem('narap_logged_in') === 'true';
+            if (!isLoggedIn) {
+                console.log('User not logged in, skipping initial members data load');
+                return;
+            }
+            
             await this.loadMembers(1, this.membersPerPage);
         } catch (error) {
             console.error('Failed to load initial members data:', error);
+            // Don't show error message for initial load failures
+            // The user might not be logged in yet
         }
     }
 
@@ -87,21 +96,55 @@ class MembersManager {
     }
 
     async fetchMembers(page, limit) {
-        if (window.apiManager) {
-            return await window.apiManager.getMembers(page, limit, this.searchTerm, this.filters);
-        }
-        
-        // Fallback to direct fetch
-        const params = new URLSearchParams({
-            page: page.toString(),
-            limit: limit.toString(),
-            ...(this.searchTerm && { search: this.searchTerm }),
-            ...this.filters
-        });
+        try {
+            if (window.apiManager) {
+                return await window.apiManager.getMembers(page, limit, this.searchTerm, this.filters);
+            }
+            
+            // Fallback to direct fetch
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString(),
+                ...(this.searchTerm && { search: this.searchTerm }),
+                ...this.filters
+            });
 
-        const response = await fetch(`https://narap-backend.onrender.com/api/users?${params}`);
-        if (!response.ok) throw new Error('Failed to fetch members');
-        return await response.json();
+            const response = await fetch(`https://narap-backend.onrender.com/api/users?${params}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                // Add timeout
+                signal: AbortSignal.timeout(10000) // 10 second timeout
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('fetchMembers error:', error);
+            
+            // If it's a network error, try to load from localStorage as fallback
+            if (error.name === 'AbortError' || error.message.includes('fetch')) {
+                console.log('Network error, attempting to load from localStorage...');
+                const localMembers = this.getLocalMembers();
+                if (localMembers && localMembers.length > 0) {
+                    return {
+                        members: localMembers,
+                        pagination: {
+                            currentPage: 1,
+                            totalPages: 1,
+                            totalItems: localMembers.length
+                        }
+                    };
+                }
+            }
+            
+            throw error;
+        }
     }
 
     displayMembers(members) {
@@ -526,6 +569,16 @@ class MembersManager {
         
         const baseURL = window.apiManager ? window.apiManager.baseURL : 'https://narap-backend.onrender.com';
         return `${baseURL}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+    }
+
+    getLocalMembers() {
+        try {
+            const stored = localStorage.getItem('narap_members');
+            return stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            console.error('Failed to get local members:', error);
+            return [];
+        }
     }
 
     // Pagination functions

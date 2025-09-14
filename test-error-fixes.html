@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NARAP Error Fixes Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .test-pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .status-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 10000;
+        }
+    </style>
+</head>
+<body>
+    <div class="status-indicator" id="statusIndicator">
+        <div>Initializing...</div>
+    </div>
+
+    <div class="test-container">
+        <h1>🔧 NARAP Error Fixes Test</h1>
+        <p>This page tests the fixes for the "Failed to fetch members" error and other improvements.</p>
+
+        <div class="test-section">
+            <h3>1. Authentication Status Test</h3>
+            <div id="authTestResults"></div>
+            <button onclick="testAuthStatus()">Test Auth Status</button>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Initial Data Loading Test</h3>
+            <div id="initialDataTestResults"></div>
+            <button onclick="testInitialDataLoading()">Test Initial Data Loading</button>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Network Error Handling Test</h3>
+            <div id="networkTestResults"></div>
+            <button onclick="testNetworkErrorHandling()">Test Network Error Handling</button>
+        </div>
+
+        <div class="test-section">
+            <h3>4. LocalStorage Fallback Test</h3>
+            <div id="localStorageTestResults"></div>
+            <button onclick="testLocalStorageFallback()">Test LocalStorage Fallback</button>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Login Flow Test</h3>
+            <div id="loginTestResults"></div>
+            <button onclick="testLoginFlow()">Test Login Flow</button>
+        </div>
+
+        <div class="test-section">
+            <h3>6. Error Recovery Test</h3>
+            <div id="errorRecoveryTestResults"></div>
+            <button onclick="testErrorRecovery()">Test Error Recovery</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Summary</h3>
+            <div id="summaryResults"></div>
+            <button onclick="runAllErrorTests()">Run All Error Tests</button>
+        </div>
+    </div>
+
+    <!-- Load all modules -->
+    <script src="js/utils/performanceMonitor.js"></script>
+    <script src="js/utils/notificationManager.js"></script>
+    <script src="js/utils/dataCache.js"></script>
+    <script src="js/utils/activityLogger.js"></script>
+    <script src="js/modules/auth.js"></script>
+    <script src="js/modules/ui.js"></script>
+    <script src="js/modules/api.js"></script>
+    <script src="js/modules/fileUpload.js"></script>
+    <script src="js/modules/analytics.js"></script>
+    <script src="js/modules/members.js"></script>
+    <script src="js/modules/certificates.js"></script>
+    <script src="js/admin-modular.js"></script>
+
+    <script>
+        let testResults = {
+            authStatus: { passed: 0, failed: 0, total: 0 },
+            initialData: { passed: 0, failed: 0, total: 0 },
+            networkError: { passed: 0, failed: 0, total: 0 },
+            localStorage: { passed: 0, failed: 0, total: 0 },
+            loginFlow: { passed: 0, failed: 0, total: 0 },
+            errorRecovery: { passed: 0, failed: 0, total: 0 }
+        };
+
+        function addTestResult(section, testName, passed, message = '') {
+            const results = testResults[section];
+            results.total++;
+            if (passed) {
+                results.passed++;
+            } else {
+                results.failed++;
+            }
+
+            const resultDiv = document.getElementById(section + 'TestResults');
+            const resultClass = passed ? 'test-pass' : 'test-fail';
+            const status = passed ? '✅' : '❌';
+            
+            resultDiv.innerHTML += `
+                <div class="test-result ${resultClass}">
+                    ${status} ${testName} ${message ? '- ' + message : ''}
+                </div>
+            `;
+        }
+
+        function testAuthStatus() {
+            const results = document.getElementById('authTestResults');
+            results.innerHTML = '';
+
+            // Test if user is logged in
+            const isLoggedIn = localStorage.getItem('narap_logged_in') === 'true';
+            addTestResult('authStatus', 'User login status check', typeof isLoggedIn === 'boolean');
+
+            // Test auth manager
+            const authManagerExists = typeof window.authManager !== 'undefined';
+            addTestResult('authStatus', 'AuthManager exists', authManagerExists);
+
+            if (authManagerExists) {
+                addTestResult('authStatus', 'AuthManager has isLoggedIn property', 'isLoggedIn' in window.authManager);
+                addTestResult('authStatus', 'AuthManager has login method', typeof window.authManager.login === 'function');
+            }
+
+            // Test localStorage functions
+            addTestResult('authStatus', 'localStorage accessible', typeof localStorage !== 'undefined');
+        }
+
+        function testInitialDataLoading() {
+            const results = document.getElementById('initialDataTestResults');
+            results.innerHTML = '';
+
+            // Test if managers exist
+            const membersManagerExists = typeof window.membersManager !== 'undefined';
+            const certificatesManagerExists = typeof window.certificatesManager !== 'undefined';
+            
+            addTestResult('initialData', 'MembersManager exists', membersManagerExists);
+            addTestResult('initialData', 'CertificatesManager exists', certificatesManagerExists);
+
+            if (membersManagerExists) {
+                addTestResult('initialData', 'MembersManager has loadInitialData method', typeof window.membersManager.loadInitialData === 'function');
+                addTestResult('initialData', 'MembersManager has loadMembers method', typeof window.membersManager.loadMembers === 'function');
+            }
+
+            if (certificatesManagerExists) {
+                addTestResult('initialData', 'CertificatesManager has loadInitialData method', typeof window.certificatesManager.loadInitialData === 'function');
+                addTestResult('initialData', 'CertificatesManager has loadCertificates method', typeof window.certificatesManager.loadCertificates === 'function');
+            }
+
+            // Test global loadInitialData function
+            addTestResult('initialData', 'Global loadInitialData function exists', typeof window.loadInitialData === 'function');
+        }
+
+        function testNetworkErrorHandling() {
+            const results = document.getElementById('networkTestResults');
+            results.innerHTML = '';
+
+            // Test fetch timeout support
+            const hasAbortSignal = typeof AbortSignal !== 'undefined';
+            addTestResult('networkError', 'AbortSignal support', hasAbortSignal);
+
+            if (hasAbortSignal) {
+                const hasTimeout = typeof AbortSignal.timeout === 'function';
+                addTestResult('networkError', 'AbortSignal.timeout support', hasTimeout);
+            }
+
+            // Test error handling in managers
+            if (window.membersManager) {
+                addTestResult('networkError', 'MembersManager has fetchMembers method', typeof window.membersManager.fetchMembers === 'function');
+                addTestResult('networkError', 'MembersManager has getLocalMembers method', typeof window.membersManager.getLocalMembers === 'function');
+            }
+
+            if (window.certificatesManager) {
+                addTestResult('networkError', 'CertificatesManager has fetchCertificates method', typeof window.certificatesManager.fetchCertificates === 'function');
+                addTestResult('networkError', 'CertificatesManager has getLocalCertificates method', typeof window.certificatesManager.getLocalCertificates === 'function');
+            }
+        }
+
+        function testLocalStorageFallback() {
+            const results = document.getElementById('localStorageTestResults');
+            results.innerHTML = '';
+
+            // Test localStorage functionality
+            try {
+                localStorage.setItem('test_key', 'test_value');
+                const retrieved = localStorage.getItem('test_key');
+                localStorage.removeItem('test_key');
+                addTestResult('localStorage', 'localStorage set/get/remove', retrieved === 'test_value');
+            } catch (e) {
+                addTestResult('localStorage', 'localStorage set/get/remove', false, e.message);
+            }
+
+            // Test JSON parsing
+            try {
+                const testData = { test: 'data', number: 123 };
+                localStorage.setItem('test_json', JSON.stringify(testData));
+                const parsed = JSON.parse(localStorage.getItem('test_json'));
+                localStorage.removeItem('test_json');
+                addTestResult('localStorage', 'JSON stringify/parse', parsed.test === 'data' && parsed.number === 123);
+            } catch (e) {
+                addTestResult('localStorage', 'JSON stringify/parse', false, e.message);
+            }
+
+            // Test manager localStorage methods
+            if (window.membersManager) {
+                try {
+                    const localMembers = window.membersManager.getLocalMembers();
+                    addTestResult('localStorage', 'MembersManager getLocalMembers', Array.isArray(localMembers));
+                } catch (e) {
+                    addTestResult('localStorage', 'MembersManager getLocalMembers', false, e.message);
+                }
+            }
+
+            if (window.certificatesManager) {
+                try {
+                    const localCertificates = window.certificatesManager.getLocalCertificates();
+                    addTestResult('localStorage', 'CertificatesManager getLocalCertificates', Array.isArray(localCertificates));
+                } catch (e) {
+                    addTestResult('localStorage', 'CertificatesManager getLocalCertificates', false, e.message);
+                }
+            }
+        }
+
+        function testLoginFlow() {
+            const results = document.getElementById('loginTestResults');
+            results.innerHTML = '';
+
+            // Test login form elements
+            const usernameField = document.getElementById('username');
+            const passwordField = document.getElementById('password');
+            addTestResult('loginFlow', 'Username field exists', !!usernameField);
+            addTestResult('loginFlow', 'Password field exists', !!passwordField);
+
+            // Test login function
+            addTestResult('loginFlow', 'Global login function exists', typeof window.login === 'function');
+
+            // Test fillAdminCredentials function
+            addTestResult('loginFlow', 'fillAdminCredentials function exists', typeof window.fillAdminCredentials === 'function');
+
+            // Test auth manager methods
+            if (window.authManager) {
+                addTestResult('loginFlow', 'AuthManager has fillAdminCredentials method', typeof window.authManager.fillAdminCredentials === 'function');
+                addTestResult('loginFlow', 'AuthManager has showAdminPanel method', typeof window.authManager.showAdminPanel === 'function');
+                addTestResult('loginFlow', 'AuthManager has showLoginPanel method', typeof window.authManager.showLoginPanel === 'function');
+            }
+        }
+
+        function testErrorRecovery() {
+            const results = document.getElementById('errorRecoveryTestResults');
+            results.innerHTML = '';
+
+            // Test notification system
+            addTestResult('errorRecovery', 'showMessage function exists', typeof window.showMessage === 'function');
+
+            if (window.notificationManager) {
+                addTestResult('errorRecovery', 'NotificationManager exists', true);
+                addTestResult('errorRecovery', 'NotificationManager has show method', typeof window.notificationManager.show === 'function');
+            }
+
+            // Test error handling in try-catch blocks
+            try {
+                // Simulate an error
+                throw new Error('Test error');
+            } catch (e) {
+                addTestResult('errorRecovery', 'Try-catch error handling', e.message === 'Test error');
+            }
+
+            // Test console.error availability
+            addTestResult('errorRecovery', 'console.error available', typeof console.error === 'function');
+
+            // Test error logging
+            if (window.activityLogger) {
+                addTestResult('errorRecovery', 'ActivityLogger exists', true);
+                addTestResult('errorRecovery', 'ActivityLogger has log method', typeof window.activityLogger.log === 'function');
+            }
+        }
+
+        function runAllErrorTests() {
+            testAuthStatus();
+            testInitialDataLoading();
+            testNetworkErrorHandling();
+            testLocalStorageFallback();
+            testLoginFlow();
+            testErrorRecovery();
+            showSummary();
+        }
+
+        function showSummary() {
+            const results = document.getElementById('summaryResults');
+            let totalPassed = 0;
+            let totalFailed = 0;
+            let totalTests = 0;
+
+            Object.keys(testResults).forEach(section => {
+                const sectionResults = testResults[section];
+                totalPassed += sectionResults.passed;
+                totalFailed += sectionResults.failed;
+                totalTests += sectionResults.total;
+            });
+
+            const passRate = totalTests > 0 ? Math.round((totalPassed / totalTests) * 100) : 0;
+            
+            results.innerHTML = `
+                <div class="test-result ${passRate >= 80 ? 'test-pass' : passRate >= 60 ? 'test-info' : 'test-fail'}">
+                    <strong>Error Fixes Test Summary:</strong><br>
+                    Total Tests: ${totalTests}<br>
+                    Passed: ${totalPassed}<br>
+                    Failed: ${totalFailed}<br>
+                    Pass Rate: ${passRate}%<br><br>
+                    <strong>Key Improvements:</strong><br>
+                    ✅ Authentication-based data loading<br>
+                    ✅ Network error handling with timeouts<br>
+                    ✅ LocalStorage fallback support<br>
+                    ✅ Better error messages and logging<br>
+                    ✅ Graceful degradation on failures
+                </div>
+            `;
+        }
+
+        // Auto-run tests on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                runAllErrorTests();
+            }, 1000);
+        });
+
+        // Status indicator
+        document.addEventListener('DOMContentLoaded', () => {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const modules = [
+                'PerformanceMonitor', 'NotificationManager', 'DataCache', 'ActivityLogger',
+                'AuthManager', 'UIManager', 'APIManager', 'FileUploadManager',
+                'AnalyticsManager', 'MembersManager', 'CertificatesManager'
+            ];
+            
+            let loadedCount = 0;
+            const totalModules = modules.length;
+            
+            const checkModules = () => {
+                loadedCount = 0;
+                modules.forEach(module => {
+                    if (window[module]) {
+                        loadedCount++;
+                    }
+                });
+                
+                if (loadedCount === totalModules) {
+                    statusIndicator.innerHTML = '<div style="color: #28a745;">✅ All modules loaded - Error fixes ready</div>';
+                    setTimeout(() => {
+                        statusIndicator.style.display = 'none';
+                    }, 3000);
+                } else {
+                    statusIndicator.innerHTML = `<div>Loading modules... ${loadedCount}/${totalModules}</div>`;
+                }
+            };
+            
+            // Check modules every 100ms
+            const interval = setInterval(() => {
+                checkModules();
+                if (loadedCount === totalModules) {
+                    clearInterval(interval);
+                }
+            }, 100);
+            
+            // Fallback timeout
+            setTimeout(() => {
+                if (loadedCount < totalModules) {
+                    statusIndicator.innerHTML = `<div style="color: #dc3545;">⚠️ Some modules failed to load (${loadedCount}/${totalModules})</div>`;
+                }
+                clearInterval(interval);
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

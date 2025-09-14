@@ -63,9 +63,18 @@ class AuthManager {
                 showMessage('Login successful! Welcome to NARAP Admin Panel.', 'success');
             }
             
-            setTimeout(() => {
+            setTimeout(async () => {
                 if (typeof loadDashboard === 'function') {
                     loadDashboard();
+                }
+                
+                // Load initial data after successful login
+                if (typeof loadInitialData === 'function') {
+                    try {
+                        await loadInitialData();
+                    } catch (error) {
+                        console.error('Failed to load initial data after login:', error);
+                    }
                 }
             }, 500);
         } else {

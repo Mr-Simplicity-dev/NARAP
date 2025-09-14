@@ -64,9 +64,18 @@ class CertificatesManager {
 
     async loadInitialData() {
         try {
+            // Only load data if user is logged in
+            const isLoggedIn = localStorage.getItem('narap_logged_in') === 'true';
+            if (!isLoggedIn) {
+                console.log('User not logged in, skipping initial certificates data load');
+                return;
+            }
+            
             await this.loadCertificates(1, this.certificatesPerPage);
         } catch (error) {
             console.error('Failed to load initial certificates data:', error);
+            // Don't show error message for initial load failures
+            // The user might not be logged in yet
         }
     }
 
@@ -95,21 +104,55 @@ class CertificatesManager {
     }
 
     async fetchCertificates(page, limit) {
-        if (window.apiManager) {
-            return await window.apiManager.getCertificates(page, limit, this.searchTerm, this.filters);
-        }
-        
-        // Fallback to direct fetch
-        const params = new URLSearchParams({
-            page: page.toString(),
-            limit: limit.toString(),
-            ...(this.searchTerm && { search: this.searchTerm }),
-            ...this.filters
-        });
+        try {
+            if (window.apiManager) {
+                return await window.apiManager.getCertificates(page, limit, this.searchTerm, this.filters);
+            }
+            
+            // Fallback to direct fetch
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString(),
+                ...(this.searchTerm && { search: this.searchTerm }),
+                ...this.filters
+            });
 
-        const response = await fetch(`https://narap-backend.onrender.com/api/certificates?${params}`);
-        if (!response.ok) throw new Error('Failed to fetch certificates');
-        return await response.json();
+            const response = await fetch(`https://narap-backend.onrender.com/api/certificates?${params}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                // Add timeout
+                signal: AbortSignal.timeout(10000) // 10 second timeout
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('fetchCertificates error:', error);
+            
+            // If it's a network error, try to load from localStorage as fallback
+            if (error.name === 'AbortError' || error.message.includes('fetch')) {
+                console.log('Network error, attempting to load certificates from localStorage...');
+                const localCertificates = this.getLocalCertificates();
+                if (localCertificates && localCertificates.length > 0) {
+                    return {
+                        certificates: localCertificates,
+                        pagination: {
+                            currentPage: 1,
+                            totalPages: 1,
+                            totalItems: localCertificates.length
+                        }
+                    };
+                }
+            }
+            
+            throw error;
+        }
     }
 
     displayCertificates(certificates) {
@@ -507,6 +550,17 @@ class CertificatesManager {
     goToCertificatesPage(page) {
         if (page < 1) return;
         this.loadCertificates(page, this.certificatesPerPage);
+    }
+
+    // Utility functions
+    getLocalCertificates() {
+        try {
+            const stored = localStorage.getItem('narap_certificates');
+            return stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            console.error('Failed to get local certificates:', error);
+            return [];
+        }
     }
 }
 
