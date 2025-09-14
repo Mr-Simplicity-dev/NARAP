@@ -23,11 +23,44 @@ let analyticsManager;
 let membersManager;
 let certificatesManager;
 
+// Initialization tracking
+let initializationAttempts = 0;
+const maxInitializationAttempts = 50; // 5 seconds max (50 * 100ms)
+
 // ==================== INITIALIZATION ====================
 
 function initializeApp() {
     try {
         console.log('🚀 Initializing NARAP Admin Panel...');
+        
+        // Check if all required classes are available
+        const requiredClasses = [
+            'PerformanceMonitor', 'NotificationManager', 'DataCache', 'ActivityLogger',
+            'AuthManager', 'UIManager', 'APIManager', 'FileUploadManager',
+            'AnalyticsManager', 'MembersManager', 'CertificatesManager'
+        ];
+        
+        const missingClasses = requiredClasses.filter(className => typeof window[className] !== 'function');
+        
+        if (missingClasses.length > 0) {
+            initializationAttempts++;
+            console.error('❌ Missing required classes:', missingClasses);
+            console.log(`⏳ Retry attempt ${initializationAttempts}/${maxInitializationAttempts} in 100ms...`);
+            
+            if (initializationAttempts >= maxInitializationAttempts) {
+                console.error('❌ Failed to initialize after maximum attempts. Please check that all module files are loaded correctly.');
+                console.error('Missing classes:', missingClasses);
+                return;
+            }
+            
+            setTimeout(initializeApp, 100);
+            return;
+        }
+        
+        console.log('✅ All required classes are available');
+        
+        // Reset attempt counter on success
+        initializationAttempts = 0;
         
         // Initialize utility classes
         performanceMonitor = new PerformanceMonitor();
@@ -243,6 +276,43 @@ function initializeApp() {
         }
     }
 }
+
+// Fallback initialization function that can be called manually
+function forceInitializeApp() {
+    console.log('🔄 Force initializing NARAP Admin Panel...');
+    initializationAttempts = 0;
+    initializeApp();
+}
+
+// Make force initialization available globally
+window.forceInitializeApp = forceInitializeApp;
+
+// Module loading status checker
+function checkModuleStatus() {
+    const requiredClasses = [
+        'PerformanceMonitor', 'NotificationManager', 'DataCache', 'ActivityLogger',
+        'AuthManager', 'UIManager', 'APIManager', 'FileUploadManager',
+        'AnalyticsManager', 'MembersManager', 'CertificatesManager'
+    ];
+    
+    console.log('📋 Module Loading Status:');
+    requiredClasses.forEach(className => {
+        const isLoaded = typeof window[className] === 'function';
+        console.log(`${isLoaded ? '✅' : '❌'} ${className}: ${isLoaded ? 'Loaded' : 'Missing'}`);
+    });
+    
+    const missingClasses = requiredClasses.filter(className => typeof window[className] !== 'function');
+    if (missingClasses.length === 0) {
+        console.log('🎉 All modules are loaded successfully!');
+    } else {
+        console.log(`⚠️ ${missingClasses.length} modules are missing:`, missingClasses);
+    }
+    
+    return missingClasses.length === 0;
+}
+
+// Make module status checker available globally
+window.checkModuleStatus = checkModuleStatus;
 
 // ==================== UTILITY FUNCTIONS ====================
 
