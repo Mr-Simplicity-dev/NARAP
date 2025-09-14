@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NARAP Admin Panel - Modular Version</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        /* Additional styles for modular version */
+        .module-status {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 10000;
+        }
+        .module-loaded {
+            color: #28a745;
+        }
+        .module-error {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <!-- Module Status Indicator -->
+    <div id="moduleStatus" class="module-status">
+        <div>Loading modules...</div>
+    </div>
+
+    <!-- Login Section -->
+    <div id="loginSection" class="login-section">
+        <div class="login-container">
+            <h2>NARAP Admin Login</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit">Login</button>
+                <button type="button" id="fillCredentials">Fill Admin Credentials</button>
+            </form>
+            <div id="loginError"></div>
+        </div>
+    </div>
+
+    <!-- Admin Section -->
+    <div id="adminSection" class="admin-section" style="display: none;">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <button id="sidebarToggle" class="sidebar-toggle">☰</button>
+                <h1 id="headerTitle">Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <span id="connectionStatus" class="status-online">Online</span>
+                <span id="syncStatus" class="status-synced">Synced</span>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="#" data-tab="dashboard" class="nav-link active">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" data-tab="members" class="nav-link">Members</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" data-tab="certificates" class="nav-link">Certificates</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" data-tab="analytics" class="nav-link">Analytics</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" data-tab="system" class="nav-link">System</a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Panel -->
+            <div id="panel-dashboard" class="panel active">
+                <h2>Dashboard</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Members</h3>
+                        <div id="dashboardTotalMembers" class="stat-value">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Active Members</h3>
+                        <div id="dashboardActiveMembers" class="stat-value">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Certificates</h3>
+                        <div id="dashboardTotalCertificates" class="stat-value">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Pending Certificates</h3>
+                        <div id="dashboardPendingCertificates" class="stat-value">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Members Panel -->
+            <div id="panel-members" class="panel">
+                <div class="panel-header">
+                    <h2>Members</h2>
+                    <div class="panel-actions">
+                        <button onclick="showAddMemberModal()" class="btn btn-primary">Add Member</button>
+                        <input type="text" id="memberSearch" placeholder="Search members...">
+                        <select id="memberStateFilter">
+                            <option value="">All States</option>
+                            <option value="LAGOS">Lagos</option>
+                            <option value="ABUJA">Abuja</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table id="membersTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="display: none;">
+                                    <input type="checkbox" id="selectAllMembers">
+                                </th>
+                                <th>Member</th>
+                                <th>Email</th>
+                                <th>Position</th>
+                                <th>State</th>
+                                <th>Zone</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="membersTableBody">
+                            <!-- Members will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="membersPagination" class="pagination" style="display: none;">
+                    <!-- Pagination will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Certificates Panel -->
+            <div id="panel-certificates" class="panel">
+                <div class="panel-header">
+                    <h2>Certificates</h2>
+                    <div class="panel-actions">
+                        <button onclick="showAddCertificateModal()" class="btn btn-primary">Add Certificate</button>
+                        <input type="text" id="certificateSearch" placeholder="Search certificates...">
+                        <select id="certificateStatusFilter">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table id="certificatesTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="display: none;">
+                                    <input type="checkbox" id="selectAllCertificates">
+                                </th>
+                                <th>Certificate #</th>
+                                <th>Member Name</th>
+                                <th>Member Code</th>
+                                <th>Type</th>
+                                <th>Issue Date</th>
+                                <th>Expiry Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="certificatesTableBody">
+                            <!-- Certificates will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="certificatesPagination" class="pagination" style="display: none;">
+                    <!-- Pagination will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Analytics Panel -->
+            <div id="panel-analytics" class="panel">
+                <h2>Analytics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Members</h3>
+                        <div id="totalMembers" class="stat-value">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Active Members</h3>
+                        <div id="activeMembers" class="stat-value">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>New Members This Month</h3>
+                        <div id="newMembersThisMonth" class="stat-value">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Certificates</h3>
+                        <div id="totalCertificates" class="stat-value">0</div>
+                    </div>
+                </div>
+                
+                <div class="charts-container">
+                    <canvas id="memberGrowthChart" width="400" height="200"></canvas>
+                    <canvas id="certificateDistributionChart" width="400" height="200"></canvas>
+                    <canvas id="stateDistributionChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- System Panel -->
+            <div id="panel-system" class="panel">
+                <h2>System</h2>
+                <div class="system-info">
+                    <div class="info-item">
+                        <label>Server Status:</label>
+                        <span id="serverStatus">Checking...</span>
+                    </div>
+                    <div class="info-item">
+                        <label>System Uptime:</label>
+                        <span id="systemUptime">Calculating...</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Version:</label>
+                        <span id="systemVersion">1.0.0</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Last Backup:</label>
+                        <span id="lastBackup">Never</span>
+                    </div>
+                </div>
+                
+                <div class="system-actions">
+                    <button onclick="confirmClearAllData()" class="btn btn-danger">Clear All Data</button>
+                    <button onclick="confirmClearCertificates()" class="btn btn-warning">Clear Certificates</button>
+                    <button onclick="testClearButtons()" class="btn btn-secondary">Test Functions</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3 id="confirmTitle">Confirm Action</h3>
+            <p id="confirmMessage">Are you sure?</p>
+            <div class="modal-actions">
+                <button id="confirmYes" class="btn btn-danger">Yes</button>
+                <button id="confirmNo" class="btn btn-secondary">No</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load all modules in order -->
+    <script src="js/utils/performanceMonitor.js"></script>
+    <script src="js/utils/notificationManager.js"></script>
+    <script src="js/utils/dataCache.js"></script>
+    <script src="js/utils/activityLogger.js"></script>
+    <script src="js/modules/auth.js"></script>
+    <script src="js/modules/ui.js"></script>
+    <script src="js/modules/api.js"></script>
+    <script src="js/modules/fileUpload.js"></script>
+    <script src="js/modules/analytics.js"></script>
+    <script src="js/modules/members.js"></script>
+    <script src="js/modules/certificates.js"></script>
+    <script src="js/admin-modular.js"></script>
+
+    <script>
+        // Module loading status
+        document.addEventListener('DOMContentLoaded', () => {
+            const moduleStatus = document.getElementById('moduleStatus');
+            const modules = [
+                'PerformanceMonitor',
+                'NotificationManager', 
+                'DataCache',
+                'ActivityLogger',
+                'AuthManager',
+                'UIManager',
+                'APIManager',
+                'FileUploadManager',
+                'AnalyticsManager',
+                'MembersManager',
+                'CertificatesManager'
+            ];
+            
+            let loadedCount = 0;
+            const totalModules = modules.length;
+            
+            const checkModules = () => {
+                loadedCount = 0;
+                modules.forEach(module => {
+                    if (window[module]) {
+                        loadedCount++;
+                    }
+                });
+                
+                if (loadedCount === totalModules) {
+                    moduleStatus.innerHTML = '<div class="module-loaded">✅ All modules loaded successfully</div>';
+                    setTimeout(() => {
+                        moduleStatus.style.display = 'none';
+                    }, 3000);
+                } else {
+                    moduleStatus.innerHTML = `<div>Loading modules... ${loadedCount}/${totalModules}</div>`;
+                }
+            };
+            
+            // Check modules every 100ms
+            const interval = setInterval(() => {
+                checkModules();
+                if (loadedCount === totalModules) {
+                    clearInterval(interval);
+                }
+            }, 100);
+            
+            // Fallback timeout
+            setTimeout(() => {
+                if (loadedCount < totalModules) {
+                    moduleStatus.innerHTML = `<div class="module-error">⚠️ Some modules failed to load (${loadedCount}/${totalModules})</div>`;
+                }
+                clearInterval(interval);
+            }, 5000);
+        });
+    </script>
+</body>
+</html>
