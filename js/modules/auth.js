@@ -1,4 +1,4 @@
-git// ==================== AUTHENTICATION MODULE ====================
+// ==================== AUTHENTICATION MODULE ====================
 
 class AuthManager {
     constructor() {
