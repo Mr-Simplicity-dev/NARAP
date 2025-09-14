@@ -20,14 +20,24 @@ class APIManager {
             (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : ''
         ].filter(url => !!url);
 
-        return urls[0] || 'https://narap-backend.onrender.com';
+        const selectedURL = urls[0] || 'https://narap-backend.onrender.com';
+        console.log('APIManager.getBackendURL selected:', selectedURL);
+        console.log('Available URLs:', urls);
+        return selectedURL;
     }
 
     async makeRequest(endpoint, options = {}) {
+        // Debug URL construction
+        console.log('APIManager.makeRequest called with:');
+        console.log('- this.baseURL:', this.baseURL);
+        console.log('- endpoint:', endpoint);
+        
         // Ensure proper URL construction
         const baseURL = this.baseURL.endsWith('/') ? this.baseURL.slice(0, -1) : this.baseURL;
         const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
         const url = `${baseURL}${cleanEndpoint}`;
+        
+        console.log('- final URL:', url);
         
         const defaultOptions = {
             headers: {
@@ -49,6 +59,19 @@ class APIManager {
             return await response.json();
         } catch (error) {
             console.error('API Request failed:', error);
+            
+            // Check if it's a CORS error
+            if (error.message.includes('CORS') || error.message.includes('Access-Control-Allow-Origin')) {
+                console.warn('CORS error detected. This might be due to cross-origin restrictions.');
+                throw new Error('CORS Error: Unable to access the API from this domain. Please check CORS configuration.');
+            }
+            
+            // Check if it's a network error
+            if (error.message.includes('Failed to fetch') || error.message.includes('net::ERR_')) {
+                console.warn('Network error detected. The server might be down or unreachable.');
+                throw new Error('Network Error: Unable to reach the server. Please check your internet connection.');
+            }
+            
             throw error;
         }
     }
@@ -292,6 +315,35 @@ function updateConnectionStatus(status) {
     }
 }
 
+// Debug function for testing URL construction
+function testAPIManagerURLs() {
+    if (!window.apiManager) {
+        console.error('APIManager not initialized');
+        return;
+    }
+    
+    console.log('🧪 Testing APIManager URL Construction:');
+    console.log('Base URL:', window.apiManager.baseURL);
+    
+    // Test different endpoints
+    const testEndpoints = [
+        '/api/users',
+        '/api/users?page=1&limit=10',
+        '/api/certificates',
+        '/api/health'
+    ];
+    
+    testEndpoints.forEach(endpoint => {
+        const baseURL = window.apiManager.baseURL.endsWith('/') ? 
+            window.apiManager.baseURL.slice(0, -1) : 
+            window.apiManager.baseURL;
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        const finalURL = `${baseURL}${cleanEndpoint}`;
+        
+        console.log(`Endpoint: ${endpoint} → URL: ${finalURL}`);
+    });
+}
+
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = APIManager;
@@ -300,4 +352,5 @@ if (typeof module !== 'undefined' && module.exports) {
     window.handleOnline = handleOnline;
     window.handleOffline = handleOffline;
     window.updateConnectionStatus = updateConnectionStatus;
+    window.testAPIManagerURLs = testAPIManagerURLs;
 }
