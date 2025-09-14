@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NARAP URL Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .test-pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .url-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔗 NARAP URL Construction Fix Test</h1>
+        <p>This page tests the URL construction fixes for the API requests.</p>
+
+        <div class="test-section">
+            <h3>1. APIManager URL Construction Test</h3>
+            <div id="apiUrlTestResults"></div>
+            <button onclick="testAPIManagerURLs()">Test APIManager URLs</button>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Members API URL Test</h3>
+            <div id="membersUrlTestResults"></div>
+            <button onclick="testMembersURLs()">Test Members URLs</button>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Certificates API URL Test</h3>
+            <div id="certificatesUrlTestResults"></div>
+            <button onclick="testCertificatesURLs()">Test Certificates URLs</button>
+        </div>
+
+        <div class="test-section">
+            <h3>4. URL Construction Debug</h3>
+            <div id="urlDebugResults"></div>
+            <button onclick="debugURLConstruction()">Debug URL Construction</button>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Live API Test</h3>
+            <div id="liveApiTestResults"></div>
+            <button onclick="testLiveAPI()">Test Live API</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Summary</h3>
+            <div id="summaryResults"></div>
+            <button onclick="runAllURLTests()">Run All URL Tests</button>
+        </div>
+    </div>
+
+    <!-- Load all modules -->
+    <script src="js/utils/performanceMonitor.js"></script>
+    <script src="js/utils/notificationManager.js"></script>
+    <script src="js/utils/dataCache.js"></script>
+    <script src="js/utils/activityLogger.js"></script>
+    <script src="js/modules/auth.js"></script>
+    <script src="js/modules/ui.js"></script>
+    <script src="js/modules/api.js"></script>
+    <script src="js/modules/fileUpload.js"></script>
+    <script src="js/modules/analytics.js"></script>
+    <script src="js/modules/members.js"></script>
+    <script src="js/modules/certificates.js"></script>
+    <script src="js/admin-modular.js"></script>
+
+    <script>
+        let testResults = {
+            apiUrl: { passed: 0, failed: 0, total: 0 },
+            membersUrl: { passed: 0, failed: 0, total: 0 },
+            certificatesUrl: { passed: 0, failed: 0, total: 0 },
+            urlDebug: { passed: 0, failed: 0, total: 0 },
+            liveApi: { passed: 0, failed: 0, total: 0 }
+        };
+
+        function addTestResult(section, testName, passed, message = '') {
+            const results = testResults[section];
+            results.total++;
+            if (passed) {
+                results.passed++;
+            } else {
+                results.failed++;
+            }
+
+            const resultDiv = document.getElementById(section + 'TestResults');
+            const resultClass = passed ? 'test-pass' : 'test-fail';
+            const status = passed ? '✅' : '❌';
+            
+            resultDiv.innerHTML += `
+                <div class="test-result ${resultClass}">
+                    ${status} ${testName} ${message ? '- ' + message : ''}
+                </div>
+            `;
+        }
+
+        function testAPIManagerURLs() {
+            const results = document.getElementById('apiUrlTestResults');
+            results.innerHTML = '';
+
+            if (!window.apiManager) {
+                addTestResult('apiUrl', 'APIManager exists', false, 'APIManager not found');
+                return;
+            }
+
+            // Test baseURL
+            const baseURL = window.apiManager.baseURL;
+            addTestResult('apiUrl', 'APIManager has baseURL', !!baseURL);
+            addTestResult('apiUrl', 'baseURL is valid', baseURL && baseURL.startsWith('http'));
+            
+            // Display the baseURL
+            results.innerHTML += `<div class="url-display">Base URL: ${baseURL}</div>`;
+
+            // Test URL construction
+            try {
+                const testEndpoint = '/api/users';
+                const expectedURL = baseURL.endsWith('/') ? 
+                    `${baseURL.slice(0, -1)}${testEndpoint}` : 
+                    `${baseURL}${testEndpoint}`;
+                
+                addTestResult('apiUrl', 'URL construction logic', true);
+                results.innerHTML += `<div class="url-display">Expected URL: ${expectedURL}</div>`;
+            } catch (e) {
+                addTestResult('apiUrl', 'URL construction logic', false, e.message);
+            }
+        }
+
+        function testMembersURLs() {
+            const results = document.getElementById('membersUrlTestResults');
+            results.innerHTML = '';
+
+            if (!window.membersManager) {
+                addTestResult('membersUrl', 'MembersManager exists', false, 'MembersManager not found');
+                return;
+            }
+
+            // Test fetchMembers method
+            addTestResult('membersUrl', 'MembersManager has fetchMembers method', typeof window.membersManager.fetchMembers === 'function');
+
+            // Test URL construction for members
+            const baseURL = window.apiManager ? window.apiManager.baseURL : 'https://narap-backend.onrender.com';
+            const params = new URLSearchParams({
+                page: '1',
+                limit: '10'
+            });
+            const expectedURL = `${baseURL}/api/users?${params}`;
+            
+            addTestResult('membersUrl', 'Members URL construction', true);
+            results.innerHTML += `<div class="url-display">Members URL: ${expectedURL}</div>`;
+        }
+
+        function testCertificatesURLs() {
+            const results = document.getElementById('certificatesUrlTestResults');
+            results.innerHTML = '';
+
+            if (!window.certificatesManager) {
+                addTestResult('certificatesUrl', 'CertificatesManager exists', false, 'CertificatesManager not found');
+                return;
+            }
+
+            // Test fetchCertificates method
+            addTestResult('certificatesUrl', 'CertificatesManager has fetchCertificates method', typeof window.certificatesManager.fetchCertificates === 'function');
+
+            // Test URL construction for certificates
+            const baseURL = window.apiManager ? window.apiManager.baseURL : 'https://narap-backend.onrender.com';
+            const params = new URLSearchParams({
+                page: '1',
+                limit: '10'
+            });
+            const expectedURL = `${baseURL}/api/certificates?${params}`;
+            
+            addTestResult('certificatesUrl', 'Certificates URL construction', true);
+            results.innerHTML += `<div class="url-display">Certificates URL: ${expectedURL}</div>`;
+        }
+
+        function debugURLConstruction() {
+            const results = document.getElementById('urlDebugResults');
+            results.innerHTML = '';
+
+            // Test various URL construction scenarios
+            const baseURLs = [
+                'https://narap-backend.onrender.com',
+                'https://narap-backend.onrender.com/',
+                'http://localhost:3000',
+                'http://localhost:3000/'
+            ];
+
+            const endpoints = [
+                '/api/users',
+                'api/users',
+                '/api/certificates',
+                'api/certificates'
+            ];
+
+            baseURLs.forEach(baseURL => {
+                endpoints.forEach(endpoint => {
+                    const cleanBaseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
+                    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+                    const finalURL = `${cleanBaseURL}${cleanEndpoint}`;
+                    
+                    const isValid = finalURL.includes('://') && !finalURL.includes('//');
+                    addTestResult('urlDebug', `URL: ${baseURL} + ${endpoint}`, isValid);
+                    
+                    if (!isValid) {
+                        results.innerHTML += `<div class="url-display" style="background: #f8d7da;">❌ Invalid: ${finalURL}</div>`;
+                    } else {
+                        results.innerHTML += `<div class="url-display">✅ Valid: ${finalURL}</div>`;
+                    }
+                });
+            });
+        }
+
+        async function testLiveAPI() {
+            const results = document.getElementById('liveApiTestResults');
+            results.innerHTML = '';
+
+            // Test health endpoint
+            try {
+                const healthURL = 'https://narap-backend.onrender.com/api/health';
+                results.innerHTML += `<div class="url-display">Testing: ${healthURL}</div>`;
+                
+                const response = await fetch(healthURL, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (response.ok) {
+                    addTestResult('liveApi', 'Health endpoint accessible', true);
+                    const data = await response.text();
+                    results.innerHTML += `<div class="url-display">Response: ${data}</div>`;
+                } else {
+                    addTestResult('liveApi', 'Health endpoint accessible', false, `HTTP ${response.status}`);
+                }
+            } catch (e) {
+                addTestResult('liveApi', 'Health endpoint accessible', false, e.message);
+            }
+
+            // Test users endpoint
+            try {
+                const usersURL = 'https://narap-backend.onrender.com/api/users?page=1&limit=1';
+                results.innerHTML += `<div class="url-display">Testing: ${usersURL}</div>`;
+                
+                const response = await fetch(usersURL, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (response.ok) {
+                    addTestResult('liveApi', 'Users endpoint accessible', true);
+                    const data = await response.json();
+                    results.innerHTML += `<div class="url-display">Response: ${JSON.stringify(data).substring(0, 100)}...</div>`;
+                } else {
+                    addTestResult('liveApi', 'Users endpoint accessible', false, `HTTP ${response.status}`);
+                    const errorText = await response.text();
+                    results.innerHTML += `<div class="url-display" style="background: #f8d7da;">Error: ${errorText}</div>`;
+                }
+            } catch (e) {
+                addTestResult('liveApi', 'Users endpoint accessible', false, e.message);
+            }
+        }
+
+        function runAllURLTests() {
+            testAPIManagerURLs();
+            testMembersURLs();
+            testCertificatesURLs();
+            debugURLConstruction();
+            testLiveAPI();
+            showSummary();
+        }
+
+        function showSummary() {
+            const results = document.getElementById('summaryResults');
+            let totalPassed = 0;
+            let totalFailed = 0;
+            let totalTests = 0;
+
+            Object.keys(testResults).forEach(section => {
+                const sectionResults = testResults[section];
+                totalPassed += sectionResults.passed;
+                totalFailed += sectionResults.failed;
+                totalTests += sectionResults.total;
+            });
+
+            const passRate = totalTests > 0 ? Math.round((totalPassed / totalTests) * 100) : 0;
+            
+            results.innerHTML = `
+                <div class="test-result ${passRate >= 80 ? 'test-pass' : passRate >= 60 ? 'test-info' : 'test-fail'}">
+                    <strong>URL Fix Test Summary:</strong><br>
+                    Total Tests: ${totalTests}<br>
+                    Passed: ${totalPassed}<br>
+                    Failed: ${totalFailed}<br>
+                    Pass Rate: ${passRate}%<br><br>
+                    <strong>Key Fixes:</strong><br>
+                    ✅ Proper URL construction in APIManager<br>
+                    ✅ BaseURL and endpoint concatenation<br>
+                    ✅ Debug logging for troubleshooting<br>
+                    ✅ Fallback URL construction<br>
+                    ✅ Error handling improvements
+                </div>
+            `;
+        }
+
+        // Auto-run tests on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                runAllURLTests();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

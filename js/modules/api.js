@@ -3,6 +3,7 @@
 class APIManager {
     constructor() {
         this.baseURL = this.getBackendURL();
+        console.log('APIManager baseURL:', this.baseURL); // Debug log
         this.cache = new Map();
         this.init();
     }
@@ -23,7 +24,11 @@ class APIManager {
     }
 
     async makeRequest(endpoint, options = {}) {
-        const url = `${this.baseURL}${endpoint}`;
+        // Ensure proper URL construction
+        const baseURL = this.baseURL.endsWith('/') ? this.baseURL.slice(0, -1) : this.baseURL;
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        const url = `${baseURL}${cleanEndpoint}`;
+        
         const defaultOptions = {
             headers: {
                 'Content-Type': 'application/json',
@@ -33,10 +38,12 @@ class APIManager {
         const requestOptions = { ...defaultOptions, ...options };
 
         try {
+            console.log('Making API request to:', url); // Debug log
             const response = await fetch(url, requestOptions);
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
             }
 
             return await response.json();

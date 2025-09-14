@@ -117,7 +117,10 @@ class CertificatesManager {
                 ...this.filters
             });
 
-            const response = await fetch(`https://narap-backend.onrender.com/api/certificates?${params}`, {
+            const url = `https://narap-backend.onrender.com/api/certificates?${params}`;
+            console.log('Certificates fallback fetch URL:', url); // Debug log
+            
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',

@@ -109,7 +109,10 @@ class MembersManager {
                 ...this.filters
             });
 
-            const response = await fetch(`https://narap-backend.onrender.com/api/users?${params}`, {
+            const url = `https://narap-backend.onrender.com/api/users?${params}`;
+            console.log('Fallback fetch URL:', url); // Debug log
+            
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
