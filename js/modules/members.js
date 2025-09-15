@@ -164,7 +164,7 @@ class MembersManager {
 
         // If no members are found, display a "No members found" message
         if (members.length === 0) {
-            tableBody.innerHTML = `
+            tableBody.innerHTML = ` 
                 <tr>
                     <td class="loading" colspan="10" style="text-align:center; padding:24px;">
                         No members found
@@ -227,7 +227,7 @@ class MembersManager {
         tableBody.innerHTML = '';  // Clear the existing content
         tableBody.appendChild(fragment); // Append the new rows
 
-        // Update pagination UI (optional, if required)
+        // Update pagination UI
         this.updatePaginationUI(totalItems, currentPage, totalPages, itemsPerPage);
     }
 
@@ -245,9 +245,9 @@ class MembersManager {
         const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
 
         paginationContainer.innerHTML = `
-            <button class="btn btn-sm btn-secondary" ${prevDisabled} onclick="goToPage(${currentPage - 1})">Previous</button>
+            <button class="btn btn-sm btn-secondary" ${prevDisabled} onclick="this.goToPage(${currentPage - 1})">Previous</button>
             <span>Page ${currentPage} of ${totalPages}</span>
-            <button class="btn btn-sm btn-secondary" ${nextDisabled} onclick="goToPage(${currentPage + 1})">Next</button>
+            <button class="btn btn-sm btn-secondary" ${nextDisabled} onclick="this.goToPage(${currentPage + 1})">Next</button>
         `;
     }
 
@@ -257,16 +257,5 @@ class MembersManager {
     }
 }
 
-
-// Global function declarations for backward compatibility
-window.MembersManager = MembersManager;
-window.loadMembers = (page, limit) => { window.membersManager.loadMembers(page, limit); };
-window.addMember = (event) => { window.membersManager.addMember(event); };
-window.showAddMemberModal = () => { window.membersManager.showAddMemberModal(); };
-window.showViewMemberModal = (memberId) => { window.membersManager.showViewMemberModal(memberId); };
-window.showEditMemberModal = (memberId) => { window.membersManager.showEditMemberModal(memberId); };
-window.closeViewMemberModal = () => { window.membersManager.closeViewMemberModal(); };
-window.changeMembersPerPage = (perPage) => { window.membersManager.changeMembersPerPage(perPage); };
-window.goToMembersPage = (page) => { window.membersManager.goToMembersPage(page); };
-window.filterMembers = () => { window.membersManager.filterMembers(); };
-window.deleteMember = (memberId) => { window.membersManager.deleteMember(memberId); };
+// Use this to initialize and use the MembersManager
+const membersManager = new MembersManager();
