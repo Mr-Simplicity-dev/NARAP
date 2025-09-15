@@ -3,7 +3,9 @@
 class APIManager {
     constructor() {
         this.baseURL = this.getBackendURL();
-        console.log('APIManager baseURL:', this.baseURL); // Debug log
+        console.log('APIManager constructor - baseURL:', this.baseURL); // Debug log
+        console.log('APIManager constructor - baseURL type:', typeof this.baseURL); // Debug log
+        console.log('APIManager constructor - baseURL length:', this.baseURL ? this.baseURL.length : 'undefined'); // Debug log
         this.cache = new Map();
         this.init();
     }
@@ -14,15 +16,23 @@ class APIManager {
 
     getBackendURL() {
         // Try multiple backend URLs in order of preference
-        const urls = [
+        const candidateURLs = [
             'https://narap-backend.onrender.com',
             (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '',
             (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : ''
-        ].filter(url => !!url);
+        ];
+        
+        console.log('APIManager.getBackendURL candidates:', candidateURLs);
+        console.log('API_BASE:', typeof API_BASE !== 'undefined' ? API_BASE : 'undefined');
+        console.log('window.__narapApiBase:', typeof window !== 'undefined' && window.__narapApiBase ? window.__narapApiBase : 'undefined');
+        
+        const urls = candidateURLs.filter(url => !!url);
+        console.log('APIManager.getBackendURL filtered URLs:', urls);
 
         const selectedURL = urls[0] || 'https://narap-backend.onrender.com';
         console.log('APIManager.getBackendURL selected:', selectedURL);
-        console.log('Available URLs:', urls);
+        console.log('Selected URL type:', typeof selectedURL);
+        console.log('Selected URL length:', selectedURL ? selectedURL.length : 'undefined');
         return selectedURL;
     }
 
@@ -31,12 +41,23 @@ class APIManager {
         console.log('APIManager.makeRequest called with:');
         console.log('- this.baseURL:', this.baseURL);
         console.log('- endpoint:', endpoint);
+        console.log('- this.baseURL type:', typeof this.baseURL);
+        console.log('- this.baseURL length:', this.baseURL ? this.baseURL.length : 'undefined');
+        
+        // Safety check for baseURL
+        if (!this.baseURL || this.baseURL.trim() === '') {
+            console.error('❌ baseURL is empty or undefined!');
+            this.baseURL = 'https://narap-backend.onrender.com'; // Fallback
+            console.log('🔄 Using fallback baseURL:', this.baseURL);
+        }
         
         // Ensure proper URL construction
         const baseURL = this.baseURL.endsWith('/') ? this.baseURL.slice(0, -1) : this.baseURL;
         const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
         const url = `${baseURL}${cleanEndpoint}`;
         
+        console.log('- constructed baseURL:', baseURL);
+        console.log('- cleanEndpoint:', cleanEndpoint);
         console.log('- final URL:', url);
         
         const defaultOptions = {
@@ -324,6 +345,8 @@ function testAPIManagerURLs() {
     
     console.log('🧪 Testing APIManager URL Construction:');
     console.log('Base URL:', window.apiManager.baseURL);
+    console.log('Base URL type:', typeof window.apiManager.baseURL);
+    console.log('Base URL length:', window.apiManager.baseURL ? window.apiManager.baseURL.length : 'undefined');
     
     // Test different endpoints
     const testEndpoints = [
@@ -344,6 +367,30 @@ function testAPIManagerURLs() {
     });
 }
 
+// Immediate debug function
+function debugAPIIssue() {
+    console.log('🔍 Debugging API Issue:');
+    console.log('1. APIManager exists:', !!window.apiManager);
+    console.log('2. APIManager baseURL:', window.apiManager ? window.apiManager.baseURL : 'N/A');
+    console.log('3. API_BASE global:', typeof API_BASE !== 'undefined' ? API_BASE : 'undefined');
+    console.log('4. window.__narapApiBase:', typeof window !== 'undefined' && window.__narapApiBase ? window.__narapApiBase : 'undefined');
+    
+    if (window.apiManager) {
+        console.log('5. Testing URL construction manually:');
+        const testEndpoint = '/api/users?page=1&limit=10';
+        const baseURL = window.apiManager.baseURL;
+        const cleanBaseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
+        const cleanEndpoint = testEndpoint.startsWith('/') ? testEndpoint : `/${testEndpoint}`;
+        const finalURL = `${cleanBaseURL}${cleanEndpoint}`;
+        
+        console.log('   - Original baseURL:', baseURL);
+        console.log('   - Clean baseURL:', cleanBaseURL);
+        console.log('   - Test endpoint:', testEndpoint);
+        console.log('   - Clean endpoint:', cleanEndpoint);
+        console.log('   - Final URL:', finalURL);
+    }
+}
+
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = APIManager;
@@ -353,4 +400,5 @@ if (typeof module !== 'undefined' && module.exports) {
     window.handleOffline = handleOffline;
     window.updateConnectionStatus = updateConnectionStatus;
     window.testAPIManagerURLs = testAPIManagerURLs;
+    window.debugAPIIssue = debugAPIIssue;
 }
