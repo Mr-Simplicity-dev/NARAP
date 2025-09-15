@@ -1,5 +1,5 @@
 class MembersManager {
-   constructor() {
+    constructor() {
         this.currentMembers = [];
         this.currentPage = 1;
         this.membersPerPage = parseInt(localStorage.getItem('narap_members_per_page') || '10', 10);
@@ -10,7 +10,7 @@ class MembersManager {
         this.init();
     }
 
-     init() {
+    init() {
         this.setupEventListeners();
         this.loadInitialData();
     }
@@ -84,8 +84,7 @@ class MembersManager {
             this.currentMembers = data.members || data.data || [];
             this.currentPage = page;
 
-            this.displayMembers(this.currentMembers);
-            this.updatePagination(data.pagination || {});
+            this.displayMembers(this.currentMembers, data.pagination.totalItems, page, data.pagination.totalPages, limit);
 
             if (typeof showMessage === 'function') {
                 showMessage('Members loaded successfully', 'success');
@@ -98,13 +97,9 @@ class MembersManager {
         }
     }
 
-      getApiUrl() {
-        return 'https://narap-backend.onrender.com'; 
-    }
-
     async fetchMembers(page, limit) {
         try {
-            const url = `${this.getApiUrl()}/api/users`;  
+            const url = `${this.getApiUrl()}/api/users`;
             const params = new URLSearchParams({
                 page: page.toString(),
                 limit: limit.toString(),
@@ -152,61 +147,88 @@ class MembersManager {
     }
 
     getApiUrl() {
-        return 'https://narap-backend.onrender.com';
+        return 'https://narap-backend.onrender.com'; // Replace with your actual API URL
     }
 
-    displayMembers(members) {
-        const tbody = document.getElementById('membersTableBody');
-        if (!tbody) return;
+    displayMembers(members, totalItems = 0, currentPage = 1, totalPages = 1, itemsPerPage = 10) {
+        const tableBody = document.getElementById('membersTableBody');
+        if (!tableBody) return;
 
-        tbody.innerHTML = members.map(member => this.createMemberRow(member)).join('');
-        if (typeof updateMembersSelectionUI === 'function') {
-            updateMembersSelectionUI();
+        // Validate the members array
+        if (!Array.isArray(members)) members = [];
+
+        // Update pagination variables
+        const per = Math.max(1, Number(itemsPerPage) || 10);
+        const page = Math.max(1, Number(currentPage) || 1);
+        const pageOffset = (page - 1) * per;
+
+        // If no members are found, display a "No members found" message
+        if (members.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td class="loading" colspan="10" style="text-align:center; padding:24px;">
+                        No members found
+                    </td>
+                </tr>
+            `;
+            return;
         }
-    }
 
-    createMemberRow(member) {
-        const avatar = member.passportPhoto ? this.getImageUrl(member.passportPhoto) : 'data:image/svg+xml;base64,...'; // Default avatar
+        // Create table rows using a DocumentFragment for better performance
+        const fragment = document.createDocumentFragment();
 
-        return `
-            <tr data-member-id="${member._id || member.id}">
-                <td style="display: none;">
-                    <input type="checkbox" class="member-checkbox" value="${member._id || member.id}">
-                </td>
+        members.forEach((member, idx) => {
+            if (!member || typeof member !== 'object') return;
+
+            const memberIdRaw = member._id || member.id || '';
+            const memberId    = String(memberIdRaw).replace(/'/g, "\\'");
+            const name        = this.sanitizeText(member.name || member.fullName || 'N/A');
+            const email       = this.sanitizeText(member.email || 'N/A');
+            const code        = this.sanitizeText(member.code || 'N/A');
+            const position    = this.sanitizeText(member.position || 'N/A');
+            const state       = this.sanitizeText(member.state || member.State || 'N/A');
+            const zone        = this.sanitizeText(member.zone || 'N/A');
+
+            // Create the row
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${pageOffset + idx + 1}</td>  <!-- S/N -->
+                <td class="checkbox-cell">
+                    <input type="checkbox" class="member-checkbox" value="${memberIdRaw}" onchange="toggleMemberSelection(this)">
+                </td> <!-- Select (hidden by CSS until active) -->
                 <td>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <img src="${avatar}" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-                        <div>
-                            <div style="font-weight: bold;">${this.sanitizeText(member.name || member.fullName || 'N/A')}</div>
-                            <div style="font-size: 12px; color: #666;">${this.sanitizeText(member.code || 'N/A')}</div>
-                        </div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewPassport('${memberId}')" title="View Passport">View</button>
+                </td> <!-- Photo (View) -->
+                <td>${name}</td> <!-- Name -->
+                <td>${email}</td> <!-- Email -->
+                <td>${code}</td> <!-- Code -->
+                <td>${position}</td> <!-- Position -->
+                <td>${state}</td> <!-- State -->
+                <td>${zone}</td> <!-- Zone -->
+                <td>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-info" onclick="viewMember('${memberId}')" title="View Member">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="showEditMemberModal('${memberId}')" title="Edit Member">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteMember('${memberId}')" title="Delete Member">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
-                </td>
-                <td>${this.sanitizeText(member.email || 'N/A')}</td>
-                <td>${this.sanitizeText(member.position || 'N/A')}</td>
-                <td>${this.sanitizeText(member.state || 'N/A')}</td>
-                <td>${this.sanitizeText(member.zone || 'N/A')}</td>
-                <td>
-                    <span class="status-badge ${member.isActive !== false ? 'active' : 'inactive'}" 
-                          style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
-                        ${member.isActive !== false ? 'Active' : 'Inactive'}
-                    </span>
-                </td>
-                <td>
-                    <div style="display: flex; gap: 5px;">
-                        <button onclick="showViewMemberModal('${member._id || member.id}')" class="btn btn-primary">
-                            View
-                        </button>
-                        <button onclick="showEditMemberModal('${member._id || member.id}')" class="btn btn-warning">
-                            Edit
-                        </button>
-                        <button onclick="deleteMember('${member._id || member.id}')" class="btn btn-danger">
-                            Delete
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
+                </td> <!-- Actions -->
+            `;
+            
+            fragment.appendChild(row);
+        });
+
+        // Update the table body with the new rows
+        tableBody.innerHTML = '';  // Clear the existing content
+        tableBody.appendChild(fragment); // Append the new rows
+
+        // Update pagination UI (optional, if required)
+        this.updatePaginationUI(totalItems, currentPage, totalPages, itemsPerPage);
     }
 
     sanitizeText(text) {
@@ -215,254 +237,26 @@ class MembersManager {
         return element.innerHTML;
     }
 
-    updatePagination(pagination) {
-        const container = document.getElementById('membersPagination');
-        if (!container) return;
+    updatePaginationUI(totalItems, currentPage, totalPages, itemsPerPage) {
+        const paginationContainer = document.getElementById('paginationControls');
+        if (!paginationContainer) return;
 
-        const { currentPage, totalPages, totalItems } = pagination;
+        const prevDisabled = currentPage <= 1 ? 'disabled' : '';
+        const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
 
-        container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span>Page ${currentPage} of ${totalPages} (${totalItems} total)</span>
-                <button onclick="goToMembersPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>Previous</button>
-                <button onclick="goToMembersPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>Next</button>
-            </div>
+        paginationContainer.innerHTML = `
+            <button class="btn btn-sm btn-secondary" ${prevDisabled} onclick="goToPage(${currentPage - 1})">Previous</button>
+            <span>Page ${currentPage} of ${totalPages}</span>
+            <button class="btn btn-sm btn-secondary" ${nextDisabled} onclick="goToPage(${currentPage + 1})">Next</button>
         `;
     }
 
-    filterMembers() {
-        this.loadMembers(this.currentPage, this.membersPerPage);
-    }
-
-    // Member CRUD operations
-    async addMember(event) {
-        const form = event.target;
-        const formData = new FormData(form);
-
-        try {
-            if (typeof showMessage === 'function') {
-                showMessage('Adding member...', 'info');
-            }
-
-            const result = await this.createMember(formData);
-
-            if (result.success) {
-                if (typeof showMessage === 'function') {
-                    showMessage('Member added successfully!', 'success');
-                }
-
-                this.closeAddMemberModal();
-                this.loadMembers(this.currentPage, this.membersPerPage);
-            } else {
-                throw new Error(result.message || 'Failed to add member');
-            }
-        } catch (error) {
-            console.error('Add member error:', error);
-            if (typeof showMessage === 'function') {
-                showMessage(error.message || 'Failed to add member', 'error');
-            }
-        }
-    }
-
-    async createMember(formData) {
-        const response = await fetch(`${this.getApiUrl()}/api/users`, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) throw new Error('Failed to create member');
-        return await response.json();
-    }
-
-    async editMember(event) {
-        const form = event.target;
-        const memberId = form.dataset.memberId;
-
-        if (!memberId) {
-            if (typeof showMessage === 'function') {
-                showMessage('Member ID not found', 'error');
-            }
-            return;
-        }
-
-        const formData = new FormData(form);
-
-        try {
-            if (typeof showMessage === 'function') {
-                showMessage('Updating member...', 'info');
-            }
-
-            const result = await this.updateMember(memberId, formData);
-
-            if (result.success) {
-                if (typeof showMessage === 'function') {
-                    showMessage('Member updated successfully!', 'success');
-                }
-
-                this.closeEditMemberModal();
-                this.loadMembers(this.currentPage, this.membersPerPage);
-            } else {
-                throw new Error(result.message || 'Failed to update member');
-            }
-        } catch (error) {
-            console.error('Edit member error:', error);
-            if (typeof showMessage === 'function') {
-                showMessage(error.message || 'Failed to update member', 'error');
-            }
-        }
-    }
-
-    async updateMember(memberId, formData) {
-        const response = await fetch(`${this.getApiUrl()}/api/users/updateUser/${memberId}`, {
-            method: 'PUT',
-            body: formData
-        });
-
-        if (!response.ok) throw new Error('Failed to update member');
-        return await response.json();
-    }
-
-    async deleteMember(memberId) {
-        if (!confirm('Are you sure you want to delete this member?')) {
-            return;
-        }
-
-        try {
-            if (typeof showMessage === 'function') {
-                showMessage('Deleting member...', 'info');
-            }
-
-            const result = await this.removeMember(memberId);
-
-            if (result.success) {
-                if (typeof showMessage === 'function') {
-                    showMessage('Member deleted successfully!', 'success');
-                }
-
-                this.loadMembers(this.currentPage, this.membersPerPage);
-            } else {
-                throw new Error(result.message || 'Failed to delete member');
-            }
-        } catch (error) {
-            console.error('Delete member error:', error);
-            if (typeof showMessage === 'function') {
-                showMessage(error.message || 'Failed to delete member', 'error');
-            }
-        }
-    }
-
-    async removeMember(memberId) {
-        const response = await fetch(`${this.getApiUrl()}/api/users/${memberId}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) throw new Error('Failed to delete member');
-        return await response.json();
-    }
-
-    // Modal management
-    showAddMemberModal() {
-        const modal = document.getElementById('addMemberModal');
-        if (modal) {
-            modal.style.display = 'block';
-        }
-    }
-
-    closeAddMemberModal() {
-        const modal = document.getElementById('addMemberModal');
-        if (modal) {
-            modal.style.display = 'none';
-            // Reset form
-            const form = modal.querySelector('form');
-            if (form) form.reset();
-        }
-    }
-
-    showEditMemberModal(memberId) {
-        const member = this.currentMembers.find(m => (m._id || m.id) === memberId);
-        if (!member) {
-            if (typeof showMessage === 'function') {
-                showMessage('Member not found', 'error');
-            }
-            return;
-        }
-
-        this.populateEditForm(member);
-        const modal = document.getElementById('editMemberModal');
-        if (modal) {
-            modal.style.display = 'block';
-        }
-    }
-
-    populateEditForm(member) {
-        const fields = {
-            'editMemberName': member.name || member.fullName || '',
-            'editMemberEmail': member.email || '',
-            'editMemberCode': member.code || '',
-            'editMemberPosition': member.position || '',
-            'editMemberState': member.state || member.State || '',
-            'editMemberZone': member.zone || '',
-            'editMemberPassword': ''
-        };
-
-        Object.entries(fields).forEach(([id, value]) => {
-            const field = document.getElementById(id);
-            if (field) {
-                field.value = value;
-            }
-        });
-
-        const form = document.getElementById('editMemberForm');
-        if (form) {
-            form.dataset.memberId = member._id || member.id;
-        }
-    }
-
-    closeEditMemberModal() {
-        const modal = document.getElementById('editMemberModal');
-        if (modal) {
-            modal.style.display = 'none';
-            // Reset form
-            const form = modal.querySelector('form');
-            if (form) form.reset();
-        }
-    }
-
-    // Utility functions
-    getImageUrl(imagePath) {
-        if (!imagePath) return '';
-        if (imagePath.startsWith('http')) {
-            return imagePath;
-        }
-        if (imagePath.includes('cloudinary.com')) {
-            return imagePath;
-        }
-        const baseURL = this.getApiUrl();
-        return `${baseURL}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
-    }
-
-    getLocalMembers() {
-        try {
-            const stored = localStorage.getItem('narap_members');
-            return stored ? JSON.parse(stored) : [];
-        } catch (error) {
-            console.error('Failed to get local members:', error);
-            return [];
-        }
-    }
-
-    // Pagination functions
-    changeMembersPerPage(perPage) {
-        this.membersPerPage = perPage;
-        localStorage.setItem('narap_members_per_page', perPage.toString());
-        this.loadMembers(1, perPage);
-    }
-
-    goToMembersPage(page) {
-        if (page < 1) return;
-        this.loadMembers(page, this.membersPerPage);
+    goToPage(pageNumber) {
+        if (pageNumber < 1) return;
+        this.loadMembers(pageNumber, this.membersPerPage);
     }
 }
+
 
 // Global function declarations for backward compatibility
 window.MembersManager = MembersManager;
