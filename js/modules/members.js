@@ -1,5 +1,5 @@
 class MembersManager {
-    constructor() {
+   constructor() {
         this.currentMembers = [];
         this.currentPage = 1;
         this.membersPerPage = parseInt(localStorage.getItem('narap_members_per_page') || '10', 10);
@@ -10,7 +10,7 @@ class MembersManager {
         this.init();
     }
 
-    init() {
+     init() {
         this.setupEventListeners();
         this.loadInitialData();
     }
@@ -98,9 +98,13 @@ class MembersManager {
         }
     }
 
+      getApiUrl() {
+        return 'https://narap-backend.onrender.com'; 
+    }
+
     async fetchMembers(page, limit) {
         try {
-            const url = `${this.getApiUrl()}/api/users`;
+            const url = `${this.getApiUrl()}/api/users`;  
             const params = new URLSearchParams({
                 page: page.toString(),
                 limit: limit.toString(),
