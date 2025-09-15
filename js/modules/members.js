@@ -148,7 +148,6 @@ class MembersManager {
     }
 
     getApiUrl() {
-        // Replace with environment variable or fallback
         return process.env.API_URL || 'https://narap-backend.onrender.com';
     }
 
@@ -271,7 +270,194 @@ class MembersManager {
         return await response.json();
     }
 
-    // More functions (edit, delete, etc.) can be similarly improved following the patterns above
+    async editMember(event) {
+        const form = event.target;
+        const memberId = form.dataset.memberId;
+
+        if (!memberId) {
+            if (typeof showMessage === 'function') {
+                showMessage('Member ID not found', 'error');
+            }
+            return;
+        }
+
+        const formData = new FormData(form);
+
+        try {
+            if (typeof showMessage === 'function') {
+                showMessage('Updating member...', 'info');
+            }
+
+            const result = await this.updateMember(memberId, formData);
+
+            if (result.success) {
+                if (typeof showMessage === 'function') {
+                    showMessage('Member updated successfully!', 'success');
+                }
+
+                this.closeEditMemberModal();
+                this.loadMembers(this.currentPage, this.membersPerPage);
+            } else {
+                throw new Error(result.message || 'Failed to update member');
+            }
+        } catch (error) {
+            console.error('Edit member error:', error);
+            if (typeof showMessage === 'function') {
+                showMessage(error.message || 'Failed to update member', 'error');
+            }
+        }
+    }
+
+    async updateMember(memberId, formData) {
+        const response = await fetch(`${this.getApiUrl()}/api/users/updateUser/${memberId}`, {
+            method: 'PUT',
+            body: formData
+        });
+
+        if (!response.ok) throw new Error('Failed to update member');
+        return await response.json();
+    }
+
+    async deleteMember(memberId) {
+        if (!confirm('Are you sure you want to delete this member?')) {
+            return;
+        }
+
+        try {
+            if (typeof showMessage === 'function') {
+                showMessage('Deleting member...', 'info');
+            }
+
+            const result = await this.removeMember(memberId);
+
+            if (result.success) {
+                if (typeof showMessage === 'function') {
+                    showMessage('Member deleted successfully!', 'success');
+                }
+
+                this.loadMembers(this.currentPage, this.membersPerPage);
+            } else {
+                throw new Error(result.message || 'Failed to delete member');
+            }
+        } catch (error) {
+            console.error('Delete member error:', error);
+            if (typeof showMessage === 'function') {
+                showMessage(error.message || 'Failed to delete member', 'error');
+            }
+        }
+    }
+
+    async removeMember(memberId) {
+        const response = await fetch(`${this.getApiUrl()}/api/users/${memberId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Failed to delete member');
+        return await response.json();
+    }
+
+    // Modal management
+    showAddMemberModal() {
+        const modal = document.getElementById('addMemberModal');
+        if (modal) {
+            modal.style.display = 'block';
+        }
+    }
+
+    closeAddMemberModal() {
+        const modal = document.getElementById('addMemberModal');
+        if (modal) {
+            modal.style.display = 'none';
+            // Reset form
+            const form = modal.querySelector('form');
+            if (form) form.reset();
+        }
+    }
+
+    showEditMemberModal(memberId) {
+        const member = this.currentMembers.find(m => (m._id || m.id) === memberId);
+        if (!member) {
+            if (typeof showMessage === 'function') {
+                showMessage('Member not found', 'error');
+            }
+            return;
+        }
+
+        this.populateEditForm(member);
+        const modal = document.getElementById('editMemberModal');
+        if (modal) {
+            modal.style.display = 'block';
+        }
+    }
+
+    populateEditForm(member) {
+        const fields = {
+            'editMemberName': member.name || member.fullName || '',
+            'editMemberEmail': member.email || '',
+            'editMemberCode': member.code || '',
+            'editMemberPosition': member.position || '',
+            'editMemberState': member.state || member.State || '',
+            'editMemberZone': member.zone || '',
+            'editMemberPassword': ''
+        };
+
+        Object.entries(fields).forEach(([id, value]) => {
+            const field = document.getElementById(id);
+            if (field) {
+                field.value = value;
+            }
+        });
+
+        const form = document.getElementById('editMemberForm');
+        if (form) {
+            form.dataset.memberId = member._id || member.id;
+        }
+    }
+
+    closeEditMemberModal() {
+        const modal = document.getElementById('editMemberModal');
+        if (modal) {
+            modal.style.display = 'none';
+            // Reset form
+            const form = modal.querySelector('form');
+            if (form) form.reset();
+        }
+    }
+
+    // Utility functions
+    getImageUrl(imagePath) {
+        if (!imagePath) return '';
+        if (imagePath.startsWith('http')) {
+            return imagePath;
+        }
+        if (imagePath.includes('cloudinary.com')) {
+            return imagePath;
+        }
+        const baseURL = this.getApiUrl();
+        return `${baseURL}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+    }
+
+    getLocalMembers() {
+        try {
+            const stored = localStorage.getItem('narap_members');
+            return stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            console.error('Failed to get local members:', error);
+            return [];
+        }
+    }
+
+    // Pagination functions
+    changeMembersPerPage(perPage) {
+        this.membersPerPage = perPage;
+        localStorage.setItem('narap_members_per_page', perPage.toString());
+        this.loadMembers(1, perPage);
+    }
+
+    goToMembersPage(page) {
+        if (page < 1) return;
+        this.loadMembers(page, this.membersPerPage);
+    }
 }
 
 // Global function declarations for backward compatibility
@@ -284,3 +470,5 @@ window.showEditMemberModal = (memberId) => { window.membersManager.showEditMembe
 window.closeViewMemberModal = () => { window.membersManager.closeViewMemberModal(); };
 window.changeMembersPerPage = (perPage) => { window.membersManager.changeMembersPerPage(perPage); };
 window.goToMembersPage = (page) => { window.membersManager.goToMembersPage(page); };
+window.filterMembers = () => { window.membersManager.filterMembers(); };
+window.deleteMember = (memberId) => { window.membersManager.deleteMember(memberId); };
