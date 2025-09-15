@@ -152,7 +152,7 @@ class MembersManager {
     }
 
     getApiUrl() {
-        return process.env.API_URL || 'https://narap-backend.onrender.com';
+        return 'https://narap-backend.onrender.com';
     }
 
     displayMembers(members) {
