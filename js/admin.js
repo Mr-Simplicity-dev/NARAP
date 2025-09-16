@@ -5065,7 +5065,7 @@ function closeViewMemberModal() {
 async function editMember(event) {
   event.preventDefault();
 
-  // Ensure urlBases exists for multi-endpoint fallbacks
+  // --- Ensure urlBases exists for multi-endpoint fallbacks ---
   let urlBases;
   try {
     urlBases = [
@@ -5074,14 +5074,12 @@ async function editMember(event) {
       (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '' // Discovered override
     ].filter(x => !!x);
   } catch (_) {
-    urlBases = ['https://narap-backend.onrender.com']; // Fallback
+    urlBases = ['https://narap-backend.onrender.com']; // Fallback if the above fails
   }
 
   // Ensure memberId is properly fetched from the form dataset
   const form = event.target;
   const memberId = (form.dataset.memberId || '').trim();
-  console.log(memberId);
-  
   if (!memberId) {
     showMessage('Member ID not found', 'error');
     return;
