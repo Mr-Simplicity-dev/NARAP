@@ -5062,46 +5062,43 @@ function closeViewMemberModal() {
     }
 }
 
-
-// ✅ REPLACED: safer editMember that correctly builds FormData and updates UI
-// === FIXED editMember: uses PUT /api/users/updateUser/:id and correct FormData ===
 async function editMember(event) {
   event.preventDefault();
-// --- ensure urlBases exists for multi-endpoint fallbacks ---
-try {
-  var urlBases = [
-    'https://narap-backend.onrender.com',                                   // Render backend FIRST
-    (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '',           // any configured API_BASE
-    (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '' // discovered override
-  ].filter(function(x){ return !!x;
-  /*__NARAP_V12_ENDPOINTS__*/ 
-  var __endpoints = function(id){ 
-    return [
-      '/api/users/updateUser/' + id,   // preferred
-      '/api/users/update',             // fallback (expects id in body)
-      '/api/users'                     // last resort
-    ];
-  };
- });
-} catch(_){
-  var urlBases = ['https://narap-backend.onrender.com'];
-}
 
+  // --- Ensure urlBases exists for multi-endpoint fallbacks ---
+  let urlBases;
+  try {
+    urlBases = [
+      'https://narap-backend.onrender.com', // Render backend FIRST
+      (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '', // Any configured API_BASE
+      (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '' // Discovered override
+    ].filter(x => !!x);
+    
+    const __endpoints = function(id) {
+      return [
+        `/api/users/updateUser/${id}`,   // Preferred
+        '/api/users/update',             // Fallback (expects id in body)
+        '/api/users'                     // Last resort
+      ];
+    };
+  } catch (_) {
+    urlBases = ['https://narap-backend.onrender.com'];
+  }
 
   const form = event.target;
   const memberId = (form.dataset.memberId || '').trim();
   if (!memberId) {
-    if (typeof showMessage === 'function') showMessage('Member ID not found', 'error');
+    showMessage('Member ID not found', 'error');
     return;
   }
 
   // Fields
-  const nameField     = form.querySelector('#editMemberName');
-  const emailField    = form.querySelector('#editMemberEmail');
-  const codeField     = form.querySelector('#editMemberCode');
+  const nameField = form.querySelector('#editMemberName');
+  const emailField = form.querySelector('#editMemberEmail');
+  const codeField = form.querySelector('#editMemberCode');
   const positionField = form.querySelector('#editMemberPosition');
-  const stateField    = form.querySelector('#editMemberState');
-  const zoneField     = form.querySelector('#editMemberZone');
+  const stateField = form.querySelector('#editMemberState');
+  const zoneField = form.querySelector('#editMemberZone');
   const passwordField = form.querySelector('#editMemberPassword');
 
   if (!nameField || !codeField || !positionField || !stateField || !zoneField) {
@@ -5109,18 +5106,18 @@ try {
       nameField: !!nameField, codeField: !!codeField, positionField: !!positionField,
       stateField: !!stateField, zoneField: !!zoneField
     });
-    if (typeof showMessage === 'function') showMessage('Form elements not found. Please refresh the page.', 'error');
+    showMessage('Form elements not found. Please refresh the page.', 'error');
     return;
   }
 
   // Collect & normalize
-  const name     = nameField.value.trim();
-  const email    = emailField ? emailField.value.trim() : '';
-  const code     = codeField.value.trim();
+  const name = nameField.value.trim();
+  const email = emailField ? emailField.value.trim() : '';
+  const code = codeField.value.trim();
   const position = positionField.value;
-  const state    = (stateField.value || '').toString().trim().toUpperCase();
-  const zone     = (zoneField.value || '').toString().trim();
-  const password = passwordField ? passwordField.value : '';
+  const state = (stateField.value || '').toString().trim().toUpperCase();
+  const zone = (zoneField.value || '').toString().trim();
+  const password = passwordField ? passwordField.value.trim() : '';
 
   // Build multipart body
   const body = new FormData();
@@ -5130,50 +5127,51 @@ try {
   body.append('position', position);
   body.append('state', state);
   body.append('zone', zone);
-  if (password && password.trim()) body.append('password', password.trim());
+  if (password && password.trim()) body.append('password', password);
 
   // Files (backend expects these names)
-  const passportInput  = document.getElementById('editMemberPassport');
+  const passportInput = document.getElementById('editMemberPassport');
   const signatureInput = document.getElementById('editMemberSignature');
-  if (passportInput?.files?.[0])  body.append('passportPhoto', passportInput.files[0]);
+  if (passportInput?.files?.[0]) body.append('passportPhoto', passportInput.files[0]);
   if (signatureInput?.files?.[0]) body.append('signature', signatureInput.files[0]);
 
   // Required checks
-  for (const k of ['name','code','position','state','zone']) {
-    const v = body.get(k);
-    if (!v || String(v).trim() === '') {
-      if (typeof showMessage === 'function') showMessage(`Missing required fields: ${k}`, 'error');
+  const requiredFields = ['name', 'code', 'position', 'state', 'zone'];
+  for (const field of requiredFields) {
+    const value = body.get(field);
+    if (!value || String(value).trim() === '') {
+      showMessage(`Missing required fields: ${field}`, 'error');
       return;
     }
   }
 
   // Locate in local list (for instant UI update)
   const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
-  const idx  = list.findIndex(m => (m?._id === memberId) || (m?.id === memberId));
+  const idx = list.findIndex(m => (m?._id === memberId) || (m?.id === memberId));
   if (idx === -1) {
-    if (typeof showMessage === 'function') showMessage('Member not found', 'error');
+    showMessage('Member not found', 'error');
     return;
   }
   const original = list[idx];
 
   try {
-    if (typeof showMessage === 'function') showMessage('Updating member...', 'info');
+    showMessage('Updating member...', 'info');
 
     // ✅ Correct route (your server supports PUT here)
-    const res = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
+    const res = await fetch(`${urlBases[0]}/api/users/updateUser/${memberId}`, {
       method: 'PUT',
       body
     });
 
     if (!res.ok) {
       let err = null;
-      try { err = await res.json(); } catch {}
+      try { err = await res.json(); } catch (e) { err = { message: `Failed to update member (HTTP ${res.status})` }; }
       console.error('❌ Backend update failed:', res.status, err);
-      if (typeof showMessage === 'function') showMessage(err?.message || `Failed to update member (HTTP ${res.status})`, 'error');
+      showMessage(err?.message || `Failed to update member (HTTP ${res.status})`, 'error');
       return;
     }
 
-    const payload = await (typeof tryJson === 'function' ? tryJson(res) : res.json().catch(() => ({})));
+    const payload = await res.json();
     const serverData = payload?.data || payload || {};
 
     // Build updated local object
@@ -5192,22 +5190,167 @@ try {
 
     list[idx] = updated;
     window.currentMembers = list;
-    if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+    saveLocalMembers(list);
 
-    try { if (typeof logMemberUpdate === 'function') logMemberUpdate(updated); } catch (_) {}
+    try { logMemberUpdate(updated); } catch (_) {}
 
-    if (typeof showMessage === 'function') showMessage('Member updated successfully!', 'success');
-    if (typeof closeEditMemberModal   === 'function') closeEditMemberModal();
-    if (typeof displayMembers         === 'function') displayMembers(list);
-    if (typeof updateSyncStatus       === 'function') updateSyncStatus();
-    if (typeof loadDashboardStats     === 'function') await loadDashboardStats();
-    if (typeof loadRecentActivity     === 'function') await loadRecentActivity();
+    showMessage('Member updated successfully!', 'success');
+    if (closeEditMemberModal) closeEditMemberModal();
+    if (displayMembers) displayMembers(list);
+    if (updateSyncStatus) updateSyncStatus();
+    if (loadDashboardStats) await loadDashboardStats();
+    if (loadRecentActivity) await loadRecentActivity();
 
   } catch (networkErr) {
     console.warn('🌐 Network error during update:', networkErr);
-    if (typeof showMessage === 'function') showMessage('Network error while updating member.', 'error');
+    showMessage('Network error while updating member.', 'error');
   }
 }
+
+
+// async function editMember(event) {
+//   event.preventDefault();
+// // --- ensure urlBases exists for multi-endpoint fallbacks ---
+// try {
+//   var urlBases = [
+//     'https://narap-backend.onrender.com',                                   // Render backend FIRST
+//     (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '',           // any configured API_BASE
+//     (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '' // discovered override
+//   ].filter(function(x){ return !!x;
+//   /*__NARAP_V12_ENDPOINTS__*/ 
+//   var __endpoints = function(id){ 
+//     return [
+//       '/api/users/updateUser/' + id,   // preferred
+//       '/api/users/update',             // fallback (expects id in body)
+//       '/api/users'                     // last resort
+//     ];
+//   };
+//  });
+// } catch(_){
+//   var urlBases = ['https://narap-backend.onrender.com'];
+// }
+
+
+//   const form = event.target;
+//   const memberId = (form.dataset.memberId || '').trim();
+//   if (!memberId) {
+//     if (typeof showMessage === 'function') showMessage('Member ID not found', 'error');
+//     return;
+//   }
+
+//   // Fields
+//   const nameField     = form.querySelector('#editMemberName');
+//   const emailField    = form.querySelector('#editMemberEmail');
+//   const codeField     = form.querySelector('#editMemberCode');
+//   const positionField = form.querySelector('#editMemberPosition');
+//   const stateField    = form.querySelector('#editMemberState');
+//   const zoneField     = form.querySelector('#editMemberZone');
+//   const passwordField = form.querySelector('#editMemberPassword');
+
+//   if (!nameField || !codeField || !positionField || !stateField || !zoneField) {
+//     console.error('❌ Form elements not found:', {
+//       nameField: !!nameField, codeField: !!codeField, positionField: !!positionField,
+//       stateField: !!stateField, zoneField: !!zoneField
+//     });
+//     if (typeof showMessage === 'function') showMessage('Form elements not found. Please refresh the page.', 'error');
+//     return;
+//   }
+
+//   // Collect & normalize
+//   const name     = nameField.value.trim();
+//   const email    = emailField ? emailField.value.trim() : '';
+//   const code     = codeField.value.trim();
+//   const position = positionField.value;
+//   const state    = (stateField.value || '').toString().trim().toUpperCase();
+//   const zone     = (zoneField.value || '').toString().trim();
+//   const password = passwordField ? passwordField.value : '';
+
+//   // Build multipart body
+//   const body = new FormData();
+//   body.append('name', name);
+//   if (email) body.append('email', email);
+//   body.append('code', code);
+//   body.append('position', position);
+//   body.append('state', state);
+//   body.append('zone', zone);
+//   if (password && password.trim()) body.append('password', password.trim());
+
+//   // Files (backend expects these names)
+//   const passportInput  = document.getElementById('editMemberPassport');
+//   const signatureInput = document.getElementById('editMemberSignature');
+//   if (passportInput?.files?.[0])  body.append('passportPhoto', passportInput.files[0]);
+//   if (signatureInput?.files?.[0]) body.append('signature', signatureInput.files[0]);
+
+//   // Required checks
+//   for (const k of ['name','code','position','state','zone']) {
+//     const v = body.get(k);
+//     if (!v || String(v).trim() === '') {
+//       if (typeof showMessage === 'function') showMessage(`Missing required fields: ${k}`, 'error');
+//       return;
+//     }
+//   }
+
+//   // Locate in local list (for instant UI update)
+//   const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
+//   const idx  = list.findIndex(m => (m?._id === memberId) || (m?.id === memberId));
+//   if (idx === -1) {
+//     if (typeof showMessage === 'function') showMessage('Member not found', 'error');
+//     return;
+//   }
+//   const original = list[idx];
+
+//   try {
+//     if (typeof showMessage === 'function') showMessage('Updating member...', 'info');
+
+//     // ✅ Correct route (your server supports PUT here)
+//     const res = await fetch(`${backendUrl}/api/users/updateUser/${memberId}`, {
+//       method: 'PUT',
+//       body
+//     });
+
+//     if (!res.ok) {
+//       let err = null;
+//       try { err = await res.json(); } catch {}
+//       console.error('❌ Backend update failed:', res.status, err);
+//       if (typeof showMessage === 'function') showMessage(err?.message || `Failed to update member (HTTP ${res.status})`, 'error');
+//       return;
+//     }
+
+//     const payload = await (typeof tryJson === 'function' ? tryJson(res) : res.json().catch(() => ({})));
+//     const serverData = payload?.data || payload || {};
+
+//     // Build updated local object
+//     const updated = {
+//       ...original,
+//       name, email, code, position, state, zone,
+//       updatedAt: new Date().toISOString(),
+//       pendingSync: false
+//     };
+//     if (serverData.passportPhoto || serverData?.data?.passportPhoto) {
+//       updated.passportPhoto = serverData.passportPhoto || serverData.data.passportPhoto;
+//     }
+//     if (serverData.signature || serverData?.data?.signature) {
+//       updated.signature = serverData.signature || serverData.data.signature;
+//     }
+
+//     list[idx] = updated;
+//     window.currentMembers = list;
+//     if (typeof saveLocalMembers === 'function') saveLocalMembers(list);
+
+//     try { if (typeof logMemberUpdate === 'function') logMemberUpdate(updated); } catch (_) {}
+
+//     if (typeof showMessage === 'function') showMessage('Member updated successfully!', 'success');
+//     if (typeof closeEditMemberModal   === 'function') closeEditMemberModal();
+//     if (typeof displayMembers         === 'function') displayMembers(list);
+//     if (typeof updateSyncStatus       === 'function') updateSyncStatus();
+//     if (typeof loadDashboardStats     === 'function') await loadDashboardStats();
+//     if (typeof loadRecentActivity     === 'function') await loadRecentActivity();
+
+//   } catch (networkErr) {
+//     console.warn('🌐 Network error during update:', networkErr);
+//     if (typeof showMessage === 'function') showMessage('Network error while updating member.', 'error');
+//   }
+// }
 
 
 
