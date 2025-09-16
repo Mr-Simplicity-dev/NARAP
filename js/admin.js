@@ -5065,7 +5065,7 @@ function closeViewMemberModal() {
 async function editMember(event) {
   event.preventDefault();
 
-  // --- Ensure urlBases exists for multi-endpoint fallbacks ---
+  // Ensure urlBases exists for multi-endpoint fallbacks
   let urlBases;
   try {
     urlBases = [
@@ -5073,26 +5073,21 @@ async function editMember(event) {
       (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '', // Any configured API_BASE
       (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : '' // Discovered override
     ].filter(x => !!x);
-    
-    const __endpoints = function(id) {
-      return [
-        `/api/users/updateUser/${id}`,   // Preferred
-        '/api/users/update',             // Fallback (expects id in body)
-        '/api/users'                     // Last resort
-      ];
-    };
   } catch (_) {
-    urlBases = ['https://narap-backend.onrender.com'];
+    urlBases = ['https://narap-backend.onrender.com']; // Fallback
   }
 
+  // Ensure memberId is properly fetched from the form dataset
   const form = event.target;
   const memberId = (form.dataset.memberId || '').trim();
+  console.log(memberId);
+  
   if (!memberId) {
     showMessage('Member ID not found', 'error');
     return;
   }
 
-  // Fields
+  // Ensure all form fields exist
   const nameField = form.querySelector('#editMemberName');
   const emailField = form.querySelector('#editMemberEmail');
   const codeField = form.querySelector('#editMemberCode');
@@ -5110,7 +5105,7 @@ async function editMember(event) {
     return;
   }
 
-  // Collect & normalize
+  // Collect & normalize data from form fields
   const name = nameField.value.trim();
   const email = emailField ? emailField.value.trim() : '';
   const code = codeField.value.trim();
@@ -5119,7 +5114,7 @@ async function editMember(event) {
   const zone = (zoneField.value || '').toString().trim();
   const password = passwordField ? passwordField.value.trim() : '';
 
-  // Build multipart body
+  // Build multipart body using FormData
   const body = new FormData();
   body.append('name', name);
   if (email) body.append('email', email);
@@ -5129,13 +5124,13 @@ async function editMember(event) {
   body.append('zone', zone);
   if (password && password.trim()) body.append('password', password);
 
-  // Files (backend expects these names)
+  // Add files (passport photo and signature) if present
   const passportInput = document.getElementById('editMemberPassport');
   const signatureInput = document.getElementById('editMemberSignature');
   if (passportInput?.files?.[0]) body.append('passportPhoto', passportInput.files[0]);
   if (signatureInput?.files?.[0]) body.append('signature', signatureInput.files[0]);
 
-  // Required checks
+  // Required fields validation
   const requiredFields = ['name', 'code', 'position', 'state', 'zone'];
   for (const field of requiredFields) {
     const value = body.get(field);
@@ -5145,7 +5140,7 @@ async function editMember(event) {
     }
   }
 
-  // Locate in local list (for instant UI update)
+  // Locate the member in the local list for instant UI update
   const list = Array.isArray(window.currentMembers) ? window.currentMembers : [];
   const idx = list.findIndex(m => (m?._id === memberId) || (m?.id === memberId));
   if (idx === -1) {
@@ -5157,9 +5152,9 @@ async function editMember(event) {
   try {
     showMessage('Updating member...', 'info');
 
-    // ✅ Correct route (your server supports PUT here)
+    // Send PUT request to update the user (use the correct URL and method)
     const res = await fetch(`${urlBases[0]}/api/users/updateUser/${memberId}`, {
-      method: 'PUT',
+      method: 'PUT', // Ensure PUT method is used
       body
     });
 
@@ -5171,10 +5166,11 @@ async function editMember(event) {
       return;
     }
 
+    // Parse the response payload
     const payload = await res.json();
     const serverData = payload?.data || payload || {};
 
-    // Build updated local object
+    // Build updated local object for UI
     const updated = {
       ...original,
       name, email, code, position, state, zone,
@@ -5188,6 +5184,7 @@ async function editMember(event) {
       updated.signature = serverData.signature || serverData.data.signature;
     }
 
+    // Update the local list and save the changes
     list[idx] = updated;
     window.currentMembers = list;
     saveLocalMembers(list);
@@ -5206,6 +5203,7 @@ async function editMember(event) {
     showMessage('Network error while updating member.', 'error');
   }
 }
+
 
 
 // async function editMember(event) {
