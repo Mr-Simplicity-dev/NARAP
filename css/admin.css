@@ -3273,22 +3273,54 @@ body {
     margin-bottom: 10px;
 }
 
+/* Center the previews and label (works on all screen sizes) */
+.preview-group,
+.preview-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;   /* horizontal centering */
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+/* Make the images themselves center even without a wrapper */
+.passport-preview,
+.signature-preview {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  object-fit: cover;
+}
+
+/* Center the upload label/button */
+.file-upload-label {
+  display: inline-block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* Responsive file upload */
 @media (max-width: 768px) {
-    .passport-preview,
-    .signature-preview {
-        max-width: 120px;
-        max-height: 120px;
-    }
-    
-    .signature-preview {
-        max-height: 60px;
-    }
-    
-    .file-upload-label {
-        padding: 8px 12px;
-        font-size: 13px;
-    }
+  .passport-preview,
+  .signature-preview {
+    max-width: 120px;
+    max-height: 120px;
+  }
+
+  .signature-preview {
+    max-height: 60px;
+  }
+
+  .file-upload-label {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .preview-group,
+  .preview-wrapper {
+    gap: 6px;
+  }
 }
 
 /* ===== VIEW MEMBER MODAL STYLES ===== */
