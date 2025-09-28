@@ -12248,11 +12248,7 @@ try {
     }catch(_){}
   }, true);
 
-  // Wrap showEditMemberModal to persist id
-  (function(){
-    const orig = window.showEditMemberModal;
-    if (typeof orig !== 'function') return;
-    // REMOVED: Conflicting showEditMemberModal function definition();
+ 
 
   function getEditingMemberId(){
     const hid = $('editMemberId');
@@ -12412,10 +12408,10 @@ try {
     }
 
     return false;
-  };
+  })();
 
-  console.log('✅ NARAP v10 override active (method-override fallback)');
-})();
+//   console.log('✅ NARAP v10 override active (method-override fallback)');
+// })();
 
 
 
@@ -13922,3 +13918,6 @@ window.showEditMemberModal = showEditMemberModal;
 console.log('✅ Clean function assignments applied - member editing should now work');
 console.log('🔧 editMember function type:', typeof window.editMember);
 console.log('🔧 showEditMemberModal function type:', typeof window.showEditMemberModal);
+}
+})
+})
