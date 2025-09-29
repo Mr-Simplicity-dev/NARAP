@@ -12014,7 +12014,17 @@ try {
   (function(){
     const orig = window.showEditMemberModal;
     if (typeof orig !== 'function') return;
-    // REMOVED: Conflicting showEditMemberModal function definition();
+    window.showEditMemberModal = function(memberId){
+      ensureStateSelect();
+      const ret = orig.apply(this, arguments);
+      try{
+        const coll = (window.currentMembers || window.members || []);
+        const m = coll.find(mm => mm && (mm._id === memberId || mm.id === memberId));
+        if (m) window.setMemberState(m.state || m.State || '');
+      }catch(_){}
+      return ret;
+    };
+  })();
 
   // State select helper for editMember
   function ensureStateSelectForEdit() {
@@ -12094,7 +12104,68 @@ try {
   const orig = window.editMember;
   if (typeof orig !== 'function') return;
 
-  // REMOVED: // REMOVED: Conflicting editMember function definition();
+  window.editMember = function(ev){
+    // Capture memberId and previous state BEFORE calling original editMember
+    /* memberId captured earlier */
+    let prevState = null;
+    try {
+      const coll = (window.currentMembers || window.members || []);
+      const mm = coll.find(m => m && (m._id === memberId || m.id === memberId));
+      if (mm) prevState = (mm.state || mm.State || '').toString().trim().toUpperCase() || null;
+    } catch(_) {}
+    /* memberId captured earlier */
+    // Ensure select is uppercase (harmonize with your existing patch)
+    try {
+      const sel = document.getElementById('editMemberState');
+      if (sel) sel.value = (sel.value || '').toString().trim().toUpperCase();
+    } catch(_){}
+
+    const ret = orig.apply(this, arguments);
+
+    // When finished (sync or async), update caches and redraw
+    const finalize = () => {
+      // After original edit completes, compare and log activity
+      let newState = null;
+      try {
+        newState = getNewStateValue();
+        applyStateToCaches(memberId, newState);
+        try {
+          if (prevState && newState && prevState !== newState) {
+            // Build a minimal identity for the member
+            let meta = { id: memberId, from: prevState, to: newState };
+            try {
+              const coll2 = (window.currentMembers || window.members || []);
+              const mm2 = coll2.find(m => m && (m._id === memberId || m.id === memberId));
+              if (mm2) {
+                meta.code = mm2.code || undefined;
+                meta.name = mm2.name || mm2.fullName || undefined;
+              }
+            } catch(_){}
+            if (typeof window.activityLogger?.member === 'function') {
+              window.activityLogger.member('state_moved', meta);
+            } else if (typeof window.logMemberUpdate === 'function') {
+              // Fallback: still log as an update
+              window.logMemberUpdate({ _id: memberId, state: newState });
+            }
+          }
+        } catch (_){ }
+        if (typeof window.showMessage === 'function' && newState) {
+          window.showMessage(`Member moved to ${newState}` + (prevState?` from ${prevState}`:''), 'success');
+        }
+      } catch(_){}
+    };
+
+    if (ret && typeof ret.then === 'function') {
+      // Promise-like
+      return ret.then(function(x){ finalize(); return x; })
+                .catch(function(e){ finalize(); throw e; });
+    } else {
+      // Synchronous path
+      setTimeout(finalize, 0);
+      return ret;
+    }
+  };
+})();
 
 /* ===== NARAP - EditMember Harden (handles 'row is not defined' gracefully) ===== */
 (function(){
@@ -12198,7 +12269,29 @@ try {
       });
   }
 
-  // REMOVED: // REMOVED: Conflicting editMember function definition();
+  window.editMember = function(ev){
+    let ret;
+    try {
+      ret = orig.apply(this, arguments);
+    } catch(e){
+      if (e && /row is not defined|memberToDelete is not defined/i.test(String(e.message||''))) {
+        return doFallback(ev);
+      } else {
+        throw e;
+      }
+    }
+
+    if (ret && typeof ret.then === 'function') {
+      return ret.catch(e => {
+        if (e && /row is not defined|memberToDelete is not defined/i.test(String(e.message||''))) {
+          return doFallback(ev);
+        }
+        throw e;
+      });
+    }
+    return ret;
+  };
+})();
 
 /* ===================== NARAP - All-in-One Edit + ID + Activity Override (v10) =====================
    Adds POST override fallback for 405 Method Not Allowed responses.
@@ -12248,7 +12341,21 @@ try {
     }catch(_){}
   }, true);
 
- 
+  // Wrap showEditMemberModal to persist id
+  (function(){
+    const orig = window.showEditMemberModal;
+    if (typeof orig !== 'function') return;
+    window.showEditMemberModal = function(memberId){
+      try{
+        if (memberId) {
+          window.__editingMemberId = memberId;
+          ensureHiddenEditId(memberId);
+          setModalDataset(memberId);
+        }
+      }catch(_){}
+      return orig.apply(this, arguments);
+    };
+  })();
 
   function getEditingMemberId(){
     const hid = $('editMemberId');
@@ -12334,7 +12441,7 @@ try {
   }
 
   // --- Final override (last one wins) ---
-  // REMOVED: window.editMember = async function(ev){
+  window.editMember = async function(ev){
     try{ if (ev && typeof ev.preventDefault==='function') ev.preventDefault(); }catch(_){}
 
     let id = getEditingMemberId();
@@ -12408,10 +12515,10 @@ try {
     }
 
     return false;
-  })();
+  };
 
-//   console.log('✅ NARAP v10 override active (method-override fallback)');
-// })();
+  console.log('✅ NARAP v10 override active (method-override fallback)');
+})();
 
 
 
@@ -12435,7 +12542,120 @@ try {
     return res.json();
   }
 
-  
+  // Patch the existing v10 override by replacing its window.editMember with extended sequence
+  const prevEdit = window.editMember;
+  window.editMember = async function(ev){
+    try{ if (ev && typeof ev.preventDefault==='function') ev.preventDefault(); }catch(_){}
+
+    // Borrow helpers from v10 already attached in scope
+    const getId = (function(){
+      const modal = $('editMemberModal');
+      const form = $('editMemberForm') || (modal ? modal.querySelector('form') : null);
+      return function(){
+        return ( $('editMemberId')?.value )
+            || ( modal && modal.dataset && modal.dataset.memberId )
+            || ( form && form.dataset && (form.dataset.memberId || form.dataset.id) )
+            || window.__editingMemberId || '';
+      };
+    })();
+
+    const codeFromForm = (val('editMemberCode') || '').trim();
+    let id = getId();
+    if (!id && codeFromForm && Array.isArray(window.currentMembers || window.members)) {
+      const coll = (window.currentMembers || window.members || []);
+      const m = coll.find(mm => mm && (mm.code === codeFromForm));
+      if (m) {
+        id = m._id || m.id || '';
+        window.__editingMemberId = id;
+        const hid = $('editMemberId'); if (hid) hid.value = id;
+        if (modal) { if (!modal.dataset) modal.dataset = {}; modal.dataset.memberId = id; }
+      }
+    }
+    if (!id){
+      console.error('editMember(v11): missing member ID');
+      if (typeof window.showMessage === 'function') window.showMessage('Missing member ID', 'danger');
+      return false;
+    }
+
+    const coll = (window.currentMembers || window.members || []);
+    const prev = Array.isArray(coll) ? coll.find(m => m && (m._id === id || m.id === id)) : null;
+    const prevState = prev ? up(prev.state || prev.State) : null;
+
+    const payload = {
+      name: val('editMemberName') || prev?.name || '',
+      code: codeFromForm || prev?.code || '',
+      position: val('editMemberPosition') || prev?.position || '',
+      state: up(val('editMemberState') || prev?.state || prev?.State || ''),
+      zone: val('editMemberZone') || prev?.zone || ''
+    };
+
+    const url = `/api/users/${id}`;
+
+    // Reuse the helper functions defined by v10 patch if present
+    const putJSON = async (u,p)=>{
+      const r = await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+      if(!r.ok) throw new Error(`PUT JSON ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
+    };
+    const putForm = async (u,p)=>{
+      const fd=new FormData(); for(const [k,v] of Object.entries(p)) fd.append(k,v==null?'':v);
+      const r=await fetch(u,{method:'PUT',body:fd});
+      if(!r.ok) throw new Error(`PUT FORM ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
+    };
+    const postOverrideJSON = async (u,p)=>{
+      const r = await fetch(u + (u.includes('?')?'&':'?') + 'method=PUT', {
+        method:'POST', headers:{'Content-Type':'application/json','X-HTTP-Method-Override':'PUT'}, body: JSON.stringify(p)
+      });
+      if(!r.ok) throw new Error(`POST(override) JSON ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
+    };
+    const postOverrideForm = async (u,p)=>{
+      const fd=new FormData(); for(const [k,v] of Object.entries(p)) fd.append(k,v==null?'':v);
+      const r = await fetch(u + (u.includes('?')?'&':'?') + 'method=PUT', { method:'POST', headers:{'X-HTTP-Method-Override':'PUT'}, body:fd });
+      if(!r.ok) throw new Error(`POST(override) FORM ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
+    };
+
+    let updated;
+    try { updated = await putJSON(url, payload); }
+    catch(e1){ try { updated = await putForm(url, payload); }
+    catch(e2){ try { updated = await postOverrideJSON(url, payload); }
+    catch(e3){ try { updated = await postOverrideForm(url, payload); }
+    catch(e4){ try { updated = await postPlainJSON(url, payload); }            // 5) POST JSON /:id
+    catch(e5){ try { updated = await postPlainForm(url, payload); }            // 6) POST FORM /:id
+    catch(e6){ try { updated = await postPlainJSON('/api/users/update', { id, ...payload }); } // 7) POST JSON /update
+    catch(e7){ try { updated = await postPlainForm('/api/users/update', { id, ...payload }); } // 8) POST FORM /update
+    catch(e8){ try { updated = await postPlainJSON('/api/users', { id, ...payload }); }        // 9) POST JSON /users
+    catch(e9){ try { updated = await postPlainForm('/api/users', { id, ...payload }); }        // 10) POST FORM /users
+    catch(e10){ console.error('editMember(v11): all fallbacks failed', e1,e2,e3,e4,e5,e6,e7,e8,e9,e10);
+      if (typeof window.showMessage === 'function')
+        window.showMessage('Backend update failed (all fallbacks). Check server routes to allow POST /api/users/:id or /api/users/update.', 'danger');
+      return false; }}}}}}}}}}
+
+    // Apply to caches and activity log
+    try{
+      const m = prev || (Array.isArray(coll) ? coll.find(x => x && (x._id === (updated._id||updated.id) || x.id === (updated._id||updated.id))) : null);
+      if (m){
+        m.name = updated.name ?? m.name;
+        m.code = updated.code ?? m.code;
+        m.position = updated.position ?? m.position;
+        const st = up(updated.state || updated.State); if (st){ m.state = st; m.State = st; }
+        m.zone = updated.zone ?? m.zone;
+      }
+      if (typeof window.filterMembers === 'function') window.filterMembers();
+      else if (typeof window.renderMembers === 'function') window.renderMembers(coll);
+
+      const newState = up(updated.state || updated.State);
+      if (prevState && newState && prevState !== newState) {
+        if (typeof window.activityLogger?.member === 'function') {
+          window.activityLogger.member('state_moved', { id: updated._id || updated.id || id, name: updated.name || m?.name, code: updated.code || m?.code, from: prevState, to: newState });
+        }
+        if (typeof window.showMessage === 'function') window.showMessage(`Member moved to ${newState} from ${prevState}`, 'success');
+      } else {
+        if (typeof window.showMessage === 'function') window.showMessage('Member updated', 'success');
+      }
+    }catch(_){}
+    return false;
+  };
+
+  console.log('✅ NARAP v11 override active (extended POST fallbacks)');
 })();
 
 
@@ -13906,18 +14126,3 @@ document.addEventListener('DOMContentLoaded', function () {
 /* ==================== /Pagination Hardening Patch ==================== */
 
 })();
-
-
-// ==================== CLEAN FUNCTION ASSIGNMENTS ====================
-// This section overrides all conflicting function definitions to fix member editing
-
-// Clean function assignments - these override all conflicting definitions
-window.editMember = editMember;
-window.showEditMemberModal = showEditMemberModal;
-
-console.log('✅ Clean function assignments applied - member editing should now work');
-console.log('🔧 editMember function type:', typeof window.editMember);
-console.log('🔧 showEditMemberModal function type:', typeof window.showEditMemberModal);
-}
-})
-})
