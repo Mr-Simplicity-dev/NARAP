@@ -13683,22 +13683,47 @@ function showLimitModal(type, current, limit) {
     
     if (modal && title && message && currentCount && limitValue) {
         // Update modal content
-        title.textContent = `${type === 'member' ? '👥' : '📜'} ${type.charAt(0).toUpperCase() + type.slice(1)} Limit Reached`;
-        message.textContent = `You cannot add more ${type}s. The maximum limit of ${limit} ${type}s has been reached.`;
-        currentCount.textContent = current;
-        limitValue.textContent = limit;
+        const emoji = type === 'member' ? '👥' : '📜';
+        const typeName = type.charAt(0).toUpperCase() + type.slice(1);
         
-        // Show modal
+        title.textContent = `${emoji} ${typeName} Limit Reached`;
+        message.innerHTML = `
+            <strong>You cannot add more ${type}s.</strong><br>
+            The maximum limit has been reached and no slots are available.
+        `;
+        
+        // Ensure numbers are displayed properly
+        currentCount.textContent = current || '0';
+        limitValue.textContent = limit || '0';
+        
+        // Add some visual emphasis
+        currentCount.style.color = '#e74c3c';
+        limitValue.style.color = '#e74c3c';
+        
+        // Show modal with animation
         modal.style.display = 'flex';
+        modal.style.opacity = '0';
         document.body.style.overflow = 'hidden';
+        
+        // Fade in animation
+        setTimeout(() => {
+            modal.style.transition = 'opacity 0.3s ease';
+            modal.style.opacity = '1';
+        }, 10);
     }
 }
 
 function closeLimitModal() {
     const modal = document.getElementById('limitModal');
     if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
+        // Fade out animation
+        modal.style.transition = 'opacity 0.3s ease';
+        modal.style.opacity = '0';
+        
+        setTimeout(() => {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }, 300);
     }
 }
 
