@@ -12094,7 +12094,7 @@ try {
   const orig = window.editMember;
   if (typeof orig !== 'function') return;
 
-  // REMOVED: // REMOVED: Conflicting editMember function definition();
+  
 
 
 
@@ -12126,58 +12126,7 @@ try {
 
 
 
-/* ===================== NARAP - All-in-One Edit Override (v12 multi-base) =====================
-   Extends v11 by trying multiple API bases:
-   - window.API_BASE if set
-   - current origin (location.origin)
-   - discovered origin from any element with src/href containing "/api/uploads/"
-   - https://narap-backend.onrender.com as a known backend
-================================================================================================ */
-(function(){
-  function unique(arr){ return Array.from(new Set(arr.filter(Boolean))); }
-  function discoverUploadOrigin(){
-    try {
-      const el = document.querySelector('[src*="/api/uploads/"], a[href*="/api/uploads/"]');
-      if (!el) return '';
-      const url = new URL(el.src || el.href, window.location.href);
-      return url.origin;
-    } catch(_){ return ''; }
-  }
-  function deriveBases(){
-    const bases = [];
-    try { if (window.API_BASE) bases.push(String(window.API_BASE)); } catch(_){}
-    bases.push(window.location.origin);
-    const discovered = discoverUploadOrigin(); if (discovered) bases.push(discovered);
-    if (!bases.some(b => /narap-backend\.onrender\.com/i.test(b))) bases.push('https://narap-backend.onrender.com');
-    return unique(bases);
-  }
 
-  async function reqPUTJSON(u,p){
-    const r = await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
-    if(!r.ok) throw new Error(`PUT JSON ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
-  }
-  async function reqPUTFORM(u,p){
-    const fd=new FormData(); for(const [k,v] of Object.entries(p)) fd.append(k,v==null?'':v);
-    const r=await fetch(u,{method:'PUT',body:fd}); if(!r.ok) throw new Error(`PUT FORM ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
-  }
-  async function reqPOSTOvJSON(u,p){
-    const r = await fetch(u + (u.includes('?')?'&':'?') + 'method=PUT', { method:'POST', headers:{'Content-Type':'application/json','X-HTTP-Method-Override':'PUT'}, body: JSON.stringify(p) });
-    if(!r.ok) throw new Error(`POST(override) JSON ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
-  }
-  async function reqPOSTOvFORM(u,p){
-    const fd=new FormData(); for(const [k,v] of Object.entries(p)) fd.append(k,v==null?'':v);
-    const r = await fetch(u + (u.includes('?')?'&':'?') + 'method=PUT', { method:'POST', headers:{'X-HTTP-Method-Override':'PUT'}, body:fd });
-    if(!r.ok) throw new Error(`POST(override) FORM ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
-  }
-  async function reqPOSTJSON(u,p){
-    const r = await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
-    if(!r.ok) throw new Error(`POST JSON ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
-  }
-  async function reqPOSTFORM(u,p){
-    const fd=new FormData(); for(const [k,v] of Object.entries(p)) fd.append(k,v==null?'':v);
-    const r=await fetch(u,{method:'POST',body:fd}); if(!r.ok) throw new Error(`POST FORM ${r.status}: ${await r.text().catch(()=>r.statusText)}`); return r.json();
-  }
-})();
 
 
 
