@@ -6376,19 +6376,15 @@ async function issueCertificate(event) {
     }
     
     try {
-        
         showMessage('Issuing certificate...', 'info');
         
         // Get form data
         const certificateData = getCertificateFormData();
         
         if (!certificateData) {
-            
             showMessage('Please fill in all required fields', 'error');
             return;
         }
-        
-        
         
         // Try to save to backend first
         let backendSuccess = false;
@@ -6414,15 +6410,56 @@ async function issueCertificate(event) {
                     body: JSON.stringify(backendData)
                 });
                 
+                console.log('🔍 Certificate backend response status:', response.status);
+                
                 if (response.ok) {
                     const result = await tryJson(response);
                     if (result.certificate) {
                         certificateData._id = result.certificate._id;
                         backendSuccess = true;
                     }
+                } else {
+                    const errorData = await tryJson(response).catch(() => ({}));
+                    console.error('❌ Certificate backend error response:', errorData);
+                    
+                    // 🛡️ Check if this is a limit error (status 429 = Too Many Requests)
+                    if (response.status === 429 && errorData?.error === 'CERTIFICATE_LIMIT_REACHED') {
+                        // Show modal instead of notification for limit errors
+                        showLimitModal('certificate', errorData.details?.currentCount || 0, errorData.details?.limit || 0);
+                        return;
+                    }
+                    
+                    // 🛡️ Also check message content for limit-related keywords
+                    const errorMessage = errorData?.message || '';
+                    if (errorMessage.toLowerCase().includes('limit') || 
+                        errorMessage.toLowerCase().includes('capacity') || 
+                        errorMessage.toLowerCase().includes('maximum') ||
+                        errorMessage.toLowerCase().includes('frozen')) {
+                        // This is a limit error, show modal instead of notification
+                        showLimitModal('certificate', 0, 0); // We don't have exact numbers from this response
+                        return;
+                    }
+                    
+                    // For other errors, show normal notification
+                    showMessage(errorData?.message || `Failed to issue certificate (HTTP ${response.status})`, 'error');
+                    return;
                 }
             } catch (error) {
+                console.error('❌ Error issuing certificate to backend:', error);
                 
+                // 🛡️ Check if this is a limit-related error
+                const errorMessage = error.message || '';
+                if (errorMessage.toLowerCase().includes('limit') || 
+                    errorMessage.toLowerCase().includes('capacity') || 
+                    errorMessage.toLowerCase().includes('maximum') ||
+                    errorMessage.toLowerCase().includes('frozen')) {
+                    // This is a limit error, show modal instead of notification
+                    showLimitModal('certificate', 0, 0);
+                    return;
+                }
+                
+                // For network errors, continue with offline mode
+                console.log('Network error, continuing with offline mode');
             }
         }
         
@@ -6430,12 +6467,12 @@ async function issueCertificate(event) {
         const localCertificates = getLocalCertificates() || [];
         localCertificates.push(certificateData);
         saveLocalCertificates(localCertificates);
+        
         // Log and refresh Recent Activity immediately
         try { if (typeof logCertificateAdd === 'function') logCertificateAdd(certificateData); } catch (_) {}
         try { if (typeof loadRecentActivity === 'function') setTimeout(loadRecentActivity, 0); } catch (_) {}
         try { if (typeof updateActivityOverlayVisibility === 'function') setTimeout(updateActivityOverlayVisibility, 0); } catch (_) {}
 
-        
         // Add to pending sync if backend failed
         if (!backendSuccess) {
             const pendingSync = getPendingSync();
@@ -6459,7 +6496,20 @@ async function issueCertificate(event) {
         }
         
     } catch (error) {
+        console.error('❌ Final catch block error in issueCertificate:', error);
         
+        // 🛡️ Check if this is a limit-related error
+        const errorMessage = error.message || '';
+        if (errorMessage.toLowerCase().includes('limit') || 
+            errorMessage.toLowerCase().includes('capacity') || 
+            errorMessage.toLowerCase().includes('maximum') ||
+            errorMessage.toLowerCase().includes('frozen')) {
+            // This is a limit error, show modal instead of notification
+            showLimitModal('certificate', 0, 0);
+            return;
+        }
+        
+        // For other errors, show normal notification
         showMessage('Failed to issue certificate: ' + error.message, 'error');
     }
 }
