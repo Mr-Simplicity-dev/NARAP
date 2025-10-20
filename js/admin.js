@@ -3817,7 +3817,7 @@ if (data && data.success && Array.isArray(data.members)) {
 async function addMember(event) {
     event.preventDefault();
     
-// 🛡️ CHECK LIMITS FIRST - Show modal if limit reached
+    // 🛡️ CHECK LIMITS FIRST - Show modal if limit reached
     const canAdd = await checkLimitsBeforeAdd('member');
     if (!canAdd) {
         return; // Stop here if limit reached - modal is already shown
@@ -3985,11 +3985,42 @@ async function addMember(event) {
                 } else {
                     const errorData = await tryJson(response).catch(() => ({}));
                     console.error('❌ Backend error response:', errorData);
+                    
+                    // 🛡️ Check if this is a limit error (status 429 = Too Many Requests)
+                    if (response.status === 429 && errorData?.error === 'MEMBER_LIMIT_REACHED') {
+                        // Show modal instead of notification for limit errors
+                        showLimitModal('member', errorData.details?.currentCount || 0, errorData.details?.limit || 0);
+                        return;
+                    }
+                    
+                    // 🛡️ Also check message content for limit-related keywords
+                    const errorMessage = errorData?.message || '';
+                    if (errorMessage.toLowerCase().includes('limit') || 
+                        errorMessage.toLowerCase().includes('capacity') || 
+                        errorMessage.toLowerCase().includes('maximum')) {
+                        // This is a limit error, show modal instead of notification
+                        showLimitModal('member', 0, 0); // We don't have exact numbers from this response
+                        return;
+                    }
+                    
+                    // For other errors, show normal notification
                     showMessage(errorData?.message || `Failed to add member (HTTP ${response.status})`, 'error');
-                    return; // do NOT fall back to local on server validation errors
+                    return;
                 }
             } catch (error) {
                 console.error('❌ Error adding member to backend:', error);
+                
+                // 🛡️ Check if this is a limit-related error
+                const errorMessage = error.message || '';
+                if (errorMessage.toLowerCase().includes('limit') || 
+                    errorMessage.toLowerCase().includes('capacity') || 
+                    errorMessage.toLowerCase().includes('maximum')) {
+                    // This is a limit error, show modal instead of notification
+                    showLimitModal('member', 0, 0);
+                    return;
+                }
+                
+                // For network errors, fall back to offline mode
                 isOnline = false;
             }
         }
@@ -4010,37 +4041,34 @@ async function addMember(event) {
         // Store file references for offline sync
         if (passportInput && passportInput.files[0]) {
             newMember.passportFile = passportInput.files[0]; // Store file reference
-            
         }
         
         if (signatureInput && signatureInput.files[0]) {
             newMember.signatureFile = signatureInput.files[0]; // Store file reference
-            
         }
         
         // For online storage, use the filename from backend response
         if (isOnline && backendResponse && (backendResponse.data && backendResponse.data.passportPhoto) || backendResponse.passportPhoto) {
             newMember.passportPhoto = backendResponse.data.passportPhoto;
-            
         }
         if (isOnline && backendResponse && (backendResponse.data && backendResponse.data.signature) || backendResponse.signature) {
             newMember.signature = backendResponse.data.signature;
-            
         }
         
         // Add to current members
         const updatedMembers = [...currentMembers, newMember];
         window.currentMembers = updatedMembers;
         
-        
         // Save to local storage
         saveLocalMembers(updatedMembers);
+        
         // Activity log: member added
         try {
             if (typeof logMemberAdd === 'function') logMemberAdd(newMember);
             if (typeof loadRecentActivity === 'function') { setTimeout(loadRecentActivity, 0); }
             if (typeof updateActivityOverlayVisibility === 'function') { setTimeout(updateActivityOverlayVisibility, 0); }
         } catch (e) { try { console.warn('logMemberAdd failed:', e); } catch(_) {} }
+        
         // Add to pending sync if offline
         if (!isOnline) {
             const pendingSync = getPendingSync();
@@ -4064,7 +4092,19 @@ async function addMember(event) {
         }
         
     } catch (error) {
+        console.error('❌ Final catch block error:', error);
         
+        // 🛡️ Check if this is a limit-related error
+        const errorMessage = error.message || '';
+        if (errorMessage.toLowerCase().includes('limit') || 
+            errorMessage.toLowerCase().includes('capacity') || 
+            errorMessage.toLowerCase().includes('maximum')) {
+            // This is a limit error, show modal instead of notification
+            showLimitModal('member', 0, 0);
+            return;
+        }
+        
+        // For other errors, show normal notification
         showMessage('Failed to add member: ' + error.message, 'error');
     }
 }
