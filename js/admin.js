@@ -3817,6 +3817,12 @@ if (data && data.success && Array.isArray(data.members)) {
 async function addMember(event) {
     event.preventDefault();
     
+// 🛡️ CHECK LIMITS FIRST - Show modal if limit reached
+    const canAdd = await checkLimitsBeforeAdd('member');
+    if (!canAdd) {
+        return; // Stop here if limit reached - modal is already shown
+    }
+
     // Get form elements with error checking
     const nameField = document.getElementById('memberName');
     const emailField = document.getElementById('memberEmail');
@@ -6322,6 +6328,12 @@ function generateCertificateHTML(certificate) {
 
 async function issueCertificate(event) {
     event.preventDefault();
+    
+    // 🛡️ CHECK LIMITS FIRST - Show modal if limit reached
+    const canAdd = await checkLimitsBeforeAdd('certificate');
+    if (!canAdd) {
+        return; // Stop here if limit reached - modal is already shown
+    }
     
     try {
         
@@ -13543,6 +13555,82 @@ document.addEventListener('DOMContentLoaded', function () {
 
 })();
 
+// Limit checking and modal functions
+async function checkLimitsBeforeAdd(type) {
+    try {
+        const response = await fetch(`${backendUrl}/api/limits-status`);
+        if (!response.ok) {
+            console.log('Could not check limits, allowing operation');
+            return true; // Allow if can't check limits
+        }
+        
+        const data = await response.json();
+        const limits = data.status;
+        
+        if (type === 'member' && !limits.members.canAdd) {
+            showLimitModal('member', limits.members.current, limits.members.limit);
+            return false;
+        }
+        
+        if (type === 'certificate' && !limits.certificates.canAdd) {
+            showLimitModal('certificate', limits.certificates.current, limits.certificates.limit);
+            return false;
+        }
+        
+        return true; // Can add
+    } catch (error) {
+        console.error('Error checking limits:', error);
+        return true; // Allow if error checking limits
+    }
+}
+
+function showLimitModal(type, current, limit) {
+    const modal = document.getElementById('limitModal');
+    const title = document.getElementById('limitTitle');
+    const message = document.getElementById('limitMessage');
+    const currentCount = document.getElementById('currentCount');
+    const limitValue = document.getElementById('limitValue');
+    
+    if (modal && title && message && currentCount && limitValue) {
+        // Update modal content
+        title.textContent = `${type === 'member' ? '👥' : '📜'} ${type.charAt(0).toUpperCase() + type.slice(1)} Limit Reached`;
+        message.textContent = `You cannot add more ${type}s. The maximum limit of ${limit} ${type}s has been reached.`;
+        currentCount.textContent = current;
+        limitValue.textContent = limit;
+        
+        // Show modal
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeLimitModal() {
+    const modal = document.getElementById('limitModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+async function checkLimitsStatus() {
+    try {
+        showMessage('Checking current limits...', 'info');
+        const response = await fetch(`${backendUrl}/api/limits-status`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            const limits = data.status;
+            
+            showMessage(`Status: Members ${limits.members.current}/${limits.members.limit}, Certificates ${limits.certificates.current}/${limits.certificates.limit}`, 'success');
+        } else {
+            showMessage('Could not check limits status', 'error');
+        }
+    } catch (error) {
+        console.error('Error checking limits status:', error);
+        showMessage('Error checking limits status', 'error');
+    }
+}
+
 // ==================== CLEAN FUNCTION ASSIGNMENTS ====================
 // This section overrides all conflicting function definitions to fix member editing
 
@@ -13553,3 +13641,13 @@ window.showEditMemberModal = showEditMemberModal;
 console.log('✅ Clean function assignments applied - member editing should now work');
 console.log('🔧 editMember function type:', typeof window.editMember);
 console.log('🔧 showEditMemberModal function type:', typeof window.showEditMemberModal);
+
+// ==================== LIMIT MODAL EVENT LISTENERS ====================
+// Add this to your existing event listeners
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeLimitModal();
+    }
+});
+
+console.log('✅ Limit modal event listeners added');

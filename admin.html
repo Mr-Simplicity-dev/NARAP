@@ -1930,6 +1930,53 @@
     </div>
    </div>
   </div>
+
+  <!-- Limit Reached Modal -->
+<div class="modal" id="limitModal">
+  <div class="modal-backdrop" onclick="closeLimitModal()"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title" id="limitTitle">⚠️ Limit Reached</h2>
+      <button class="close-btn" onclick="closeLimitModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="limit-notification">
+        <div class="limit-icon">
+          <i class="fas fa-exclamation-triangle" style="color: #f39c12; font-size: 3em;"></i>
+        </div>
+        <div class="limit-message">
+          <p id="limitMessage">You have reached the maximum limit.</p>
+          <div class="limit-stats" id="limitStats">
+            <div class="stat-item">
+              <span class="stat-label">Current:</span>
+              <span class="stat-value" id="currentCount">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Limit:</span>
+              <span class="stat-value" id="limitValue">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="limit-actions">
+        <p><strong>What can you do?</strong></p>
+        <ul>
+          <li>Contact the system administrator to increase the limit</li>
+          <li>Remove inactive members/certificates to free up space</li>
+          <li>Wait for the limit to be increased</li>
+        </ul>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeLimitModal()">
+        <i class="fas fa-check"></i> Understood
+      </button>
+      <button class="btn btn-secondary" onclick="checkLimitsStatus()">
+        <i class="fas fa-refresh"></i> Check Status
+      </button>
+    </div>
+  </div>
+</div>
  
 <!-- Export-by-State (guarded, adds only if not already defined) -->
 <!-- Export-by-State moved into admin bundle -->
