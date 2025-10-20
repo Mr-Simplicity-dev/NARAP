@@ -13542,10 +13542,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 })();
 
-<<<<<<< HEAD
-=======
-
->>>>>>> parent of db2c7f0 (make changes)
 // ==================== CLEAN FUNCTION ASSIGNMENTS ====================
 // This section overrides all conflicting function definitions to fix member editing
 
@@ -13556,9 +13552,3 @@ window.showEditMemberModal = showEditMemberModal;
 console.log('✅ Clean function assignments applied - member editing should now work');
 console.log('🔧 editMember function type:', typeof window.editMember);
 console.log('🔧 showEditMemberModal function type:', typeof window.showEditMemberModal);
-<<<<<<< HEAD
-=======
-}
-})
-})
->>>>>>> parent of db2c7f0 (make changes)
