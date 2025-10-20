@@ -3718,8 +3718,8 @@ async function loadMembers(page = 1, limit = 10, searchTerm = '', positionFilter
         const res = await fetch(`${backendUrl}/api/users/members`);
         if (res && res.ok) {
           const data = await tryJson(res);
-          if (Array.isArray(data)) {
-            backendMembers = data.map(m => ({
+if (data && data.success && Array.isArray(data.members)) {
+    backendMembers = data.members.map(m => ({
               ...m,
               // Normalize common fields used in the UI
               name: m.name || m.fullName || m.memberName || '',
