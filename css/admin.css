@@ -5739,7 +5739,7 @@ html, body { height: 100%; overflow-y: auto; }
   text-align: center !important;
 }
 
-/* Limit Modal Styles */
+/* Limit Modal Styles - UPDATED */
 .limit-notification {
     display: flex;
     align-items: center;
@@ -5770,29 +5770,37 @@ html, body { height: 100%; overflow-y: auto; }
     display: flex;
     gap: 20px;
     margin-top: 10px;
+    justify-content: center; /* CENTER THE STATS */
 }
 
 .stat-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 10px;
+    justify-content: center; /* CENTER CONTENT VERTICALLY */
+    padding: 15px 20px; /* INCREASED PADDING */
     background: white;
-    border-radius: 6px;
-    border: 1px solid #ddd;
-    min-width: 80px;
+    border-radius: 8px; /* SLIGHTLY LARGER RADIUS */
+    border: 2px solid #ddd; /* THICKER BORDER */
+    min-width: 100px; /* WIDER MIN WIDTH */
+    text-align: center; /* CENTER TEXT */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* ADD SUBTLE SHADOW */
 }
 
 .stat-label {
     font-size: 0.9em;
     color: #666;
-    margin-bottom: 5px;
+    margin-bottom: 8px; /* INCREASED MARGIN */
+    font-weight: 600; /* MAKE LABELS BOLD */
+    text-transform: uppercase; /* UPPERCASE LABELS */
+    letter-spacing: 0.5px; /* LETTER SPACING */
 }
 
 .stat-value {
-    font-size: 1.2em;
+    font-size: 1.4em; /* LARGER FONT SIZE */
     font-weight: bold;
     color: #e74c3c;
+    line-height: 1; /* TIGHT LINE HEIGHT */
 }
 
 .limit-actions {
@@ -5818,7 +5826,7 @@ html, body { height: 100%; overflow-y: auto; }
     color: #6c757d;
 }
 
-/* Mobile responsiveness */
+/* Mobile responsiveness - UPDATED */
 @media (max-width: 768px) {
     .limit-notification {
         flex-direction: column;
@@ -5827,5 +5835,21 @@ html, body { height: 100%; overflow-y: auto; }
     
     .limit-stats {
         justify-content: center;
+        flex-wrap: wrap; /* ALLOW WRAPPING ON MOBILE */
     }
+    
+    .stat-item {
+        min-width: 120px; /* WIDER ON MOBILE */
+    }
+}
+
+/* Additional styles for better modal appearance */
+.limit-notification .limit-message {
+    width: 100%;
+}
+
+.limit-stats {
+    width: 100%;
+    display: flex;
+    justify-content: space-evenly; /* EVENLY DISTRIBUTE STATS */
 }
