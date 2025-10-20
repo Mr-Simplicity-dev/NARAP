@@ -12093,7 +12093,7 @@ try {
 
   const orig = window.editMember;
   if (typeof orig !== 'function') return;
-
+})();
   
 
 
