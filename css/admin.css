@@ -3476,7 +3476,7 @@ body {
 
 .modal-footer {
     display: flex;
-    justify-content: flex-end;
+    justify-content: center; /* CHANGED FROM flex-end TO center */
     gap: 15px;
     padding: 20px 25px;
     border-top: 2px solid #f0f0f0;
@@ -3485,15 +3485,29 @@ body {
 }
 
 .modal-footer .btn {
-    padding: 10px 20px;
+    padding: 12px 24px; /* INCREASED PADDING */
     border-radius: 8px;
     font-weight: 600;
     transition: all 0.3s ease;
+    min-width: 140px; /* ENSURE CONSISTENT BUTTON WIDTHS */
 }
 
 .modal-footer .btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive design for modal footer */
+@media (max-width: 768px) {
+    .modal-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .modal-footer .btn {
+        width: 100%; /* FULL WIDTH ON MOBILE */
+        min-width: auto;
+    }
 }
 
 /* Responsive design for view member modal */
