@@ -331,8 +331,105 @@ class AnalyticsManager {
         try {
             const data = await this.fetchSystemData();
             this.displaySystemInfo(data);
+            
+            // ✅ FIX: Load system activity logs when system page loads
+            this.loadSystemActivityLogs();
         } catch (error) {
             console.error('System page loading error:', error);
+        }
+    }
+
+    // ✅ NEW: System activity logs loading method
+    loadSystemActivityLogs() {
+        try {
+            // Try the different function names that might exist
+            if (typeof loadSystemActivityLogs === 'function') {
+                loadSystemActivityLogs();
+            } else if (typeof loadSystemLogs === 'function') {
+                loadSystemLogs();
+            } else {
+                // Fallback: call the function directly if it exists in the global scope
+                this.loadSystemLogsDirectly();
+            }
+        } catch (error) {
+            console.error('Error loading system activity logs:', error);
+            // Show error message in the logs container
+            const systemLogs = document.getElementById('systemLogs');
+            if (systemLogs) {
+                systemLogs.innerHTML = '<div class="error">Failed to load system activity logs</div>';
+            }
+        }
+    }
+
+    // ✅ NEW: Direct system logs loading as fallback
+    loadSystemLogsDirectly() {
+        const systemLogs = document.getElementById('systemLogs');
+        if (!systemLogs) return;
+
+        try {
+            // Get activity logs from the global activityLogger
+            const logs = (typeof getActivityLog === 'function') ? (getActivityLog() || []) : [];
+            
+            if (!Array.isArray(logs) || logs.length === 0) {
+                systemLogs.innerHTML = '<div class="no-data">No system activities found</div>';
+                return;
+            }
+
+            // Filter for system activities and recent critical activities
+            const systemActivities = logs.filter(log => log && log.entity === 'system');
+            const criticalActivities = logs.filter(log => 
+                log && log.entity !== 'system' && 
+                (log.action === 'deleted' || log.action === 'updated')
+            ).slice(0, 10);
+
+            const allActivities = [...systemActivities, ...criticalActivities]
+                .sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0))
+                .slice(0, 20);
+
+            if (allActivities.length === 0) {
+                systemLogs.innerHTML = '<div class="no-data">No system activities found</div>';
+                return;
+            }
+
+            // Render the activities
+            const activitiesHTML = allActivities.map(activity => {
+                const when = activity.date && activity.time ? 
+                    `${activity.date} - ${activity.time}` : 
+                    new Date(activity.ts || Date.now()).toLocaleString();
+                
+                const title = `[${(activity.entity || '').toLowerCase()}] ${(activity.action || '').toLowerCase()}`;
+                
+                let subtitle = '';
+                if (activity.entity === 'member' && activity.data) {
+                    subtitle = activity.data.name || activity.data.code || activity.data.email || '';
+                } else if (activity.entity === 'certificate' && activity.data) {
+                    subtitle = activity.data.number || activity.data.certificateNumber || activity.data.member || activity.data.recipient || '';
+                } else if (activity.entity === 'system' && activity.data) {
+                    subtitle = activity.data.totalPending != null ? 
+                        `${activity.data.totalPending} change(s) pending` : 
+                        (activity.data.message || '');
+                }
+
+                return `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f6f6f6;">
+                        <div>
+                            <strong>${title}</strong>
+                            <span style="color:#6c757d;margin-left:8px;">${subtitle}</span>
+                        </div>
+                        <div style="color:#6c757d;font-size:12px;">${when}</div>
+                    </div>
+                `;
+            }).join('');
+
+            systemLogs.innerHTML = `
+                <div style="max-height:320px;overflow:auto;padding:6px 0;">
+                    ${activitiesHTML}
+                </div>
+            `;
+
+        } catch (error) {
+            console.error('Error in loadSystemLogsDirectly:', error);
+            systemLogs.innerHTML = '<div class="error">Failed to load system activity logs</div>';
         }
     }
 
@@ -424,6 +521,8 @@ function loadSystemPage() {
     }
 }
 
+
+
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = AnalyticsManager;
@@ -435,3 +534,4 @@ if (typeof module !== 'undefined' && module.exports) {
     window.loadRecentActivity = loadRecentActivity;
     window.loadSystemPage = loadSystemPage;
 }
+
