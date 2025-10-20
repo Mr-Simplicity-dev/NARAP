@@ -13711,7 +13711,33 @@ async function checkLimitsStatus() {
             const data = await response.json();
             const limits = data.status;
             
-            showMessage(`Status: Members ${limits.members.current}/${limits.members.limit}, Certificates ${limits.certificates.current}/${limits.certificates.limit}`, 'success');
+            // Create a detailed status message
+            const memberStatus = limits.members.canAdd ? 
+                `✅ ${limits.members.remaining} slots available` : 
+                `❌ FULL - No slots available`;
+            
+            const certificateStatus = limits.certificates.canAdd ? 
+                `✅ ${limits.certificates.remaining} slots available` : 
+                `❌ FULL - No slots available`;
+            
+            // Show detailed status in a better format
+            const statusMessage = `
+📊 CURRENT STATUS:
+👥 Members: ${limits.members.current}/${limits.members.limit} - ${memberStatus}
+📜 Certificates: ${limits.certificates.current}/${limits.certificates.limit} - ${certificateStatus}
+            `.trim();
+            
+            showMessage(statusMessage, 'info', 8000); // Show for 8 seconds
+            
+            // Also update the modal if it's open
+            const currentCount = document.getElementById('currentCount');
+            const limitValue = document.getElementById('limitValue');
+            if (currentCount && limitValue) {
+                // Update with fresh data (assuming this is for members, but you could make it dynamic)
+                currentCount.textContent = limits.members.current;
+                limitValue.textContent = limits.members.limit;
+            }
+            
         } else {
             showMessage('Could not check limits status', 'error');
         }
