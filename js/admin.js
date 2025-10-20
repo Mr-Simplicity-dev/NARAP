@@ -13330,6 +13330,7 @@ try {
       if (typeof showMessage === 'function') showMessage('Failed to open passport', 'error');
     }
   };
+  })();
 
   /* ======================= NARAP: Pagination Hardening Patch ======================= */
 
