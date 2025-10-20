@@ -13730,11 +13730,29 @@ function closeLimitModal() {
 async function checkLimitsStatus() {
     try {
         showMessage('Checking current limits...', 'info');
+        
+        // Make sure backendUrl is defined
+        if (!backendUrl) {
+            showMessage('Backend URL not configured', 'error');
+            return;
+        }
+        
+        console.log('🔍 Checking limits at:', `${backendUrl}/api/limits-status`);
+        
         const response = await fetch(`${backendUrl}/api/limits-status`);
+        
+        console.log('🔍 Limits status response:', response.status);
         
         if (response.ok) {
             const data = await response.json();
+            console.log('🔍 Limits data received:', data);
+            
             const limits = data.status;
+            
+            if (!limits || !limits.members || !limits.certificates) {
+                showMessage('Invalid limits data received', 'error');
+                return;
+            }
             
             // Create a detailed status message
             const memberStatus = limits.members.canAdd ? 
@@ -13746,29 +13764,45 @@ async function checkLimitsStatus() {
                 `❌ FULL - No slots available`;
             
             // Show detailed status in a better format
-            const statusMessage = `
-📊 CURRENT STATUS:
+            const statusMessage = `📊 CURRENT STATUS:
 👥 Members: ${limits.members.current}/${limits.members.limit} - ${memberStatus}
-📜 Certificates: ${limits.certificates.current}/${limits.certificates.limit} - ${certificateStatus}
-            `.trim();
+📜 Certificates: ${limits.certificates.current}/${limits.certificates.limit} - ${certificateStatus}`;
             
-            showMessage(statusMessage, 'info', 8000); // Show for 8 seconds
+            showMessage(statusMessage, 'success', 10000); // Show for 10 seconds as success
             
             // Also update the modal if it's open
-            const currentCount = document.getElementById('currentCount');
-            const limitValue = document.getElementById('limitValue');
-            if (currentCount && limitValue) {
-                // Update with fresh data (assuming this is for members, but you could make it dynamic)
-                currentCount.textContent = limits.members.current;
-                limitValue.textContent = limits.members.limit;
+            const modal = document.getElementById('limitModal');
+            if (modal && modal.style.display === 'flex') {
+                const currentCount = document.getElementById('currentCount');
+                const limitValue = document.getElementById('limitValue');
+                const limitTitle = document.getElementById('limitTitle');
+                
+                if (currentCount && limitValue && limitTitle) {
+                    // Determine which type of modal is open based on title
+                    const isMemberModal = limitTitle.textContent.includes('Member');
+                    
+                    if (isMemberModal) {
+                        currentCount.textContent = limits.members.current;
+                        limitValue.textContent = limits.members.limit;
+                    } else {
+                        currentCount.textContent = limits.certificates.current;
+                        limitValue.textContent = limits.certificates.limit;
+                    }
+                    
+                    // Add a visual indication that data was refreshed
+                    currentCount.style.animation = 'pulse 0.5s ease-in-out';
+                    limitValue.style.animation = 'pulse 0.5s ease-in-out';
+                }
             }
             
         } else {
-            showMessage('Could not check limits status', 'error');
+            const errorText = await response.text().catch(() => 'Unknown error');
+            console.error('❌ Limits status error:', response.status, errorText);
+            showMessage(`Could not check limits status (${response.status})`, 'error');
         }
     } catch (error) {
-        console.error('Error checking limits status:', error);
-        showMessage('Error checking limits status', 'error');
+        console.error('❌ Error checking limits status:', error);
+        showMessage('Network error checking limits status', 'error');
     }
 }
 
