@@ -1059,6 +1059,40 @@
 
       </div>
     </div>
+    <!-- Service Payment Tab -->
+<div class="panel" id="panel-payments">
+  <h2>Service Payment</h2>
+  
+  <div class="payment-options">
+    <div class="payment-card" onclick="showPaymentModal('idcard')">
+      <div class="payment-icon">
+        <i class="fas fa-id-card"></i>
+      </div>
+      <div class="payment-title">ID Card Payment</div>
+      <div class="payment-desc">Increase member capacity</div>
+    </div>
+    
+    <div class="payment-card" onclick="showPaymentModal('certificate')">
+      <div class="payment-icon">
+        <i class="fas fa-certificate"></i>
+      </div>
+      <div class="payment-title">Certificate Payment</div>
+      <div class="payment-desc">Increase certificate capacity</div>
+    </div>
+  </div>
+  
+  <!-- Current Limits Display -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-number" id="currentMemberLimit">1415</div>
+      <div class="stat-label">Member Capacity</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="currentCertificateLimit">1415</div>
+      <div class="stat-label">Certificate Capacity</div>
+    </div>
+  </div>
+</div>
     <!-- Footer -->
     <div class="admin-footer">
      <div class="footer-left">
@@ -1982,6 +2016,47 @@
 <!-- Export-by-State (guarded, adds only if not already defined) -->
 <!-- Export-by-State moved into admin bundle -->
 
+
+<!-- Payment Modal -->
+<div class="modal" id="paymentModal">
+  <div class="modal-backdrop" onclick="closePaymentModal()"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title" id="paymentTitle">Service Payment</h2>
+      <button class="close-btn" onclick="closePaymentModal()">×</button>
+    </div>
+    
+    <form id="paymentForm" onsubmit="processPayment(event)">
+      <div class="form-group">
+        <label for="paymentAmount">Amount to Add:</label>
+        <input id="paymentAmount" type="number" min="1" max="1000" required 
+               placeholder="e.g., 100">
+        <small>This will increase the capacity by the entered amount</small>
+      </div>
+      
+      <div class="form-group">
+        <label for="paymentMethod">Payment Method:</label>
+        <select id="paymentMethod" required>
+          <option value="">Select Payment Method</option>
+          <option value="bank_transfer">Bank Transfer</option>
+          <option value="card">Credit/Debit Card</option>
+          <option value="mobile_money">Mobile Money</option>
+        </select>
+      </div>
+      
+      <div class="form-buttons">
+        <button class="btn btn-success" type="submit">
+          <i class="fas fa-credit-card"></i>
+          Process Payment
+        </button>
+        <button class="btn btn-secondary" onclick="closePaymentModal()" type="button">
+          <i class="fas fa-times"></i>
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- Backend-first Members Refresh shim -->
 <script>

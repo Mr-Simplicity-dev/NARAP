@@ -13826,3 +13826,93 @@ document.addEventListener('keydown', function(event) {
 });
 
 console.log('✅ Limit modal event listeners added');
+// Payment system functions
+let currentPaymentType = '';
+
+function showPaymentModal(type) {
+  currentPaymentType = type;
+  const modal = document.getElementById('paymentModal');
+  const title = document.getElementById('paymentTitle');
+  
+  if (type === 'idcard') {
+    title.textContent = 'ID Card Payment - Increase Member Capacity';
+  } else if (type === 'certificate') {
+    title.textContent = 'Certificate Payment - Increase Certificate Capacity';
+  }
+  
+  modal.style.display = 'flex';
+}
+
+function closePaymentModal() {
+  document.getElementById('paymentModal').style.display = 'none';
+  document.getElementById('paymentForm').reset();
+}
+
+async function processPayment(event) {
+  event.preventDefault();
+  
+  const amount = parseInt(document.getElementById('paymentAmount').value);
+  const paymentMethod = document.getElementById('paymentMethod').value;
+  
+  if (!amount || amount <= 0) {
+    showMessage('Please enter a valid amount', 'error');
+    return;
+  }
+  
+  try {
+    showMessage('Processing payment...', 'info');
+    
+    // Simulate payment processing (replace with actual payment gateway)
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Update system limits based on payment type
+    const updateData = {};
+    if (currentPaymentType === 'idcard') {
+      updateData.memberLimit = amount;
+    } else if (currentPaymentType === 'certificate') {
+      updateData.certificateLimit = amount;
+    }
+    
+    // Call backend to increase limits
+    const response = await fetch('/api/increase-limits', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updateData)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showMessage(`Payment successful! Capacity increased by ${amount}`, 'success');
+      
+      // Update UI
+      updateLimitsDisplay();
+      closePaymentModal();
+      
+      // Log activity
+      logActivity('payment', `${currentPaymentType} payment processed: +${amount} capacity`);
+    } else {
+      showMessage('Payment failed: ' + result.message, 'error');
+    }
+    
+  } catch (error) {
+    console.error('Payment error:', error);
+    showMessage('Payment processing failed', 'error');
+  }
+}
+
+async function updateLimitsDisplay() {
+  try {
+    const response = await fetch('/api/limits-status');
+    const result = await response.json();
+    
+    if (result.success) {
+      document.getElementById('currentMemberLimit').textContent = result.status.members.limit;
+      document.getElementById('currentCertificateLimit').textContent = result.status.certificates.limit;
+    }
+  } catch (error) {
+    console.error('Error updating limits display:', error);
+  }
+}
