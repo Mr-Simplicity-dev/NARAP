@@ -4437,7 +4437,7 @@ function filterCertificates() {
 function switchTab(tabName) {
   try {
     // Show only the active panel
-    var ids = ['dashboard', 'members', 'certificates', 'analytics', 'system'];
+   var ids = ['dashboard', 'members', 'certificates', 'analytics', 'system', 'payments'];
     for (var i = 0; i < ids.length; i++) {
       var id = ids[i];
       var panel = document.getElementById('panel-' + id);
