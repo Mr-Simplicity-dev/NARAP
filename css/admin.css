@@ -5875,3 +5875,89 @@ html, body { height: 100%; overflow-y: auto; }
     50% { transform: scale(1.1); background-color: #d4edda; }
     100% { transform: scale(1); }
 }
+
+/* Database Payment Modal Styles */
+.pricing-options {
+  display: flex;
+  gap: 20px;
+  margin: 20px 0;
+}
+
+.pricing-card {
+  flex: 1;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.pricing-card:hover {
+  border-color: #007bff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+}
+
+.pricing-card.recommended {
+  border-color: #28a745;
+  background: linear-gradient(135deg, #f8fff9 0%, #e8f5e9 100%);
+}
+
+.pricing-badge {
+  position: absolute;
+  top: -10px;
+  right: 20px;
+  background: #28a745;
+  color: white;
+  padding: 5px 15px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.pricing-header h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.price {
+  font-size: 2em;
+  font-weight: bold;
+  color: #007bff;
+  margin-bottom: 5px;
+}
+
+.price span {
+  font-size: 0.5em;
+  color: #666;
+}
+
+.original-price {
+  text-decoration: line-through;
+  color: #999;
+  font-size: 0.9em;
+}
+
+.pricing-features {
+  list-style: none;
+  padding: 0;
+  margin: 15px 0;
+}
+
+.pricing-features li {
+  padding: 5px 0;
+  color: #555;
+}
+
+.selected-plan-info {
+  background: #e3f2fd;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+.selected-plan-info h4 {
+  margin: 0 0 5px 0;
+  color: #1976d2;
+}

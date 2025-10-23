@@ -1085,6 +1085,17 @@
       <div class="quick-link-desc">Increase certificate capacity</div>
     </div>
   </div>
+
+  
+    <!-- ADD THIS NEW DATABASE HOST PAYMENT CARD -->
+    <div class="quick-link-card" onclick="showPaymentModal('database')">
+      <div class="quick-link-icon">
+        <i class="fas fa-database"></i>
+      </div>
+      <div class="quick-link-title">Database Host Payment</div>
+      <div class="quick-link-desc">$35/month or $336/year (20% off)</div>
+    </div>
+  </div>
   
   <!-- Current Limits Display -->
   <div class="stats-grid">
@@ -1106,6 +1117,16 @@
     </div>
   </div>
 </div>
+<!-- ADD THIS NEW DATABASE STATUS CARD -->
+    <div class="stat-card">
+      <div class="stat-number" id="databaseStatus">Inactive</div>
+      <div class="stat-label">Database Hosting</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="databaseExpiry">N/A</div>
+      <div class="stat-label">Hosting Expires</div>
+    </div>
+  </div>
     <!-- Footer -->
     <div class="admin-footer">
      <div class="footer-left">
@@ -2063,6 +2084,72 @@
           Process Payment
         </button>
         <button class="btn btn-secondary" onclick="closePaymentModal()" type="button">
+          <i class="fas fa-times"></i>
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Database Payment Modal -->
+<div class="modal" id="databasePaymentModal">
+  <div class="modal-backdrop" onclick="closeDatabasePaymentModal()"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">Database Host Payment</h2>
+      <button class="close-btn" onclick="closeDatabasePaymentModal()">×</button>
+    </div>
+    
+    <div class="pricing-options">
+      <div class="pricing-card" onclick="selectDatabasePlan('monthly')">
+        <div class="pricing-header">
+          <h3>Monthly Plan</h3>
+          <div class="price">$35<span>/month</span></div>
+        </div>
+        <ul class="pricing-features">
+          <li>✓ Full database hosting</li>
+          <li>✓ 24/7 support</li>
+          <li>✓ Regular backups</li>
+          <li>✓ Cancel anytime</li>
+        </ul>
+      </div>
+      
+      <div class="pricing-card recommended" onclick="selectDatabasePlan('yearly')">
+        <div class="pricing-badge">20% OFF</div>
+        <div class="pricing-header">
+          <h3>Yearly Plan</h3>
+          <div class="price">$336<span>/year</span></div>
+          <div class="original-price">$420/year</div>
+        </div>
+        <ul class="pricing-features">
+          <li>✓ Full database hosting</li>
+          <li>✓ 24/7 support</li>
+          <li>✓ Regular backups</li>
+          <li>✓ 2 months FREE</li>
+        </ul>
+      </div>
+    </div>
+    
+    <form id="databasePaymentForm" onsubmit="processDatabasePayment(event)" style="display: none;">
+      <div class="selected-plan" id="selectedPlan"></div>
+      
+      <div class="form-group">
+        <label for="databasePaymentMethod">Payment Method:</label>
+        <select id="databasePaymentMethod" required>
+          <option value="">Select Payment Method</option>
+          <option value="bank_transfer">Bank Transfer</option>
+          <option value="card">Credit/Debit Card</option>
+          <option value="mobile_money">Mobile Money</option>
+        </select>
+      </div>
+      
+      <div class="form-buttons">
+        <button class="btn btn-success" type="submit">
+          <i class="fas fa-credit-card"></i>
+          Process Payment
+        </button>
+        <button class="btn btn-secondary" onclick="closeDatabasePaymentModal()" type="button">
           <i class="fas fa-times"></i>
           Cancel
         </button>

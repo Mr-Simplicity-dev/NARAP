@@ -13827,10 +13827,16 @@ document.addEventListener('keydown', function(event) {
 
 console.log('✅ Limit modal event listeners added');
 // Payment system functions
-let currentPaymentType = '';
-
 function showPaymentModal(type) {
   currentPaymentType = type;
+  
+  if (type === 'database') {
+    // Show database-specific modal
+    const databaseModal = document.getElementById('databasePaymentModal');
+    databaseModal.style.display = 'flex';
+    return;
+  }
+  
   const modal = document.getElementById('paymentModal');
   const title = document.getElementById('paymentTitle');
   
@@ -13914,5 +13920,111 @@ async function updateLimitsDisplay() {
     }
   } catch (error) {
     console.error('Error updating limits display:', error);
+  }
+}
+
+// Database payment functions
+let selectedDatabasePlan = '';
+
+function closeDatabasePaymentModal() {
+  document.getElementById('databasePaymentModal').style.display = 'none';
+  document.getElementById('databasePaymentForm').reset();
+  document.getElementById('databasePaymentForm').style.display = 'none';
+  selectedDatabasePlan = '';
+}
+
+function selectDatabasePlan(plan) {
+  selectedDatabasePlan = plan;
+  const form = document.getElementById('databasePaymentForm');
+  const selectedPlanDiv = document.getElementById('selectedPlan');
+  
+  if (plan === 'monthly') {
+    selectedPlanDiv.innerHTML = `
+      <div class="selected-plan-info">
+        <h4>Selected: Monthly Plan</h4>
+        <p><strong>$35/month</strong> - Billed monthly</p>
+      </div>
+    `;
+  } else if (plan === 'yearly') {
+    selectedPlanDiv.innerHTML = `
+      <div class="selected-plan-info">
+        <h4>Selected: Yearly Plan</h4>
+        <p><strong>$336/year</strong> - Save $84 (20% off)</p>
+      </div>
+    `;
+  }
+  
+  form.style.display = 'block';
+}
+
+async function processDatabasePayment(event) {
+  event.preventDefault();
+  
+  const paymentMethod = document.getElementById('databasePaymentMethod').value;
+  
+  if (!selectedDatabasePlan) {
+    showMessage('Please select a plan', 'error');
+    return;
+  }
+  
+  if (!paymentMethod) {
+    showMessage('Please select a payment method', 'error');
+    return;
+  }
+  
+  try {
+    showMessage('Processing database hosting payment...', 'info');
+    
+    const amount = selectedDatabasePlan === 'monthly' ? 35 : 336;
+    const duration = selectedDatabasePlan === 'monthly' ? '1 month' : '12 months';
+    
+    // Simulate payment processing
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Call backend to activate database hosting
+    const response = await fetch('/api/database-hosting', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        plan: selectedDatabasePlan,
+        amount: amount,
+        paymentMethod: paymentMethod
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showMessage(`Database hosting activated! Plan: ${selectedDatabasePlan} (${duration})`, 'success');
+      
+      // Update UI
+      updateDatabaseStatus();
+      closeDatabasePaymentModal();
+      
+      // Log activity
+      logActivity('payment', `Database hosting payment processed: ${selectedDatabasePlan} plan - $${amount}`);
+    } else {
+      showMessage('Payment failed: ' + result.message, 'error');
+    }
+    
+  } catch (error) {
+    console.error('Database payment error:', error);
+    showMessage('Database hosting payment failed', 'error');
+  }
+}
+
+async function updateDatabaseStatus() {
+  try {
+    const response = await fetch('/api/database-status');
+    const result = await response.json();
+    
+    if (result.success) {
+      document.getElementById('databaseStatus').textContent = result.status.active ? 'Active' : 'Inactive';
+      document.getElementById('databaseExpiry').textContent = result.status.expiryDate || 'N/A';
+    }
+  } catch (error) {
+    console.error('Error updating database status:', error);
   }
 }
