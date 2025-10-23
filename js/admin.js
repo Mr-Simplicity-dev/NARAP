@@ -13728,57 +13728,57 @@ function closeLimitModal() {
 }
 
 function goToServicePayment() {
+    console.log('🔍 goToServicePayment function called');
+    
     // Close the limit modal first
+    console.log('🔍 Closing limit modal...');
     closeLimitModal();
     
     // Switch to the payments tab
+    console.log('🔍 Switching to payments tab...');
     switchTab('payments');
     
-    // Determine which payment type based on the current limit modal context
-    const limitTitle = document.getElementById('limitTitle').textContent;
-    const isMemberLimit = limitTitle.includes('Member');
-    const isCertificateLimit = limitTitle.includes('Certificate');
-    
-    // Show contextual message
-    if (isMemberLimit) {
-        showMessage('💡 Choose "ID Card Payment" to increase your member capacity limit', 'info');
-        // Optional: Highlight the ID Card payment option
-        setTimeout(() => {
-            const idCardOption = document.querySelector('[onclick="showPaymentModal(\'idcard\')"]');
-            if (idCardOption) {
-                idCardOption.style.border = '3px solid #28a745';
-                idCardOption.style.boxShadow = '0 0 15px rgba(40, 167, 69, 0.3)';
-                setTimeout(() => {
-                    idCardOption.style.border = '';
-                    idCardOption.style.boxShadow = '';
-                }, 3000);
-            }
-        }, 500);
-    } else if (isCertificateLimit) {
-        showMessage('💡 Choose "Certificate Payment" to increase your certificate capacity limit', 'info');
-        // Optional: Highlight the Certificate payment option
-        setTimeout(() => {
-            const certificateOption = document.querySelector('[onclick="showPaymentModal(\'certificate\')"]');
-            if (certificateOption) {
-                certificateOption.style.border = '3px solid #28a745';
-                certificateOption.style.boxShadow = '0 0 15px rgba(40, 167, 69, 0.3)';
-                setTimeout(() => {
-                    certificateOption.style.border = '';
-                    certificateOption.style.boxShadow = '';
-                }, 3000);
-            }
-        }, 500);
-    } else {
-        showMessage('💡 Choose the appropriate payment option to increase your capacity limits', 'info');
+    // Check if the panel exists and is visible
+    const paymentPanel = document.getElementById('panel-payments');
+    console.log('🔍 Payment panel found:', !!paymentPanel);
+    if (paymentPanel) {
+        console.log('🔍 Payment panel display style:', paymentPanel.style.display);
+        console.log('🔍 Payment panel computed display:', window.getComputedStyle(paymentPanel).display);
     }
     
-    // Scroll to the payment options
+    // Check if the nav button is active
+    const navButton = document.getElementById('btn-payments');
+    console.log('🔍 Nav button found:', !!navButton);
+    if (navButton) {
+        console.log('🔍 Nav button classes:', navButton.className);
+    }
+    
+    // Determine which payment type based on the current limit modal context
+    const limitTitle = document.getElementById('limitTitle');
+    if (limitTitle) {
+        console.log('🔍 Limit title:', limitTitle.textContent);
+        const isMemberLimit = limitTitle.textContent.includes('Member');
+        const isCertificateLimit = limitTitle.textContent.includes('Certificate');
+        
+        // Show contextual message
+        if (isMemberLimit) {
+            showMessage('💡 Choose "ID Card Payment" to increase your member capacity limit', 'info');
+        } else if (isCertificateLimit) {
+            showMessage('💡 Choose "Certificate Payment" to increase your certificate capacity limit', 'info');
+        } else {
+            showMessage('💡 Choose the appropriate payment option to increase your capacity limits', 'info');
+        }
+    }
+    
+    // Force show the payment panel (fallback)
     setTimeout(() => {
         const paymentPanel = document.getElementById('panel-payments');
         if (paymentPanel) {
+            console.log('🔍 Force showing payment panel...');
+            paymentPanel.style.display = 'block';
             paymentPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-    }, 300);
+    }, 500);
 }
 
 async function checkLimitsStatus() {
