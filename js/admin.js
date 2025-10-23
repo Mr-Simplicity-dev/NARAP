@@ -13727,6 +13727,60 @@ function closeLimitModal() {
     }
 }
 
+function goToServicePayment() {
+    // Close the limit modal first
+    closeLimitModal();
+    
+    // Switch to the payments tab
+    switchTab('payments');
+    
+    // Determine which payment type based on the current limit modal context
+    const limitTitle = document.getElementById('limitTitle').textContent;
+    const isMemberLimit = limitTitle.includes('Member');
+    const isCertificateLimit = limitTitle.includes('Certificate');
+    
+    // Show contextual message
+    if (isMemberLimit) {
+        showMessage('💡 Choose "ID Card Payment" to increase your member capacity limit', 'info');
+        // Optional: Highlight the ID Card payment option
+        setTimeout(() => {
+            const idCardOption = document.querySelector('[onclick="showPaymentModal(\'idcard\')"]');
+            if (idCardOption) {
+                idCardOption.style.border = '3px solid #28a745';
+                idCardOption.style.boxShadow = '0 0 15px rgba(40, 167, 69, 0.3)';
+                setTimeout(() => {
+                    idCardOption.style.border = '';
+                    idCardOption.style.boxShadow = '';
+                }, 3000);
+            }
+        }, 500);
+    } else if (isCertificateLimit) {
+        showMessage('💡 Choose "Certificate Payment" to increase your certificate capacity limit', 'info');
+        // Optional: Highlight the Certificate payment option
+        setTimeout(() => {
+            const certificateOption = document.querySelector('[onclick="showPaymentModal(\'certificate\')"]');
+            if (certificateOption) {
+                certificateOption.style.border = '3px solid #28a745';
+                certificateOption.style.boxShadow = '0 0 15px rgba(40, 167, 69, 0.3)';
+                setTimeout(() => {
+                    certificateOption.style.border = '';
+                    certificateOption.style.boxShadow = '';
+                }, 3000);
+            }
+        }, 500);
+    } else {
+        showMessage('💡 Choose the appropriate payment option to increase your capacity limits', 'info');
+    }
+    
+    // Scroll to the payment options
+    setTimeout(() => {
+        const paymentPanel = document.getElementById('panel-payments');
+        if (paymentPanel) {
+            paymentPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 300);
+}
+
 async function checkLimitsStatus() {
     try {
         showMessage('Checking current limits...', 'info');
