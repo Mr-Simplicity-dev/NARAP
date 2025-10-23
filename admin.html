@@ -1063,25 +1063,26 @@
 
       </div>
     </div>
-    <!-- Service Payment Tab -->
+   <!-- Service Payment Tab -->
 <div class="panel" id="panel-payments">
   <h2>Service Payment</h2>
   
-  <div class="payment-options">
-    <div class="payment-card" onclick="showPaymentModal('idcard')">
-      <div class="payment-icon">
+  <!-- Payment Options using existing quick-links style -->
+  <div class="quick-links">
+    <div class="quick-link-card" onclick="showPaymentModal('idcard')">
+      <div class="quick-link-icon">
         <i class="fas fa-id-card"></i>
       </div>
-      <div class="payment-title">ID Card Payment</div>
-      <div class="payment-desc">Increase member capacity</div>
+      <div class="quick-link-title">ID Card Payment</div>
+      <div class="quick-link-desc">Increase member capacity</div>
     </div>
     
-    <div class="payment-card" onclick="showPaymentModal('certificate')">
-      <div class="payment-icon">
+    <div class="quick-link-card" onclick="showPaymentModal('certificate')">
+      <div class="quick-link-icon">
         <i class="fas fa-certificate"></i>
       </div>
-      <div class="payment-title">Certificate Payment</div>
-      <div class="payment-desc">Increase certificate capacity</div>
+      <div class="quick-link-title">Certificate Payment</div>
+      <div class="quick-link-desc">Increase certificate capacity</div>
     </div>
   </div>
   
@@ -1089,11 +1090,19 @@
   <div class="stats-grid">
     <div class="stat-card">
       <div class="stat-number" id="currentMemberLimit">1415</div>
-      <div class="stat-label">Member Capacity</div>
+      <div class="stat-label">Current Member Limit</div>
     </div>
     <div class="stat-card">
       <div class="stat-number" id="currentCertificateLimit">1415</div>
-      <div class="stat-label">Certificate Capacity</div>
+      <div class="stat-label">Current Certificate Limit</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="memberUsage">0</div>
+      <div class="stat-label">Members Used</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="certificateUsage">0</div>
+      <div class="stat-label">Certificates Used</div>
     </div>
   </div>
 </div>
