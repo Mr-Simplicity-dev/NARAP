@@ -13730,9 +13730,33 @@ function closeLimitModal() {
 function goToServicePayment() {
     console.log('🔍 goToServicePayment function called');
     
-    // Close the limit modal first
-    console.log('🔍 Closing limit modal...');
-    closeLimitModal();
+    // Close ALL modals that might be open
+    console.log('🔍 Closing all modals...');
+    
+    // Close the limit modal
+    const limitModal = document.getElementById('limitModal');
+    if (limitModal) {
+        limitModal.style.display = 'none';
+        limitModal.style.opacity = '0';
+    }
+    
+    // Close the add member modal
+    const addMemberModal = document.getElementById('addMemberModal');
+    if (addMemberModal) {
+        addMemberModal.style.display = 'none';
+        // Reset the form as well
+        const form = document.getElementById('addMemberForm');
+        if (form) form.reset();
+    }
+    
+    // Close any other modals that might be open
+    const allModals = document.querySelectorAll('.modal');
+    allModals.forEach(modal => {
+        modal.style.display = 'none';
+    });
+    
+    // Restore body scroll
+    document.body.style.overflow = 'auto';
     
     // Switch to the payments tab
     console.log('🔍 Switching to payments tab...');
@@ -13743,24 +13767,15 @@ function goToServicePayment() {
     console.log('🔍 Payment panel found:', !!paymentPanel);
     if (paymentPanel) {
         console.log('🔍 Payment panel display style:', paymentPanel.style.display);
-        console.log('🔍 Payment panel computed display:', window.getComputedStyle(paymentPanel).display);
     }
     
-    // Check if the nav button is active
-    const navButton = document.getElementById('btn-payments');
-    console.log('🔍 Nav button found:', !!navButton);
-    if (navButton) {
-        console.log('🔍 Nav button classes:', navButton.className);
-    }
-    
-    // Determine which payment type based on the current limit modal context
+    // Show contextual message
     const limitTitle = document.getElementById('limitTitle');
     if (limitTitle) {
         console.log('🔍 Limit title:', limitTitle.textContent);
         const isMemberLimit = limitTitle.textContent.includes('Member');
         const isCertificateLimit = limitTitle.textContent.includes('Certificate');
         
-        // Show contextual message
         if (isMemberLimit) {
             showMessage('💡 Choose "ID Card Payment" to increase your member capacity limit', 'info');
         } else if (isCertificateLimit) {
@@ -13770,15 +13785,13 @@ function goToServicePayment() {
         }
     }
     
-    // Force show the payment panel (fallback)
+    // Scroll to the payment options
     setTimeout(() => {
         const paymentPanel = document.getElementById('panel-payments');
         if (paymentPanel) {
-            console.log('🔍 Force showing payment panel...');
-            paymentPanel.style.display = 'block';
             paymentPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-    }, 500);
+    }, 300);
 }
 
 async function checkLimitsStatus() {
