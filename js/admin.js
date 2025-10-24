@@ -13920,11 +13920,10 @@ function closePaymentModal() {
   document.getElementById('paymentForm').reset();
 }
 
-// Monnify Configuration
-const MONNIFY_CONFIG = {
-    apiKey: "MK_TEST_QM8RYAZP67", // Replace with your actual API key
-    contractCode: "0923121447", // Replace with your contract code
-    mode: "LIVE" // Change to "LIVE" for production
+// Replace Monnify Configuration with Flutterwave Configuration
+const FLUTTERWAVE_CONFIG = {
+    publicKey: "FLWPUBK_TEST-your-public-key-here", // Replace with your actual public key
+    mode: "test" // Change to "live" for production
 };
 
 async function processPayment(event) {
@@ -13933,15 +13932,8 @@ async function processPayment(event) {
     const amount = parseInt(document.getElementById('paymentAmount').value);
     const paymentMethod = document.getElementById('paymentMethod').value;
     
-    // Validate amount exists and is positive
     if (!amount || amount <= 0) {
         showMessage('Please enter a valid amount', 'error');
-        return;
-    }
-    
-    // Validate minimum 100 slots requirement
-    if (amount < 100) {
-        showMessage('Minimum 100 slots required for payment', 'error');
         return;
     }
     
@@ -13953,81 +13945,95 @@ async function processPayment(event) {
     try {
         showMessage('Initializing payment...', 'info');
         
-        // Calculate cost per slot based on payment type
-        let costPerSlot;
-        let totalCost;
-        
-        if (currentPaymentType === 'idcard') {
-            costPerSlot = 1100; // 1100 naira per ID slot
-            totalCost = amount * costPerSlot;
-        } else if (currentPaymentType === 'certificate') {
-            costPerSlot = 1000; // 1000 naira per certificate slot
-            totalCost = amount * costPerSlot;
-        } else if (currentPaymentType === 'database') {
-            // For database payments, use the amount directly
-            totalCost = amount;
-        } else {
-            showMessage('Invalid payment type', 'error');
-            return;
-        }
-        
-        // Convert to kobo for Nigerian payments
-        const paymentAmount = totalCost * 100;
-        
         // Generate unique payment reference
-        const paymentReference = `NARAP_${currentPaymentType}_${Date.now()}`;
+        const txRef = `NARAP_${currentPaymentType}_${Date.now()}`;
         
         // Determine service description
         let serviceDescription = '';
         if (currentPaymentType === 'idcard') {
-            serviceDescription = `ID Card Payment - ${amount} slots × ₦1,100 = ₦${totalCost.toLocaleString()}`;
+            serviceDescription = `ID Card Payment - Increase Member Capacity by ${amount}`;
         } else if (currentPaymentType === 'certificate') {
-            serviceDescription = `Certificate Payment - ${amount} slots × ₦1,000 = ₦${totalCost.toLocaleString()}`;
+            serviceDescription = `Certificate Payment - Increase Certificate Capacity by ${amount}`;
         } else if (currentPaymentType === 'database') {
-            serviceDescription = `Database Hosting Payment - ₦${totalCost.toLocaleString()}`;
+            serviceDescription = `Database Hosting Payment`;
         }
         
-        // Initialize Monnify payment
-        window.MonnifySDK.initialize({
-            amount: paymentAmount,
+        // Initialize Flutterwave payment
+        FlutterwaveCheckout({
+            public_key: FLUTTERWAVE_CONFIG.publicKey,
+            tx_ref: txRef,
+            amount: amount,
             currency: "NGN",
-            reference: paymentReference,
-            customerName: "NARAP Admin",
-            customerEmail: "admin@narap.org.ng",
-            apiKey: MONNIFY_CONFIG.apiKey,
-            contractCode: MONNIFY_CONFIG.contractCode,
-            paymentDescription: serviceDescription,
-            metadata: {
-                paymentType: currentPaymentType,
-                capacityIncrease: amount,
-                costPerSlot: costPerSlot,
-                totalCost: totalCost,
-                adminPayment: true
+            payment_options: "card,mobilemoney,ussd",
+            customer: {
+                email: "admin@narap.org.ng",
+                phone_number: "+2348000000000",
+                name: "NARAP Admin",
             },
-            paymentMethods: [paymentMethod.toUpperCase()],
-            onLoadStart: () => {
-                console.log("Monnify payment started");
-                showMessage('Loading payment gateway...', 'info');
+            customizations: {
+                title: "NARAP Payment",
+                description: serviceDescription,
+                logo: "https://your-logo-url.com/logo.png",
             },
-            onLoadComplete: () => {
-                console.log("Monnify payment loaded");
-                showMessage('Payment gateway ready', 'success');
+            meta: {
+                payment_type: currentPaymentType,
+                capacity_increase: amount,
+                admin_payment: true
             },
-            onComplete: function(response) {
-                console.log("Monnify payment completed:", response);
-                handlePaymentSuccess(response);
+            callback: function (data) {
+                console.log("Flutterwave payment completed:", data);
+                handlePaymentSuccess(data);
             },
-            onClose: function(data) {
-                console.log("Monnify payment closed:", data);
-                if (data.paymentStatus !== "PAID") {
-                    showMessage('Payment was cancelled or failed', 'warning');
-                }
+            onclose: function() {
+                console.log("Flutterwave payment closed");
+                showMessage('Payment was cancelled', 'warning');
             }
         });
         
     } catch (error) {
         console.error('Payment initialization error:', error);
         showMessage('Failed to initialize payment gateway', 'error');
+    }
+}
+
+// Handle successful payment
+async function handlePaymentSuccess(response) {
+    try {
+        showMessage('Verifying payment...', 'info');
+        
+        // Verify payment with your backend
+        const verificationResponse = await fetch('/api/verify-payment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                transaction_id: response.transaction_id,
+                tx_ref: response.tx_ref
+            })
+        });
+        
+        const verificationData = await verificationResponse.json();
+        
+        if (verificationData.success) {
+            showMessage('Payment verified successfully!', 'success');
+            
+            // Process the payment based on type
+            if (currentPaymentType === 'database') {
+                await handleDatabaseHostingActivation(response);
+            } else {
+                await handleCapacityIncrease(response);
+            }
+            
+            closePaymentModal();
+            loadDashboardData(); // Refresh dashboard
+        } else {
+            showMessage('Payment verification failed: ' + verificationData.message, 'error');
+        }
+        
+    } catch (error) {
+        console.error('Payment verification error:', error);
+        showMessage('Payment verification failed', 'error');
     }
 }
 // Handle successful payment
