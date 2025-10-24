@@ -13921,60 +13921,183 @@ function closePaymentModal() {
   document.getElementById('paymentForm').reset();
 }
 
+// Monnify Configuration
+const MONNIFY_CONFIG = {
+    apiKey: "MK_TEST_QM8RYAZP67", // Replace with your actual API key
+    contractCode: "0923121447", // Replace with your contract code
+    mode: "LIVE" // Change to "LIVE" for production
+};
+
 async function processPayment(event) {
-  event.preventDefault();
-  
-  const amount = parseInt(document.getElementById('paymentAmount').value);
-  const paymentMethod = document.getElementById('paymentMethod').value;
-  
-  if (!amount || amount <= 0) {
-    showMessage('Please enter a valid amount', 'error');
-    return;
-  }
-  
-  try {
-    showMessage('Processing payment...', 'info');
+    event.preventDefault();
     
-    // Simulate payment processing (replace with actual payment gateway)
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const amount = parseInt(document.getElementById('paymentAmount').value);
+    const paymentMethod = document.getElementById('paymentMethod').value;
     
-    // Update system limits based on payment type
-    const updateData = {};
-    if (currentPaymentType === 'idcard') {
-      updateData.memberLimit = amount;
-    } else if (currentPaymentType === 'certificate') {
-      updateData.certificateLimit = amount;
+    if (!amount || amount <= 0) {
+        showMessage('Please enter a valid amount', 'error');
+        return;
     }
     
-    // Call backend to increase limits
-    const response = await fetch('/api/increase-limits', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(updateData)
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      showMessage(`Payment successful! Capacity increased by ${amount}`, 'success');
-      
-      // Update UI
-      updateLimitsDisplay();
-      closePaymentModal();
-      
-      // Log activity
-      logActivity('payment', `${currentPaymentType} payment processed: +${amount} capacity`);
-    } else {
-      showMessage('Payment failed: ' + result.message, 'error');
+    if (!paymentMethod) {
+        showMessage('Please select a payment method', 'error');
+        return;
     }
     
-  } catch (error) {
-    console.error('Payment error:', error);
-    showMessage('Payment processing failed', 'error');
-  }
+    try {
+        showMessage('Initializing payment...', 'info');
+        
+        // Calculate actual payment amount (you can add fees here if needed)
+        const paymentAmount = amount * 1000; // Convert to kobo for Nigerian payments
+        
+        // Generate unique payment reference
+        const paymentReference = `NARAP_${currentPaymentType}_${Date.now()}`;
+        
+        // Determine service description
+        let serviceDescription = '';
+        if (currentPaymentType === 'idcard') {
+            serviceDescription = `ID Card Payment - Increase Member Capacity by ${amount}`;
+        } else if (currentPaymentType === 'certificate') {
+            serviceDescription = `Certificate Payment - Increase Certificate Capacity by ${amount}`;
+        } else if (currentPaymentType === 'database') {
+            serviceDescription = `Database Hosting Payment`;
+        }
+        
+        // Initialize Monnify payment
+        window.MonnifySDK.initialize({
+            amount: paymentAmount,
+            currency: "NGN",
+            reference: paymentReference,
+            customerName: "NARAP Admin",
+            customerEmail: "admin@narap.org.ng",
+            apiKey: MONNIFY_CONFIG.apiKey,
+            contractCode: MONNIFY_CONFIG.contractCode,
+            paymentDescription: serviceDescription,
+            metadata: {
+                paymentType: currentPaymentType,
+                capacityIncrease: amount,
+                adminPayment: true
+            },
+            paymentMethods: [paymentMethod.toUpperCase()],
+            onLoadStart: () => {
+                console.log("Monnify payment started");
+                showMessage('Loading payment gateway...', 'info');
+            },
+            onLoadComplete: () => {
+                console.log("Monnify payment loaded");
+                showMessage('Payment gateway ready', 'success');
+            },
+            onComplete: function(response) {
+                console.log("Monnify payment completed:", response);
+                handlePaymentSuccess(response);
+            },
+            onClose: function(data) {
+                console.log("Monnify payment closed:", data);
+                if (data.paymentStatus !== "PAID") {
+                    showMessage('Payment was cancelled or failed', 'warning');
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Payment initialization error:', error);
+        showMessage('Failed to initialize payment gateway', 'error');
+    }
 }
+
+// Handle successful payment
+async function handlePaymentSuccess(response) {
+    try {
+        showMessage('Verifying payment...', 'info');
+        
+        // Verify payment with your backend
+        const verificationResponse = await fetch('/api/verify-payment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                paymentReference: response.paymentReference,
+                transactionReference: response.transactionReference,
+                paymentStatus: response.paymentStatus,
+                amountPaid: response.amountPaid,
+                paymentType: currentPaymentType,
+                metadata: response.metaData
+            })
+        });
+        
+        const verificationResult = await verificationResponse.json();
+        
+        if (verificationResult.success && response.paymentStatus === "PAID") {
+            // Update system limits based on payment type
+            const amount = parseInt(document.getElementById('paymentAmount').value);
+            const updateData = {
+                paymentReference: response.paymentReference,
+                transactionReference: response.transactionReference,
+                amountPaid: response.amountPaid
+            };
+            
+            if (currentPaymentType === 'idcard') {
+                updateData.memberLimit = amount;
+            } else if (currentPaymentType === 'certificate') {
+                updateData.certificateLimit = amount;
+            } else if (currentPaymentType === 'database') {
+                updateData.databaseHosting = true;
+            }
+            
+            // Call backend to increase limits
+            const updateResponse = await fetch('/api/increase-limits', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            });
+            
+            const updateResult = await updateResponse.json();
+            
+            if (updateResult.success) {
+                showMessage(`🎉 Payment successful! Capacity increased by ${amount}`, 'success');
+                
+                // Update UI
+                updateLimitsDisplay();
+                closePaymentModal();
+                
+                // Log activity
+                logActivity('payment', `${currentPaymentType} payment completed: +${amount} capacity - Ref: ${response.paymentReference}`);
+                
+                // Show success modal or notification
+                showPaymentSuccessModal(response, amount);
+            } else {
+                showMessage('Payment verified but failed to update limits: ' + updateResult.message, 'error');
+            }
+        } else {
+            showMessage('Payment verification failed', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Payment verification error:', error);
+        showMessage('Payment verification failed', 'error');
+    }
+}
+
+// Show payment success modal
+function showPaymentSuccessModal(paymentResponse, amount) {
+    const successMessage = `
+        <div class="payment-success">
+            <div class="success-icon">✅</div>
+            <h3>Payment Successful!</h3>
+            <p><strong>Amount:</strong> ₦${(paymentResponse.amountPaid / 100).toLocaleString()}</p>
+            <p><strong>Reference:</strong> ${paymentResponse.paymentReference}</p>
+            <p><strong>Capacity Increased:</strong> +${amount}</p>
+            <p><strong>Status:</strong> ${paymentResponse.paymentStatus}</p>
+        </div>
+    `;
+    
+    // You can create a custom modal or use the existing showMessage function
+    showMessage(successMessage, 'success');
+}
+
 
 async function updateLimitsDisplay() {
   try {
@@ -14025,61 +14148,101 @@ function selectDatabasePlan(plan) {
 }
 
 async function processDatabasePayment(event) {
-  event.preventDefault();
-  
-  const paymentMethod = document.getElementById('databasePaymentMethod').value;
-  
-  if (!selectedDatabasePlan) {
-    showMessage('Please select a plan', 'error');
-    return;
-  }
-  
-  if (!paymentMethod) {
-    showMessage('Please select a payment method', 'error');
-    return;
-  }
-  
-  try {
-    showMessage('Processing database hosting payment...', 'info');
+    event.preventDefault();
     
-    const amount = selectedDatabasePlan === 'monthly' ? 35 : 336;
-    const duration = selectedDatabasePlan === 'monthly' ? '1 month' : '12 months';
+    const paymentMethod = document.getElementById('databasePaymentMethod').value;
     
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Call backend to activate database hosting
-    const response = await fetch('/api/database-hosting', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        plan: selectedDatabasePlan,
-        amount: amount,
-        paymentMethod: paymentMethod
-      })
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      showMessage(`Database hosting activated! Plan: ${selectedDatabasePlan} (${duration})`, 'success');
-      
-      // Update UI
-      updateDatabaseStatus();
-      closeDatabasePaymentModal();
-      
-      // Log activity
-      logActivity('payment', `Database hosting payment processed: ${selectedDatabasePlan} plan - $${amount}`);
-    } else {
-      showMessage('Payment failed: ' + result.message, 'error');
+    if (!selectedDatabasePlan) {
+        showMessage('Please select a plan', 'error');
+        return;
     }
     
-  } catch (error) {
-    console.error('Database payment error:', error);
-    showMessage('Database hosting payment failed', 'error');
-  }
+    if (!paymentMethod) {
+        showMessage('Please select a payment method', 'error');
+        return;
+    }
+    
+    try {
+        showMessage('Initializing database hosting payment...', 'info');
+        
+        const amount = selectedDatabasePlan === 'monthly' ? 35 : 336;
+        const amountInKobo = amount * 100 * 500; // Convert USD to NGN (approximate)
+        const duration = selectedDatabasePlan === 'monthly' ? '1 month' : '12 months';
+        
+        const paymentReference = `NARAP_DB_${selectedDatabasePlan}_${Date.now()}`;
+        
+        // Initialize Monnify payment for database hosting
+        window.MonnifySDK.initialize({
+            amount: amountInKobo,
+            currency: "NGN",
+            reference: paymentReference,
+            customerName: "NARAP Admin",
+            customerEmail: "admin@narap.org.ng",
+            apiKey: MONNIFY_CONFIG.apiKey,
+            contractCode: MONNIFY_CONFIG.contractCode,
+            paymentDescription: `Database Hosting - ${selectedDatabasePlan} plan (${duration})`,
+            metadata: {
+                paymentType: 'database',
+                plan: selectedDatabasePlan,
+                duration: duration,
+                originalAmount: amount
+            },
+            paymentMethods: [paymentMethod.toUpperCase()],
+            onComplete: function(response) {
+                handleDatabasePaymentSuccess(response);
+            },
+            onClose: function(data) {
+                if (data.paymentStatus !== "PAID") {
+                    showMessage('Database hosting payment was cancelled', 'warning');
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Database payment error:', error);
+        showMessage('Database hosting payment failed', 'error');
+    }
+}
+
+async function handleDatabasePaymentSuccess(response) {
+    try {
+        showMessage('Verifying database hosting payment...', 'info');
+        
+        // Call backend to activate database hosting
+        const activationResponse = await fetch('/api/database-hosting', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                plan: selectedDatabasePlan,
+                paymentReference: response.paymentReference,
+                transactionReference: response.transactionReference,
+                amountPaid: response.amountPaid,
+                paymentStatus: response.paymentStatus
+            })
+        });
+        
+        const result = await activationResponse.json();
+        
+        if (result.success && response.paymentStatus === "PAID") {
+            const duration = selectedDatabasePlan === 'monthly' ? '1 month' : '12 months';
+            showMessage(`🎉 Database hosting activated! Plan: ${selectedDatabasePlan} (${duration})`, 'success');
+            
+            // Update UI
+            updateDatabaseStatus();
+            closeDatabasePaymentModal();
+            
+            // Log activity
+            logActivity('payment', `Database hosting payment completed: ${selectedDatabasePlan} plan - Ref: ${response.paymentReference}`);
+        } else {
+            showMessage('Database hosting activation failed: ' + result.message, 'error');
+        }
+        
+    } catch (error) {
+        console.error('Database hosting activation error:', error);
+        showMessage('Database hosting activation failed', 'error');
+    }
 }
 
 async function updateDatabaseStatus() {
