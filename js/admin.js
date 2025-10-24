@@ -13927,83 +13927,144 @@ const FLUTTERWAVE_CONFIG = {
 };
 
 // Pricing Configuration
+// Pricing Configuration with correct rates
 const PRICING_CONFIG = {
     idcard: {
-        costPerSlot: 1100, // ₦1100 per ID card slot
+        costPerSlot: 1100, // ₦1,100 per ID card slot
         minimumSlots: 100,
         currency: 'NGN'
     },
     certificate: {
-        costPerSlot: 1000, // ₦1000 per certificate slot
+        costPerSlot: 1000, // ₦1,000 per certificate slot
         minimumSlots: 100,
         currency: 'NGN'
     },
     database: {
-        monthly: $35, 
-        yearly: $336, 
-        currency: 'NGN'
+        monthly: 35, // $35 per month (will be converted to NGN)
+        yearly: 336, // $336 per year (will be converted to NGN)
+        currency: 'USD' // Will be converted to NGN
     }
 };
+
+// Exchange rate - you should update this regularly or fetch from an API
+let USD_TO_NGN_RATE = 1650; // Current approximate rate (₦1,650 per $1)
+
+// Function to get current USD to NGN exchange rate
+async function getExchangeRate() {
+    try {
+        showMessage('Getting current exchange rate...', 'info');
+        // You can use a free API like exchangerate-api.com or fixer.io
+        const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        const data = await response.json();
+        USD_TO_NGN_RATE = data.rates.NGN || 1650; // Fallback to 1650 if API fails
+        console.log('Current USD to NGN rate:', USD_TO_NGN_RATE);
+        return USD_TO_NGN_RATE;
+    } catch (error) {
+        console.error('Failed to fetch exchange rate, using fallback:', USD_TO_NGN_RATE);
+        showMessage('Using cached exchange rate', 'warning');
+        return USD_TO_NGN_RATE;
+    }
+}
+
+// Add loading state to payment button
+function setPaymentButtonLoading(loading) {
+    const paymentBtn = document.querySelector('.payment-btn');
+    if (paymentBtn) {
+        if (loading) {
+            paymentBtn.classList.add('loading');
+            paymentBtn.disabled = true;
+        } else {
+            paymentBtn.classList.remove('loading');
+            paymentBtn.disabled = false;
+        }
+    }
+}
 
 async function processPayment(event) {
     event.preventDefault();
     
+    // Set loading state
+    setPaymentButtonLoading(true);
+    
     const slotsToAdd = parseInt(document.getElementById('paymentAmount').value);
     const paymentMethod = document.getElementById('paymentMethod').value;
     
-    if (!slotsToAdd || slotsToAdd <= 0) {
-        showMessage('Please enter a valid number of slots', 'error');
-        return;
-    }
-    
-    // Validate minimum slots
+    // Validation for non-database payments
     if (currentPaymentType !== 'database') {
+        if (!slotsToAdd || slotsToAdd <= 0) {
+            showMessage('Please enter a valid number of slots', 'error');
+            setPaymentButtonLoading(false);
+            return;
+        }
+        
+        // Validate minimum slots
         const minSlots = PRICING_CONFIG[currentPaymentType].minimumSlots;
         if (slotsToAdd < minSlots) {
             showMessage(`Minimum ${minSlots} slots required for ${currentPaymentType}`, 'error');
+            setPaymentButtonLoading(false);
             return;
         }
+    }
+    
+    if (!paymentMethod) {
+        showMessage('Please select a payment method', 'error');
+        setPaymentButtonLoading(false);
+        return;
     }
     
     try {
         showMessage('Calculating payment amount...', 'info');
         
+        // Get current exchange rate for database payments
+        if (currentPaymentType === 'database') {
+            await getExchangeRate();
+        }
+        
         // Calculate total amount based on slots and pricing
         let totalAmount = 0;
         let serviceDescription = '';
+        let usdAmount = 0;
         
         if (currentPaymentType === 'idcard') {
             totalAmount = slotsToAdd * PRICING_CONFIG.idcard.costPerSlot;
-            serviceDescription = `ID Card Payment - ${slotsToAdd} slots × ₦${PRICING_CONFIG.idcard.costPerSlot} = ₦${totalAmount.toLocaleString()}`;
+            serviceDescription = `ID Card Payment - ${slotsToAdd} slots × ₦${PRICING_CONFIG.idcard.costPerSlot.toLocaleString()} = ₦${totalAmount.toLocaleString()}`;
         } else if (currentPaymentType === 'certificate') {
             totalAmount = slotsToAdd * PRICING_CONFIG.certificate.costPerSlot;
-            serviceDescription = `Certificate Payment - ${slotsToAdd} slots × ₦${PRICING_CONFIG.certificate.costPerSlot} = ₦${totalAmount.toLocaleString()}`;
+            serviceDescription = `Certificate Payment - ${slotsToAdd} slots × ₦${PRICING_CONFIG.certificate.costPerSlot.toLocaleString()} = ₦${totalAmount.toLocaleString()}`;
         } else if (currentPaymentType === 'database') {
             const plan = document.getElementById('hostingPlan')?.value || 'monthly';
-            totalAmount = PRICING_CONFIG.database[plan];
-            serviceDescription = `Database Hosting - ${plan} plan - ₦${totalAmount.toLocaleString()}`;
+            usdAmount = PRICING_CONFIG.database[plan];
+            totalAmount = Math.round(usdAmount * USD_TO_NGN_RATE); // Convert USD to NGN
+            serviceDescription = `Database Hosting - ${plan} plan - $${usdAmount} (₦${totalAmount.toLocaleString()} at rate ₦${USD_TO_NGN_RATE.toLocaleString()}/$1)`;
         }
         
-        // Confirm payment with user
+        // Enhanced confirmation dialog
         const confirmMessage = `
-            Payment Details:
-            Service: ${currentPaymentType.toUpperCase()}
-            ${currentPaymentType !== 'database' ? `Slots: ${slotsToAdd}` : `Plan: ${document.getElementById('hostingPlan')?.value || 'monthly'}`}
-            Total Amount: ₦${totalAmount.toLocaleString()}
-            
-            Proceed with payment?
+🔔 PAYMENT CONFIRMATION
+
+Service: ${currentPaymentType.toUpperCase()}
+${currentPaymentType !== 'database' ? `Slots: ${slotsToAdd.toLocaleString()}` : `Plan: ${document.getElementById('hostingPlan')?.value || 'monthly'}`}
+${currentPaymentType === 'database' ? `USD Amount: $${usdAmount}` : ''}
+${currentPaymentType === 'database' ? `Exchange Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1` : ''}
+Total Amount (NGN): ₦${totalAmount.toLocaleString()}
+Payment Method: ${paymentMethod.toUpperCase()}
+
+Proceed with payment?
         `;
         
-        if (!confirm(confirmMessage)) {
+        if (!confirm(confirmMessage.trim())) {
+            setPaymentButtonLoading(false);
             return;
         }
         
-        showMessage('Initializing payment...', 'info');
+        showMessage('Initializing payment gateway...', 'info');
         
         // Check if Flutterwave is loaded
         await checkFlutterwaveLoaded();
         
-        const txRef = `NARAP_${currentPaymentType}_${Date.now()}`;
+        const txRef = `NARAP_${currentPaymentType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        showMessage('Opening payment modal...', 'info');
         
         // Initialize Flutterwave payment
         FlutterwaveCheckout({
@@ -14018,30 +14079,226 @@ async function processPayment(event) {
                 name: "NARAP Admin",
             },
             customizations: {
-                title: "NARAP Payment",
+                title: "NARAP Payment System",
                 description: serviceDescription,
-                logo: "https://your-logo-url.com/logo.png",
+                logo: "https://your-logo-url.com/logo.png", // Replace with your actual logo URL
             },
             meta: {
                 payment_type: currentPaymentType,
-                slots_to_add: slotsToAdd,
+                slots_to_add: currentPaymentType !== 'database' ? slotsToAdd : 0,
                 cost_per_slot: currentPaymentType !== 'database' ? PRICING_CONFIG[currentPaymentType].costPerSlot : 0,
-                total_amount: totalAmount,
-                admin_payment: true
+                usd_amount: usdAmount,
+                exchange_rate: USD_TO_NGN_RATE,
+                total_amount_ngn: totalAmount,
+                admin_payment: true,
+                timestamp: new Date().toISOString()
             },
             callback: function (data) {
                 console.log("Flutterwave payment completed:", data);
-                handlePaymentSuccess(data, slotsToAdd, totalAmount);
+                setPaymentButtonLoading(false);
+                handlePaymentSuccess(data, slotsToAdd, totalAmount, usdAmount);
             },
             onclose: function() {
                 console.log("Flutterwave payment modal closed");
-                showMessage('Payment was cancelled', 'warning');
+                setPaymentButtonLoading(false);
+                showMessage('Payment was cancelled or closed', 'warning');
             }
         });
         
     } catch (error) {
         console.error('Payment initialization error:', error);
-        showMessage('Failed to initialize payment gateway', 'error');
+        setPaymentButtonLoading(false);
+        
+        if (error.message && error.message.includes('Flutterwave script failed to load')) {
+            showMessage('Payment gateway failed to load. Please refresh the page and try again.', 'error');
+        } else if (error.message && error.message.includes('network')) {
+            showMessage('Network error. Please check your internet connection and try again.', 'error');
+        } else {
+            showMessage('Failed to initialize payment gateway. Please try again.', 'error');
+        }
+    }
+}
+
+// Enhanced payment success handler
+async function handlePaymentSuccess(response, slotsToAdd, totalAmount, usdAmount = 0) {
+    try {
+        showMessage('Verifying payment...', 'info');
+        
+        console.log('Payment response:', response);
+        
+        if (response.status === 'successful') {
+            // Verify payment with your backend
+            const verificationResponse = await fetch('/api/verify-payment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    transaction_id: response.transaction_id,
+                    tx_ref: response.tx_ref,
+                    status: response.status,
+                    amount: response.amount,
+                    slots_to_add: slotsToAdd,
+                    payment_type: currentPaymentType,
+                    usd_amount: usdAmount,
+                    exchange_rate: USD_TO_NGN_RATE
+                })
+            });
+            
+            const verificationData = await verificationResponse.json();
+            
+            if (verificationData.success) {
+                showMessage('Payment verified successfully! ✅', 'success');
+                
+                // Process the payment based on type
+                if (currentPaymentType === 'database') {
+                    await handleDatabaseHostingActivation(response, usdAmount);
+                } else {
+                    await handleSlotIncrease(response, slotsToAdd);
+                }
+                
+                // Close modal and refresh data
+                closePaymentModal();
+                
+                // Refresh dashboard data
+                if (typeof loadDashboardData === 'function') {
+                    loadDashboardData();
+                }
+                
+                // Show success notification
+                showPaymentSuccessNotification(response, slotsToAdd, totalAmount, usdAmount);
+                
+            } else {
+                showMessage('Payment verification failed: ' + verificationData.message, 'error');
+            }
+        } else {
+            showMessage('Payment was not successful. Status: ' + response.status, 'error');
+        }
+        
+    } catch (error) {
+        console.error('Payment verification error:', error);
+        showMessage('Payment verification failed. Please contact support with reference: ' + response.tx_ref, 'error');
+    }
+}
+
+// Enhanced success notification
+function showPaymentSuccessNotification(response, slotsToAdd, totalAmount, usdAmount) {
+    const serviceType = currentPaymentType === 'idcard' ? 'ID Card' : 
+                      currentPaymentType === 'certificate' ? 'Certificate' : 'Database Hosting';
+    
+    let message = `
+        🎉 Payment Successful!
+        
+        Service: ${serviceType}
+        ${currentPaymentType !== 'database' ? `Slots Added: ${slotsToAdd.toLocaleString()}` : `Plan: ${document.getElementById('hostingPlan')?.value || 'monthly'}`}
+        ${usdAmount > 0 ? `USD Amount: $${usdAmount}` : ''}
+        Amount Paid: ₦${totalAmount.toLocaleString()}
+        Reference: ${response.tx_ref}
+        
+        Your ${serviceType.toLowerCase()} capacity has been updated!
+    `;
+    
+    showMessage(message, 'success');
+    
+    // Log the successful payment
+    if (typeof logActivity === 'function') {
+        logActivity('payment', `${serviceType} payment completed: ${currentPaymentType !== 'database' ? `+${slotsToAdd} slots` : document.getElementById('hostingPlan')?.value + ' plan'} - ₦${totalAmount.toLocaleString()} - Ref: ${response.tx_ref}`);
+    }
+}
+
+// Enhanced slot increase handler
+async function handleSlotIncrease(paymentResponse, slotsToAdd) {
+    try {
+        const response = await fetch('/api/increase-limits', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                memberLimit: currentPaymentType === 'idcard' ? slotsToAdd : 0,
+                certificateLimit: currentPaymentType === 'certificate' ? slotsToAdd : 0,
+                flutterwaveReference: paymentResponse.transaction_id,
+                transactionReference: paymentResponse.flw_ref || paymentResponse.transaction_id,
+                amountPaid: paymentResponse.amount,
+                slotsAdded: slotsToAdd,
+                costPerSlot: PRICING_CONFIG[currentPaymentType].costPerSlot
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const serviceType = currentPaymentType === 'idcard' ? 'ID Card' : 'Certificate';
+            const costPerSlot = PRICING_CONFIG[currentPaymentType].costPerSlot;
+            
+            showMessage(`
+                ✅ ${serviceType} Capacity Updated!
+                
+                Slots Added: ${slotsToAdd.toLocaleString()}
+                Cost per Slot: ₦${costPerSlot.toLocaleString()}
+                Total Paid: ₦${(paymentResponse.amount).toLocaleString()}
+                
+                New Limits:
+                • Members: ${data.limits.memberLimit.toLocaleString()}
+                • Certificates: ${data.limits.certificateLimit.toLocaleString()}
+            `, 'success');
+            
+            // Update UI elements if they exist
+            if (typeof updateLimitsDisplay === 'function') {
+                updateLimitsDisplay();
+            }
+            
+        } else {
+            showMessage('Failed to increase slots: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Slot increase error:', error);
+        showMessage('Failed to update capacity. Please contact support.', 'error');
+    }
+}
+
+// Enhanced database hosting activation
+async function handleDatabaseHostingActivation(paymentResponse, usdAmount) {
+    try {
+        const plan = document.getElementById('hostingPlan')?.value || 'monthly';
+        
+        const response = await fetch('/api/database-hosting', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                plan: plan,
+                flutterwaveReference: paymentResponse.transaction_id,
+                transactionReference: paymentResponse.flw_ref || paymentResponse.transaction_id,
+                amountPaid: paymentResponse.amount,
+                paymentStatus: 'successful',
+                usdAmount: usdAmount,
+                exchangeRate: USD_TO_NGN_RATE
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(`
+                🚀 Database Hosting Activated!
+                
+                Plan: ${data.plan.toUpperCase()}
+                Duration: ${data.duration}
+                USD Amount: $${data.usdAmount}
+                NGN Amount: ₦${data.ngnAmount.toLocaleString()}
+                Exchange Rate: ₦${data.exchangeRate.toLocaleString()}/$1
+                Expires: ${data.expiryDate}
+                
+                Your hosting is now active!
+            `, 'success');
+        } else {
+            showMessage('Failed to activate hosting: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Database hosting activation error:', error);
+        showMessage('Failed to activate database hosting. Please contact support.', 'error');
     }
 }
 
