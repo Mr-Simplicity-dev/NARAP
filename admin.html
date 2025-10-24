@@ -2064,30 +2064,33 @@
       <button class="close-btn" onclick="closePaymentModal()">×</button>
     </div>
     
-    <form id="paymentForm" onsubmit="processPayment(event)">
-      <div class="form-group">
-        <label for="paymentAmount">Amount to Add:</label>
-       <input id="paymentAmount" type="number" min="100" max="1000" required 
-       placeholder="e.g., 100">
-<small>Minimum 100 slots required</small>
-      </div>
-      
-      <div class="form-group">
-  <label for="paymentMethod">Payment Method:</label>
-  <select id="paymentMethod" required>
-    <option value="">Select Payment Method</option>
-    <option value="card">Credit/Debit Card</option>
-    <option value="bank_transfer">Bank Transfer</option>
-    <option value="ussd">USSD</option>
-    <option value="phone_number">Phone Number</option>
-  </select>
-</div>
-      
-      <div class="form-buttons">
-        <button class="btn btn-success" type="submit">
-          <i class="fas fa-credit-card"></i>
-          Process Payment
-        </button>
+   <form id="paymentForm" onsubmit="processPayment(event)">
+  <div class="form-group">
+    <label for="paymentAmount">Number of Slots to Add:</label>
+    <input id="paymentAmount" type="number" min="100" required 
+           placeholder="e.g., 100 (minimum)"
+           oninput="validatePaymentForm()">
+    <small class="help-text">
+      Minimum 100 slots required. 
+      ID Card: ₦50/slot | Certificate: ₦75/slot
+    </small>
+    <div id="calculatedAmount" class="calculated-amount"></div>
+  </div>
+  
+  <div class="form-group">
+    <label for="paymentMethod">Payment Method:</label>
+    <select id="paymentMethod" required>
+      <option value="">Select Payment Method</option>
+      <option value="card">Credit/Debit Card</option>
+      <option value="bank_transfer">Bank Transfer</option>
+      <option value="ussd">USSD</option>
+    </select>
+  </div>
+  
+  <button type="submit" class="btn btn-primary">
+    Proceed to Payment
+  </button>
+
         <button class="btn btn-secondary" onclick="closePaymentModal()" type="button">
           <i class="fas fa-times"></i>
           Cancel
