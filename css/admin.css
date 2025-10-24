@@ -5992,7 +5992,8 @@ html, body { height: 100%; overflow-y: auto; }
     animation: highlightPayment 0.6s ease-in-out;
 }
 
-/* Payment Success Styles */
+
+Payment Success Styles
 .payment-success {
     text-align: center;
     padding: 20px;
@@ -6018,4 +6019,296 @@ html, body { height: 100%; overflow-y: auto; }
 
 .payment-success p strong {
     color: #0d4715;
+} 
+
+
+/* Payment Form Styling */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+}
+
+.form-group label i {
+  margin-right: 8px;
+  color: #007bff;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.help-text {
+  display: block;
+  margin-top: 5px;
+  color: #666;
+  font-size: 14px;
+}
+
+.help-text i {
+  margin-right: 5px;
+  color: #17a2b8;
+}
+
+.calculated-amount {
+  margin-top: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Payment Security Info */
+.payment-security-info {
+  margin: 20px 0;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.security-badges {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.security-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: #28a745;
+  color: white;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.security-badge i {
+  margin-right: 5px;
+}
+
+/* Payment Logos */
+.payment-logos {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.logo-group {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.payment-logo {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  transition: all 0.3s ease;
+}
+
+.payment-logo:hover {
+  border-color: #007bff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.payment-logo i {
+  margin-right: 5px;
+  font-size: 16px;
+}
+
+/* ATM Logo Specific Styling */
+.atm-logo {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.atm-logo i {
+  color: #ffd700;
+}
+
+/* Visa Logo */
+.fa-cc-visa {
+  color: #1a1f71;
+}
+
+/* Mastercard Logo */
+.fa-cc-mastercard {
+  color: #eb001b;
+}
+
+/* Mobile/USSD Logo */
+.payment-logo .fa-mobile-alt {
+  color: #28a745;
+}
+
+/* Powered by Flutterwave */
+.powered-by {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.powered-by small {
+  color: #666;
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
+.flutterwave-logo {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: linear-gradient(135deg, #f5820d 0%, #f12711 100%);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.flutterwave-logo i {
+  margin-right: 4px;
+  color: #ffd700;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 25px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+}
+
+.btn i {
+  margin-right: 8px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  flex: 1;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #545b62;
+  transform: translateY(-2px);
+}
+
+/* Payment Button Loading State */
+.payment-btn.loading .btn-loader {
+  display: inline-block !important;
+}
+
+.payment-btn.loading i:not(.btn-loader i) {
+  display: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .logo-group {
+    justify-content: center;
+  }
+  
+  .payment-logos {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+  }
+}
+
+/* Animation for calculated amount */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.calculated-amount {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Hover effects for form elements */
+.form-group input:hover,
+.form-group select:hover {
+  border-color: #007bff;
+}
+
+/* Focus states for accessibility */
+.payment-logo:focus,
+.btn:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
 }
