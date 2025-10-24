@@ -14137,27 +14137,82 @@ async function handleSlotIncrease(paymentResponse, slotsToAdd) {
 function validatePaymentForm() {
     const slotsInput = document.getElementById('paymentAmount');
     const slotsToAdd = parseInt(slotsInput.value);
+    const hostingPlanGroup = document.getElementById('hostingPlanGroup');
     
-    if (currentPaymentType !== 'database') {
-        const minSlots = PRICING_CONFIG[currentPaymentType].minimumSlots;
-        const costPerSlot = PRICING_CONFIG[currentPaymentType].costPerSlot;
+    // Show/hide hosting plan based on payment type
+    if (currentPaymentType === 'database') {
+        hostingPlanGroup.style.display = 'block';
+        slotsInput.parentElement.style.display = 'none';
         
-        if (slotsToAdd < minSlots) {
-            slotsInput.setCustomValidity(`Minimum ${minSlots} slots required`);
-            return false;
-        } else {
-            slotsInput.setCustomValidity('');
-        }
+        // For database hosting, show USD and NGN amounts
+        const plan = document.getElementById('hostingPlan')?.value || 'monthly';
+        const usdAmount = PRICING_CONFIG.database[plan];
+        const ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
         
-        // Update display with calculated amount
-        const totalAmount = slotsToAdd * costPerSlot;
         const displayElement = document.getElementById('calculatedAmount');
         if (displayElement) {
-            displayElement.textContent = `Total: ₦${totalAmount.toLocaleString()}`;
+            displayElement.innerHTML = `
+                <div class="amount-breakdown">
+                    <div class="usd-amount">
+                        <i class="fas fa-dollar-sign"></i>
+                        <strong>$${usdAmount}</strong>
+                    </div>
+                    <div class="conversion">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>≈ ₦${ngnAmount.toLocaleString()}</span>
+                    </div>
+                    <small>Rate: ₦${USD_TO_NGN_RATE}/$1</small>
+                </div>
+            `;
+        }
+    } else {
+        hostingPlanGroup.style.display = 'none';
+        slotsInput.parentElement.style.display = 'block';
+        
+        if (slotsToAdd && slotsToAdd > 0) {
+            const minSlots = PRICING_CONFIG[currentPaymentType].minimumSlots;
+            const costPerSlot = PRICING_CONFIG[currentPaymentType].costPerSlot;
+            
+            if (slotsToAdd < minSlots) {
+                slotsInput.setCustomValidity(`Minimum ${minSlots} slots required`);
+                return false;
+            } else {
+                slotsInput.setCustomValidity('');
+            }
+            
+            // Update display with calculated amount
+            const totalAmount = slotsToAdd * costPerSlot;
+            const displayElement = document.getElementById('calculatedAmount');
+            if (displayElement) {
+                displayElement.innerHTML = `
+                    <div class="amount-breakdown">
+                        <div class="calculation">
+                            <i class="fas fa-calculator"></i>
+                            ${slotsToAdd} slots × ₦${costPerSlot.toLocaleString()}/slot
+                        </div>
+                        <div class="total-amount">
+                            <i class="fas fa-equals"></i>
+                            <strong>Total: ₦${totalAmount.toLocaleString()}</strong>
+                        </div>
+                    </div>
+                `;
+            }
         }
     }
     
     return true;
+}
+
+// Add loading state to payment button
+function setPaymentButtonLoading(loading) {
+    const paymentBtn = document.querySelector('.payment-btn');
+    if (loading) {
+        paymentBtn.classList.add('loading');
+        paymentBtn.disabled = true;
+    } else {
+        paymentBtn.classList.remove('loading');
+        paymentBtn.disabled = false;
+    }
 }
 
 // Add event listener for real-time calculation
@@ -14208,6 +14263,8 @@ async function handlePaymentSuccess(response) {
         showMessage('Payment verification failed', 'error');
     }
 }
+
+
 // Handle successful payment
 async function handlePaymentSuccess(response) {
     try {
