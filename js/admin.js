@@ -13926,60 +13926,72 @@ const FLUTTERWAVE_CONFIG = {
     mode: "live" // Change to "live" for production
 };
 
-// Pricing Configuration
-// Pricing Configuration with correct rates
+// USD-based Pricing Configuration - ALL payments are in USD but paid in NGN equivalent
 const PRICING_CONFIG = {
     idcard: {
-        costPerSlot: 1100, // ₦1,100 per ID card slot
+        costPerSlotUSD: 0.75, // $0.75 per ID card slot (₦1,100 ÷ ₦1,650 rate)
         minimumSlots: 100,
-        currency: 'NGN'
+        baseCurrency: 'USD'
     },
     certificate: {
-        costPerSlot: 1000, // ₦1,000 per certificate slot
+        costPerSlotUSD: 0.68, // $0.68 per certificate slot (₦1,000 ÷ ₦1,650 rate)
         minimumSlots: 100,
-        currency: 'NGN'
+        baseCurrency: 'USD'
     },
     database: {
-        monthly: 35, // $35 per month (will be converted to NGN)
-        yearly: 336, // $336 per year (will be converted to NGN)
-        currency: 'USD' // Will be converted to NGN
+        monthlyUSD: 35, // $35 per month
+        yearlyUSD: 336, // $336 per year
+        baseCurrency: 'USD'
     }
 };
 
-// Exchange rate - you should update this regularly or fetch from an API
-let USD_TO_NGN_RATE = 1650; // Current approximate rate (₦1,650 per $1)
+// Exchange rate - fetched in real-time
+let USD_TO_NGN_RATE = 1650; // Default fallback rate
 
 // Function to get current USD to NGN exchange rate
 async function getExchangeRate() {
     try {
-        showMessage('Getting current exchange rate...', 'info');
-        // You can use a free API like exchangerate-api.com or fixer.io
-        const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-        const data = await response.json();
-        USD_TO_NGN_RATE = data.rates.NGN || 1650; // Fallback to 1650 if API fails
-        console.log('Current USD to NGN rate:', USD_TO_NGN_RATE);
+        console.log('🔄 Fetching current USD to NGN exchange rate...');
+        
+        // Try multiple exchange rate APIs for reliability
+        let rate = null;
+        
+        try {
+            // Primary API: exchangerate-api.com
+            const response1 = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+            const data1 = await response1.json();
+            rate = data1.rates.NGN;
+        } catch (error) {
+            console.warn('Primary exchange API failed, trying backup...');
+        }
+        
+        if (!rate) {
+            try {
+                // Backup API: fixer.io (you may need API key)
+                const response2 = await fetch('https://api.fixer.io/latest?base=USD&symbols=NGN');
+                const data2 = await response2.json();
+                rate = data2.rates.NGN;
+            } catch (error) {
+                console.warn('Backup exchange API failed, using fallback rate');
+            }
+        }
+        
+        if (rate && rate > 0) {
+            USD_TO_NGN_RATE = Math.round(rate * 100) / 100; // Round to 2 decimal places
+            console.log(`✅ Current USD to NGN rate: ₦${USD_TO_NGN_RATE}`);
+        } else {
+            console.warn(`⚠️ Using fallback rate: ₦${USD_TO_NGN_RATE}`);
+        }
+        
         return USD_TO_NGN_RATE;
     } catch (error) {
-        console.error('Failed to fetch exchange rate, using fallback:', USD_TO_NGN_RATE);
-        showMessage('Using cached exchange rate', 'warning');
+        console.error('Failed to fetch exchange rate:', error);
+        console.warn(`⚠️ Using fallback rate: ₦${USD_TO_NGN_RATE}`);
         return USD_TO_NGN_RATE;
     }
 }
 
-// Add loading state to payment button
-function setPaymentButtonLoading(loading) {
-    const paymentBtn = document.querySelector('.payment-btn');
-    if (paymentBtn) {
-        if (loading) {
-            paymentBtn.classList.add('loading');
-            paymentBtn.disabled = true;
-        } else {
-            paymentBtn.classList.remove('loading');
-            paymentBtn.disabled = false;
-        }
-    }
-}
-
+// Updated processPayment function with USD-based pricing
 async function processPayment(event) {
     event.preventDefault();
     
@@ -14013,41 +14025,51 @@ async function processPayment(event) {
     }
     
     try {
+        showMessage('Getting current exchange rate...', 'info');
+        
+        // ALWAYS get current exchange rate for ALL payment types
+        await getExchangeRate();
+        
         showMessage('Calculating payment amount...', 'info');
         
-        // Get current exchange rate for database payments
-        if (currentPaymentType === 'database') {
-            await getExchangeRate();
-        }
-        
-        // Calculate total amount based on slots and pricing
-        let totalAmount = 0;
-        let serviceDescription = '';
+        // Calculate USD amount and NGN equivalent for ALL payment types
         let usdAmount = 0;
+        let ngnAmount = 0;
+        let serviceDescription = '';
+        let costPerSlotUSD = 0;
         
         if (currentPaymentType === 'idcard') {
-            totalAmount = slotsToAdd * PRICING_CONFIG.idcard.costPerSlot;
-            serviceDescription = `ID Card Payment - ${slotsToAdd} slots × ₦${PRICING_CONFIG.idcard.costPerSlot.toLocaleString()} = ₦${totalAmount.toLocaleString()}`;
+            costPerSlotUSD = PRICING_CONFIG.idcard.costPerSlotUSD;
+            usdAmount = slotsToAdd * costPerSlotUSD;
+            ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
+            serviceDescription = `ID Card Payment - ${slotsToAdd} slots × $${costPerSlotUSD} = $${usdAmount.toFixed(2)} (₦${ngnAmount.toLocaleString()})`;
         } else if (currentPaymentType === 'certificate') {
-            totalAmount = slotsToAdd * PRICING_CONFIG.certificate.costPerSlot;
-            serviceDescription = `Certificate Payment - ${slotsToAdd} slots × ₦${PRICING_CONFIG.certificate.costPerSlot.toLocaleString()} = ₦${totalAmount.toLocaleString()}`;
+            costPerSlotUSD = PRICING_CONFIG.certificate.costPerSlotUSD;
+            usdAmount = slotsToAdd * costPerSlotUSD;
+            ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
+            serviceDescription = `Certificate Payment - ${slotsToAdd} slots × $${costPerSlotUSD} = $${usdAmount.toFixed(2)} (₦${ngnAmount.toLocaleString()})`;
         } else if (currentPaymentType === 'database') {
             const plan = document.getElementById('hostingPlan')?.value || 'monthly';
-            usdAmount = PRICING_CONFIG.database[plan];
-            totalAmount = Math.round(usdAmount * USD_TO_NGN_RATE); // Convert USD to NGN
-            serviceDescription = `Database Hosting - ${plan} plan - $${usdAmount} (₦${totalAmount.toLocaleString()} at rate ₦${USD_TO_NGN_RATE.toLocaleString()}/$1)`;
+            usdAmount = plan === 'monthly' ? PRICING_CONFIG.database.monthlyUSD : PRICING_CONFIG.database.yearlyUSD;
+            ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
+            serviceDescription = `Database Hosting - ${plan} plan - $${usdAmount} (₦${ngnAmount.toLocaleString()})`;
         }
         
-        // Enhanced confirmation dialog
+        // Enhanced confirmation dialog showing both USD and NGN
         const confirmMessage = `
 🔔 PAYMENT CONFIRMATION
 
 Service: ${currentPaymentType.toUpperCase()}
 ${currentPaymentType !== 'database' ? `Slots: ${slotsToAdd.toLocaleString()}` : `Plan: ${document.getElementById('hostingPlan')?.value || 'monthly'}`}
-${currentPaymentType === 'database' ? `USD Amount: $${usdAmount}` : ''}
-${currentPaymentType === 'database' ? `Exchange Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1` : ''}
-Total Amount (NGN): ₦${totalAmount.toLocaleString()}
+${currentPaymentType !== 'database' ? `Cost per Slot: $${costPerSlotUSD}` : ''}
+
+USD Amount: $${usdAmount.toFixed(2)}
+Exchange Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1
+NGN Equivalent: ₦${ngnAmount.toLocaleString()}
+
 Payment Method: ${paymentMethod.toUpperCase()}
+
+You will be charged ₦${ngnAmount.toLocaleString()} (NGN equivalent of $${usdAmount.toFixed(2)} USD)
 
 Proceed with payment?
         `;
@@ -14066,11 +14088,11 @@ Proceed with payment?
         
         showMessage('Opening payment modal...', 'info');
         
-        // Initialize Flutterwave payment
+        // Initialize Flutterwave payment (always in NGN but with USD metadata)
         FlutterwaveCheckout({
             public_key: FLUTTERWAVE_CONFIG.publicKey,
             tx_ref: txRef,
-            amount: totalAmount,
+            amount: ngnAmount, // Always pay in NGN equivalent
             currency: "NGN",
             payment_options: "card,mobilemoney,ussd,bank_transfer",
             customer: {
@@ -14081,22 +14103,23 @@ Proceed with payment?
             customizations: {
                 title: "NARAP Payment System",
                 description: serviceDescription,
-                logo: "https://your-logo-url.com/logo.png", // Replace with your actual logo URL
+                logo: "https://your-logo-url.com/logo.png",
             },
             meta: {
                 payment_type: currentPaymentType,
                 slots_to_add: currentPaymentType !== 'database' ? slotsToAdd : 0,
-                cost_per_slot: currentPaymentType !== 'database' ? PRICING_CONFIG[currentPaymentType].costPerSlot : 0,
+                cost_per_slot_usd: costPerSlotUSD,
                 usd_amount: usdAmount,
                 exchange_rate: USD_TO_NGN_RATE,
-                total_amount_ngn: totalAmount,
+                ngn_amount: ngnAmount,
                 admin_payment: true,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                rate_fetched_at: new Date().toISOString()
             },
             callback: function (data) {
                 console.log("Flutterwave payment completed:", data);
                 setPaymentButtonLoading(false);
-                handlePaymentSuccess(data, slotsToAdd, totalAmount, usdAmount);
+                handlePaymentSuccess(data, slotsToAdd, ngnAmount, usdAmount, costPerSlotUSD);
             },
             onclose: function() {
                 console.log("Flutterwave payment modal closed");
@@ -14119,8 +14142,8 @@ Proceed with payment?
     }
 }
 
-// Enhanced payment success handler
-async function handlePaymentSuccess(response, slotsToAdd, totalAmount, usdAmount = 0) {
+// Updated payment success handler
+async function handlePaymentSuccess(response, slotsToAdd, ngnAmount, usdAmount, costPerSlotUSD) {
     try {
         showMessage('Verifying payment...', 'info');
         
@@ -14141,7 +14164,9 @@ async function handlePaymentSuccess(response, slotsToAdd, totalAmount, usdAmount
                     slots_to_add: slotsToAdd,
                     payment_type: currentPaymentType,
                     usd_amount: usdAmount,
-                    exchange_rate: USD_TO_NGN_RATE
+                    cost_per_slot_usd: costPerSlotUSD,
+                    exchange_rate: USD_TO_NGN_RATE,
+                    ngn_amount: ngnAmount
                 })
             });
             
@@ -14154,7 +14179,7 @@ async function handlePaymentSuccess(response, slotsToAdd, totalAmount, usdAmount
                 if (currentPaymentType === 'database') {
                     await handleDatabaseHostingActivation(response, usdAmount);
                 } else {
-                    await handleSlotIncrease(response, slotsToAdd);
+                    await handleSlotIncrease(response, slotsToAdd, usdAmount, costPerSlotUSD);
                 }
                 
                 // Close modal and refresh data
@@ -14166,7 +14191,7 @@ async function handlePaymentSuccess(response, slotsToAdd, totalAmount, usdAmount
                 }
                 
                 // Show success notification
-                showPaymentSuccessNotification(response, slotsToAdd, totalAmount, usdAmount);
+                showPaymentSuccessNotification(response, slotsToAdd, ngnAmount, usdAmount, costPerSlotUSD);
                 
             } else {
                 showMessage('Payment verification failed: ' + verificationData.message, 'error');
@@ -14181,8 +14206,79 @@ async function handlePaymentSuccess(response, slotsToAdd, totalAmount, usdAmount
     }
 }
 
-// Enhanced success notification
-function showPaymentSuccessNotification(response, slotsToAdd, totalAmount, usdAmount) {
+// Updated form validation to show USD and NGN amounts
+function validatePaymentForm() {
+    const slotsInput = document.getElementById('paymentAmount');
+    const slotsToAdd = parseInt(slotsInput.value);
+    
+    if (currentPaymentType !== 'database') {
+        const minSlots = PRICING_CONFIG[currentPaymentType].minimumSlots;
+        const costPerSlotUSD = PRICING_CONFIG[currentPaymentType].costPerSlotUSD;
+        
+        if (slotsToAdd < minSlots) {
+            slotsInput.setCustomValidity(`Minimum ${minSlots} slots required`);
+            return false;
+        } else {
+            slotsInput.setCustomValidity('');
+        }
+        
+        if (slotsToAdd && slotsToAdd > 0) {
+            // Calculate USD amount and NGN equivalent
+            const usdAmount = slotsToAdd * costPerSlotUSD;
+            const ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
+            
+            const displayElement = document.getElementById('calculatedAmount');
+            if (displayElement) {
+                displayElement.innerHTML = `
+                    <div class="amount-breakdown">
+                        <div class="usd-calculation">
+                            <i class="fas fa-dollar-sign"></i>
+                            ${slotsToAdd} slots × $${costPerSlotUSD} = <strong>$${usdAmount.toFixed(2)}</strong>
+                        </div>
+                        <div class="conversion">
+                            <i class="fas fa-exchange-alt"></i>
+                            <span>Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1</span>
+                        </div>
+                        <div class="ngn-total">
+                            <i class="fas fa-equals"></i>
+                            <strong>Pay: ₦${ngnAmount.toLocaleString()}</strong>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    } else {
+        // For database hosting, show USD and NGN amounts
+        const plan = document.getElementById('hostingPlan')?.value || 'monthly';
+        const usdAmount = plan === 'monthly' ? PRICING_CONFIG.database.monthlyUSD : PRICING_CONFIG.database.yearlyUSD;
+        const ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
+        
+        const displayElement = document.getElementById('calculatedAmount');
+        if (displayElement) {
+            displayElement.innerHTML = `
+                <div class="amount-breakdown">
+                    <div class="usd-amount">
+                        <i class="fas fa-server"></i>
+                        <strong>$${usdAmount}</strong> (${plan} plan)
+                    </div>
+                    <div class="conversion">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1</span>
+                    </div>
+                    <div class="ngn-total">
+                        <i class="fas fa-equals"></i>
+                        <strong>Pay: ₦${ngnAmount.toLocaleString()}</strong>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    return true;
+}
+
+// Updated success notification
+function showPaymentSuccessNotification(response, slotsToAdd, ngnAmount, usdAmount, costPerSlotUSD) {
     const serviceType = currentPaymentType === 'idcard' ? 'ID Card' : 
                       currentPaymentType === 'certificate' ? 'Certificate' : 'Database Hosting';
     
@@ -14191,20 +14287,33 @@ function showPaymentSuccessNotification(response, slotsToAdd, totalAmount, usdAm
         
         Service: ${serviceType}
         ${currentPaymentType !== 'database' ? `Slots Added: ${slotsToAdd.toLocaleString()}` : `Plan: ${document.getElementById('hostingPlan')?.value || 'monthly'}`}
-        ${usdAmount > 0 ? `USD Amount: $${usdAmount}` : ''}
-        Amount Paid: ₦${totalAmount.toLocaleString()}
+        ${currentPaymentType !== 'database' ? `Cost per Slot: $${costPerSlotUSD}` : ''}
+        USD Amount: $${usdAmount.toFixed(2)}
+        Exchange Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1
+        NGN Paid: ₦${ngnAmount.toLocaleString()}
         Reference: ${response.tx_ref}
         
         Your ${serviceType.toLowerCase()} capacity has been updated!
     `;
     
     showMessage(message, 'success');
-    
-    // Log the successful payment
-    if (typeof logActivity === 'function') {
-        logActivity('payment', `${serviceType} payment completed: ${currentPaymentType !== 'database' ? `+${slotsToAdd} slots` : document.getElementById('hostingPlan')?.value + ' plan'} - ₦${totalAmount.toLocaleString()} - Ref: ${response.tx_ref}`);
-    }
 }
+
+// Initialize exchange rate on page load
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('🚀 Initializing NARAP Payment System...');
+    await getExchangeRate();
+    
+    const amountInput = document.getElementById('paymentAmount');
+    if (amountInput) {
+        amountInput.addEventListener('input', validatePaymentForm);
+    }
+    
+    const hostingPlan = document.getElementById('hostingPlan');
+    if (hostingPlan) {
+        hostingPlan.addEventListener('change', validatePaymentForm);
+    }
+});
 
 // Enhanced slot increase handler
 async function handleSlotIncrease(paymentResponse, slotsToAdd) {
