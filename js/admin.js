@@ -13922,8 +13922,8 @@ function closePaymentModal() {
 
 // Replace Monnify Configuration with Flutterwave Configuration
 const FLUTTERWAVE_CONFIG = {
-    publicKey: "FLWPUBK_TEST-your-public-key-here", // Replace with your actual public key
-    mode: "test" // Change to "live" for production
+    publicKey: "e800b46c-8a73-4423-b08e-100905832226", // Replace with your actual public key
+    mode: "live" // Change to "live" for production
 };
 
 async function processPayment(event) {
