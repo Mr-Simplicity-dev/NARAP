@@ -13933,8 +13933,15 @@ async function processPayment(event) {
     const amount = parseInt(document.getElementById('paymentAmount').value);
     const paymentMethod = document.getElementById('paymentMethod').value;
     
+    // Validate amount exists and is positive
     if (!amount || amount <= 0) {
         showMessage('Please enter a valid amount', 'error');
+        return;
+    }
+    
+    // Validate minimum 100 slots requirement
+    if (amount < 100) {
+        showMessage('Minimum 100 slots required for payment', 'error');
         return;
     }
     
@@ -13946,8 +13953,26 @@ async function processPayment(event) {
     try {
         showMessage('Initializing payment...', 'info');
         
-        // Calculate actual payment amount (you can add fees here if needed)
-        const paymentAmount = amount * 1000; // Convert to kobo for Nigerian payments
+        // Calculate cost per slot based on payment type
+        let costPerSlot;
+        let totalCost;
+        
+        if (currentPaymentType === 'idcard') {
+            costPerSlot = 1100; // 1100 naira per ID slot
+            totalCost = amount * costPerSlot;
+        } else if (currentPaymentType === 'certificate') {
+            costPerSlot = 1000; // 1000 naira per certificate slot
+            totalCost = amount * costPerSlot;
+        } else if (currentPaymentType === 'database') {
+            // For database payments, use the amount directly
+            totalCost = amount;
+        } else {
+            showMessage('Invalid payment type', 'error');
+            return;
+        }
+        
+        // Convert to kobo for Nigerian payments
+        const paymentAmount = totalCost * 100;
         
         // Generate unique payment reference
         const paymentReference = `NARAP_${currentPaymentType}_${Date.now()}`;
@@ -13955,11 +13980,11 @@ async function processPayment(event) {
         // Determine service description
         let serviceDescription = '';
         if (currentPaymentType === 'idcard') {
-            serviceDescription = `ID Card Payment - Increase Member Capacity by ${amount}`;
+            serviceDescription = `ID Card Payment - ${amount} slots × ₦1,100 = ₦${totalCost.toLocaleString()}`;
         } else if (currentPaymentType === 'certificate') {
-            serviceDescription = `Certificate Payment - Increase Certificate Capacity by ${amount}`;
+            serviceDescription = `Certificate Payment - ${amount} slots × ₦1,000 = ₦${totalCost.toLocaleString()}`;
         } else if (currentPaymentType === 'database') {
-            serviceDescription = `Database Hosting Payment`;
+            serviceDescription = `Database Hosting Payment - ₦${totalCost.toLocaleString()}`;
         }
         
         // Initialize Monnify payment
@@ -13975,6 +14000,8 @@ async function processPayment(event) {
             metadata: {
                 paymentType: currentPaymentType,
                 capacityIncrease: amount,
+                costPerSlot: costPerSlot,
+                totalCost: totalCost,
                 adminPayment: true
             },
             paymentMethods: [paymentMethod.toUpperCase()],
@@ -14003,7 +14030,6 @@ async function processPayment(event) {
         showMessage('Failed to initialize payment gateway', 'error');
     }
 }
-
 // Handle successful payment
 async function handlePaymentSuccess(response) {
     try {
