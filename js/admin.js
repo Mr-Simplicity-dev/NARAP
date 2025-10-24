@@ -13926,6 +13926,25 @@ const FLUTTERWAVE_CONFIG = {
     mode: "live" // Change to "live" for production
 };
 
+// Pricing Configuration
+const PRICING_CONFIG = {
+    idcard: {
+        costPerSlot: 1100, // ₦1100 per ID card slot
+        minimumSlots: 100,
+        currency: 'NGN'
+    },
+    certificate: {
+        costPerSlot: 1000, // ₦1000 per certificate slot
+        minimumSlots: 100,
+        currency: 'NGN'
+    },
+    database: {
+        monthly: $35, 
+        yearly: $336, 
+        currency: 'NGN'
+    }
+};
+
 async function processPayment(event) {
     event.preventDefault();
     
