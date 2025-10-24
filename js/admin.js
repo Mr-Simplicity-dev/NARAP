@@ -13922,7 +13922,7 @@ function closePaymentModal() {
 
 // Monnify Configuration
 const MONNIFY_CONFIG = {
-    apiKey: "MK_TEST_QM8RYAZP67", // Replace with your actual API key
+    apiKey: "MK_LIVE_QM8RYAZP67", // Replace with your actual API key
     contractCode: "0923121447", // Replace with your contract code
     mode: "LIVE" // Change to "LIVE" for production
 };
