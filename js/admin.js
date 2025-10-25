@@ -13897,11 +13897,15 @@ function showPaymentModal(type) {
   currentPaymentType = type;
   
   if (type === 'database') {
-    // Show database-specific modal
-    const databaseModal = document.getElementById('databasePaymentModal');
-    databaseModal.style.display = 'flex';
-    return;
-  }
+  // Close any other open modals first
+  document.getElementById('paymentModal').style.display = 'none';
+  
+  // Show database-specific modal
+  const databaseModal = document.getElementById('databasePaymentModal');
+  databaseModal.style.display = 'flex';
+  databaseModal.style.zIndex = '2001';
+  return;
+}
   
   const modal = document.getElementById('paymentModal');
   const title = document.getElementById('paymentTitle');
