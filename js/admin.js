@@ -13897,15 +13897,34 @@ function showPaymentModal(type) {
   currentPaymentType = type;
   
   if (type === 'database') {
-  // Close any other open modals first
-  document.getElementById('paymentModal').style.display = 'none';
-  
-  // Show database-specific modal
-  const databaseModal = document.getElementById('databasePaymentModal');
-  databaseModal.style.display = 'flex';
-  databaseModal.style.zIndex = '2001';
-  return;
-}
+    // Close any other open modals first
+    const paymentModal = document.getElementById('paymentModal');
+    if (paymentModal) paymentModal.style.display = 'none';
+    
+    // Show database-specific modal with debugging
+    const databaseModal = document.getElementById('databasePaymentModal');
+    console.log('🔍 Database modal element:', databaseModal);
+    
+    if (databaseModal) {
+      // Force show the modal with all necessary styles
+      databaseModal.style.display = 'flex';
+      databaseModal.style.zIndex = '2002';
+      databaseModal.style.position = 'fixed';
+      databaseModal.style.top = '0';
+      databaseModal.style.left = '0';
+      databaseModal.style.width = '100%';
+      databaseModal.style.height = '100%';
+      databaseModal.style.background = 'rgba(0, 0, 0, 0.5)';
+      databaseModal.style.alignItems = 'center';
+      databaseModal.style.justifyContent = 'center';
+      
+      console.log('✅ Database modal display set to:', databaseModal.style.display);
+      console.log('✅ Database modal z-index set to:', databaseModal.style.zIndex);
+    } else {
+      console.error('❌ Database modal element not found! Check if databasePaymentModal exists in HTML');
+    }
+    return;
+  }
   
   const modal = document.getElementById('paymentModal');
   const title = document.getElementById('paymentTitle');

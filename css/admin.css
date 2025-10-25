@@ -6380,13 +6380,3 @@ Payment Success Styles
     position: relative !important;
     z-index: 2003 !important;
 }
-
-/* Ensure modal backdrop works */
-#databasePaymentModal .modal-backdrop {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    z-index: 2001 !important;
-}
