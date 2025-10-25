@@ -1064,7 +1064,7 @@
 
       </div>
     </div>
-   <!-- Service Payment Tab -->
+  <!-- Service Payment Tab -->
 <div class="panel" id="panel-payments">
   <h2>Service Payment</h2>
   
@@ -1084,11 +1084,8 @@
       </div>
       <div class="quick-link-title">Certificate Payment</div>
       <div class="quick-link-desc">Increase certificate capacity</div>
-    </div>
-  </div>
-
-  
-    <!-- ADD THIS NEW DATABASE HOST PAYMENT CARD -->
+    </div> <!-- ✅ ADDED: Missing closing div for certificate card -->
+    
     <div class="quick-link-card" onclick="showPaymentModal('database')">
       <div class="quick-link-icon">
         <i class="fas fa-database"></i>
@@ -1096,7 +1093,7 @@
       <div class="quick-link-title">Database Host Payment</div>
       <div class="quick-link-desc">$35/month or $336/year (20% off)</div>
     </div>
-  </div>
+  </div> <!-- ✅ Closes quick-links -->
   
   <!-- Current Limits Display -->
   <div class="stats-grid">
@@ -1116,9 +1113,7 @@
       <div class="stat-number" id="certificateUsage">0</div>
       <div class="stat-label">Certificates Used</div>
     </div>
-  </div>
-</div>
-<!-- ADD THIS NEW DATABASE STATUS CARD -->
+    <!-- ✅ MOVED: Database status cards inside the same stats-grid -->
     <div class="stat-card">
       <div class="stat-number" id="databaseStatus">Inactive</div>
       <div class="stat-label">Database Hosting</div>
@@ -1127,7 +1122,22 @@
       <div class="stat-number" id="databaseExpiry">N/A</div>
       <div class="stat-label">Hosting Expires</div>
     </div>
+  </div> <!-- ✅ Closes stats-grid -->
+  
+</div> <!-- ✅ Closes panel-payments -->
+
+  
+    <!-- ADD THIS NEW DATABASE HOST PAYMENT CARD -->
+    <div class="quick-link-card" onclick="showPaymentModal('database')">
+      <div class="quick-link-icon">
+        <i class="fas fa-database"></i>
+      </div>
+      <div class="quick-link-title">Database Host Payment</div>
+      <div class="quick-link-desc">$35/month or $336/year (20% off)</div>
+    </div>
   </div>
+  
+  
     <!-- Footer -->
     <div class="admin-footer">
      <div class="footer-left">

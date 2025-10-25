@@ -14934,3 +14934,32 @@ async function updateDatabaseStatus() {
     console.error('Error updating database status:', error);
   }
 }
+
+// Add this function to your admin.js
+async function fixCertificateLimit() {
+    try {
+        showMessage('Updating certificate limit to 1415...', 'info');
+        
+        const response = await fetch('/api/update-limits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ certificateLimit: 1415 })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage('✅ Certificate limit updated to 1415!', 'success');
+            // Refresh the status
+            setTimeout(() => checkLimitsStatus(), 1000);
+        } else {
+            showMessage('❌ Failed to update: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error updating certificate limit:', error);
+        showMessage('❌ Network error updating certificate limit', 'error');
+    }
+}
+
+// Call it immediately
+fixCertificateLimit();
