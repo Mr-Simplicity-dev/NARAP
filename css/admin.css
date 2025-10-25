@@ -6398,6 +6398,17 @@ Payment Success Styles
     }
 }
 
+.states-container {
+  max-height: 300px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.states-list {
+  height: auto;
+  max-height: none;
+}
+
 /* ===== DATABASE PAYMENT MODAL ===== */
 #databasePaymentModal {
     position: fixed;
