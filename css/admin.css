@@ -6312,3 +6312,37 @@ Payment Success Styles
   outline: 2px solid #007bff;
   outline-offset: 2px;
 }
+
+/* Fix Members by State chart scrolling */
+.state-chart-card {
+    max-height: 500px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 10px; /* Account for scrollbar */
+}
+
+/* Ensure state chart canvas adapts to container */
+.state-chart-card #stateChart {
+    min-height: 240px;
+    max-height: none;
+    width: 100%;
+}
+
+/* Style the scrollbar for better UX */
+.state-chart-card::-webkit-scrollbar {
+    width: 8px;
+}
+
+.state-chart-card::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.state-chart-card::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.state-chart-card::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
