@@ -6398,20 +6398,9 @@ Payment Success Styles
     }
 }
 
-.states-container {
-  max-height: 300px;
-  overflow-y: auto;
-  position: relative;
-}
 
-.states-list {
-  height: auto;
-  max-height: none;
-}
-
-/* ===== DATABASE PAYMENT MODAL SPECIFIC FIXES ===== */
+/* ===== DATABASE PAYMENT MODAL ===== */
 #databasePaymentModal {
-    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -6421,9 +6410,10 @@ Payment Success Styles
     z-index: 2002;
     align-items: center;
     justify-content: center;
+    display: none;
 }
 
-#databasePaymentModal.active {
+#databasePaymentModal[style*="display: flex"] {
     display: flex !important;
 }
 
@@ -6431,101 +6421,10 @@ Payment Success Styles
     background: white;
     border-radius: 12px;
     padding: 30px;
-    max-width: 500px;
+    max-width: 800px;
     width: 90%;
-    max-height: 80vh;
+    max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     position: relative;
-    margin: 20px;
-}
-
-/* Subscription options styling */
-.subscription-options {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    margin: 20px 0;
-}
-
-.subscription-option {
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 20px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-align: center;
-}
-
-.subscription-option:hover {
-    border-color: #007bff;
-    transform: translateY(-2px);
-}
-
-.subscription-option.selected {
-    border-color: #28a745;
-    background: #f8fff9;
-}
-
-.subscription-option h4 {
-    margin: 0 0 10px 0;
-    color: #333;
-}
-
-.subscription-option .price {
-    font-size: 1.5em;
-    font-weight: bold;
-    color: #007bff;
-    margin-bottom: 10px;
-}
-
-/* ===== MEMBERS BY STATE SCROLL FIX ===== */
-.state-chart-card {
-    max-height: 400px; /* Fixed height to prevent modal resizing */
-    overflow-y: auto; /* Enable vertical scrolling */
-    overflow-x: hidden; /* Prevent horizontal scroll */
-    padding-right: 8px; /* Space for scrollbar */
-}
-
-/* Ensure the chart container has proper dimensions */
-.state-chart-card .chart-container {
-    min-height: 300px;
-    position: relative;
-}
-
-/* Custom scrollbar styling */
-.state-chart-card::-webkit-scrollbar {
-    width: 6px;
-}
-
-.state-chart-card::-webkit-scrollbar-track {
-    background: #f7fafc;
-    border-radius: 3px;
-}
-
-.state-chart-card::-webkit-scrollbar-thumb {
-    background: #cbd5e0;
-    border-radius: 3px;
-}
-
-.state-chart-card::-webkit-scrollbar-thumb:hover {
-    background: #a0aec0;
-}
-
-/* Ensure the chart canvas doesn't affect layout */
-.state-chart-card canvas {
-    max-width: 100%;
-    height: auto !important;
-}
-
-/* Fix for modal layout consistency */
-.analytics-card {
-    min-height: 200px;
-    display: flex;
-    flex-direction: column;
-}
-
-.analytics-card .card-body {
-    flex: 1;
-    overflow: hidden; /* Prevent content overflow affecting layout */
 }
