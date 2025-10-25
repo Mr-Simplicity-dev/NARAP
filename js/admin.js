@@ -13991,6 +13991,55 @@ async function getExchangeRate() {
     }
 }
 
+async function checkFlutterwaveLoaded() {
+    return new Promise((resolve, reject) => {
+        // Check if Flutterwave script is loaded
+        if (typeof FlutterwaveCheckout !== 'undefined') {
+            console.log('✅ Flutterwave script is loaded');
+            resolve();
+            return;
+        }
+        
+        // If not loaded, try to load it
+        console.log('🔄 Loading Flutterwave script...');
+        
+        // Check if script tag already exists
+        let existingScript = document.querySelector('script[src*="checkout.flutterwave.com"]');
+        
+        if (!existingScript) {
+            // Create script element
+            const script = document.createElement('script');
+            script.src = 'https://checkout.flutterwave.com/v3.js';
+            script.onload = () => {
+                console.log('✅ Flutterwave script loaded successfully');
+                resolve();
+            };
+            script.onerror = () => {
+                console.error('❌ Failed to load Flutterwave script');
+                reject(new Error('Flutterwave script failed to load'));
+            };
+            document.head.appendChild(script);
+        } else {
+            // Script exists but FlutterwaveCheckout might not be ready yet
+            let attempts = 0;
+            const maxAttempts = 50; // 5 seconds max wait
+            
+            const checkInterval = setInterval(() => {
+                attempts++;
+                if (typeof FlutterwaveCheckout !== 'undefined') {
+                    clearInterval(checkInterval);
+                    console.log('✅ Flutterwave script is now available');
+                    resolve();
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(checkInterval);
+                    console.error('❌ Flutterwave script timeout');
+                    reject(new Error('Flutterwave script failed to load'));
+                }
+            }, 100);
+        }
+    });
+}
+
 // Updated processPayment function with USD-based pricing
 async function processPayment(event) {
     event.preventDefault();
@@ -14537,7 +14586,8 @@ function validatePaymentForm() {
         
         if (slotsToAdd && slotsToAdd > 0) {
             const minSlots = PRICING_CONFIG[currentPaymentType].minimumSlots;
-            const costPerSlot = PRICING_CONFIG[currentPaymentType].costPerSlot;
+            const costPerSlotUSD = PRICING_CONFIG[currentPaymentType].costPerSlotUSD;
+            const costPerSlot = Math.round(costPerSlotUSD * USD_TO_NGN_RATE);
             
             if (slotsToAdd < minSlots) {
                 slotsInput.setCustomValidity(`Minimum ${minSlots} slots required`);
