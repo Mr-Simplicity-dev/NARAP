@@ -6349,7 +6349,6 @@ Payment Success Styles
 
 /* ===== DATABASE PAYMENT MODAL FIX ===== */
 #databasePaymentModal {
-    display: none !important;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -6361,7 +6360,12 @@ Payment Success Styles
     justify-content: center !important;
 }
 
-/* Show database modal when JavaScript sets display: flex */
+/* Hide by default */
+#databasePaymentModal:not([style*="display: flex"]) {
+    display: none;
+}
+
+/* Show when JavaScript sets display: flex */
 #databasePaymentModal[style*="display: flex"],
 #databasePaymentModal[style*="display:flex"] {
     display: flex !important;
