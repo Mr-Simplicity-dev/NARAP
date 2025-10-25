@@ -6289,30 +6289,113 @@ Payment Success Styles
     padding-right: 10px; /* Account for scrollbar */
 }
 
-/* Ensure state chart canvas adapts to container */
-.state-chart-card #stateChart {
-    min-height: 240px;
-    max-height: none;
-    width: 100%;
+/* ===== MEMBERS BY STATE CHART SCROLLING ===== */
+.state-chart-card {
+    max-height: 450px; /* Fixed height for consistency */
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 5px; /* Account for scrollbar */
 }
 
-/* Style the scrollbar for better UX */
+/* State chart canvas sizing */
+.state-chart-card #stateChart {
+    min-height: 300px;
+    max-height: none; /* Allow unlimited height */
+    width: 100%;
+    display: block;
+}
+
+/* Custom scrollbar for state chart */
 .state-chart-card::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 .state-chart-card::-webkit-scrollbar-track {
     background: #f1f1f1;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 
 .state-chart-card::-webkit-scrollbar-thumb {
     background: #c1c1c1;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 
 .state-chart-card::-webkit-scrollbar-thumb:hover {
     background: #a1a1a1;
+}
+
+/* Ensure chart title stays visible */
+.state-chart-card .chart-title {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    padding: 10px 0;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/* ===== CONSISTENT MODAL SIZES ===== */
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 800px; /* Consistent max width */
+    width: 90%;
+    max-height: 85vh; /* Consistent max height */
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    position: relative;
+    margin: auto;
+}
+
+/* Specific modal content sizing */
+#paymentModal .modal-content,
+#databasePaymentModal .modal-content,
+#viewCertificateModal .modal-content {
+    max-width: 800px;
+    width: 90%;
+    max-height: 85vh;
+}
+
+/* For smaller modals (confirmations, etc.) */
+.modal-content.small {
+    max-width: 500px;
+}
+
+/* For larger modals (detailed views) */
+.modal-content.large {
+    max-width: 1000px;
+    width: 95%;
+}
+
+/* ===== RESPONSIVE MODAL AND CHART ADJUSTMENTS ===== */
+@media (max-width: 768px) {
+    .state-chart-card {
+        max-height: 350px; /* Smaller on mobile */
+    }
+    
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+        padding: 20px;
+    }
+    
+    .state-chart-card .chart-title {
+        font-size: 16px;
+        padding: 8px 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .state-chart-card {
+        max-height: 300px;
+    }
+    
+    .modal-content {
+        width: 98%;
+        padding: 15px;
+    }
 }
 
 /* ===== DATABASE PAYMENT MODAL ===== */
