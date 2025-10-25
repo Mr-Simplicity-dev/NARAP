@@ -14152,7 +14152,7 @@ Proceed with payment?
             customizations: {
                 title: "NARAP Payment System",
                 description: serviceDescription,
-                logo: "images/narap-logo.jpg",
+                logo: "https://narapdb.com.ng/images/narap-logo.jpg",
             },
             meta: {
                 payment_type: currentPaymentType,
