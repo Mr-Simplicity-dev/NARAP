@@ -13900,20 +13900,17 @@ function showPaymentModal(type) {
   console.log('🔍 showPaymentModal called with type:', type);
   
   if (type === 'database') {
-    console.log('📊 Opening database payment modal');
+    console.log('💾 Opening database payment modal');
     
     // Close any other open modals first
-    const paymentModal = document.getElementById('paymentModal');
-    if (paymentModal) {
-      paymentModal.style.display = 'none';
-    }
+    closeAllModals();
     
     // Get database modal
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // Clean approach - remove any existing classes and styles
+      // Clean approach - add show class and set display
       databaseModal.className = 'modal show';
       databaseModal.style.display = 'flex';
       
@@ -13927,6 +13924,8 @@ function showPaymentModal(type) {
   }
   
   // Handle other modals (idcard, certificate)
+  closeAllModals(); // Close any open modals first
+  
   const modal = document.getElementById('paymentModal');
   const title = document.getElementById('paymentTitle');
   const hostingPlanGroup = document.getElementById('hostingPlanGroup');
@@ -13942,7 +13941,10 @@ function showPaymentModal(type) {
     title.textContent = 'Certificate Payment - Increase Certificate Capacity';
   }
   
+  modal.classList.add('show');
   modal.style.display = 'flex';
+  
+  console.log(`✅ ${type} payment modal opened`);
 }
 
 // Main function to close all modals
@@ -13982,7 +13984,7 @@ function closeAllModals() {
   console.log('✅ All modals closed');
 }
 
-// Individual close functions (call closeAllModals for consistency)
+// Individual close functions
 function closePaymentModal() {
   console.log('📝 Closing regular payment modal');
   closeAllModals();
@@ -13992,6 +13994,8 @@ function closeDatabasePaymentModal() {
   console.log('💾 Closing database payment modal');
   closeAllModals();
 }
+
+
 
 // Replace Monnify Configuration with Flutterwave Configuration
 const FLUTTERWAVE_CONFIG = {
