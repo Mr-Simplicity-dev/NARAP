@@ -14026,14 +14026,14 @@ const PRICING_CONFIG = {
 // Exchange rate - fetched in real-time
 let USD_TO_NGN_RATE = 1650; // Default fallback rate
 
-// Function to get current USD to NGN exchange rate with timeout and better error handling
+// Function to get current USD to NGN exchange rate with timeout protection
 async function getExchangeRate() {
     try {
         console.log('🔄 Fetching current USD to NGN exchange rate...');
         
         // Set a timeout for the entire operation
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Exchange rate fetch timeout')), 10000); // 10 second timeout
+            setTimeout(() => reject(new Error('Exchange rate fetch timeout')), 8000); // 8 second timeout
         });
         
         const fetchPromise = async () => {
@@ -14043,7 +14043,7 @@ async function getExchangeRate() {
                 // Primary API: exchangerate-api.com with timeout
                 console.log('Trying primary exchange rate API...');
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 second timeout
                 
                 const response1 = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
                     signal: controller.signal
@@ -14059,12 +14059,12 @@ async function getExchangeRate() {
                 console.warn('Primary exchange API failed:', error.message);
             }
             
-            // If primary failed, try a simpler approach
+            // If primary failed, try backup
             if (!rate || rate <= 0) {
                 try {
-                    console.log('Trying alternative exchange rate API...');
+                    console.log('Trying backup exchange rate API...');
                     const controller2 = new AbortController();
-                    const timeoutId2 = setTimeout(() => controller2.abort(), 5000);
+                    const timeoutId2 = setTimeout(() => controller2.abort(), 3000);
                     
                     const response2 = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=NGN', {
                         signal: controller2.signal
@@ -14074,10 +14074,10 @@ async function getExchangeRate() {
                     if (response2.ok) {
                         const data2 = await response2.json();
                         rate = data2.rates?.NGN;
-                        console.log('✅ Alternative API success, rate:', rate);
+                        console.log('✅ Backup API success, rate:', rate);
                     }
                 } catch (error) {
-                    console.warn('Alternative exchange API failed:', error.message);
+                    console.warn('Backup exchange API failed:', error.message);
                 }
             }
             
@@ -14088,7 +14088,7 @@ async function getExchangeRate() {
         const rate = await Promise.race([fetchPromise(), timeoutPromise]);
         
         if (rate && rate > 0) {
-            USD_TO_NGN_RATE = Math.round(rate * 100) / 100; // Round to 2 decimal places
+            USD_TO_NGN_RATE = Math.round(rate * 100) / 100;
             console.log(`✅ Current USD to NGN rate: ₦${USD_TO_NGN_RATE}`);
         } else {
             console.warn(`⚠️ Using fallback rate: ₦${USD_TO_NGN_RATE}`);
@@ -14150,6 +14150,27 @@ async function checkFlutterwaveLoaded() {
             }, 100);
         }
     });
+}
+
+// Safety wrapper for processPayment (add this BEFORE your existing processPayment function)
+const originalProcessPayment = processPayment;
+
+async function processPayment(event) {
+    // Add safety timeout
+    const safetyTimeout = setTimeout(() => {
+        console.error('⏰ Payment process timeout - resetting button');
+        setPaymentButtonLoading(false);
+        showMessage('Payment process timed out. Please try again.', 'error');
+    }, 25000); // 25 second safety timeout
+    
+    try {
+        await originalProcessPayment(event);
+        clearTimeout(safetyTimeout);
+    } catch (error) {
+        clearTimeout(safetyTimeout);
+        setPaymentButtonLoading(false);
+        throw error;
+    }
 }
 
 // Updated processPayment function with USD-based pricing
@@ -14731,7 +14752,7 @@ function validatePaymentForm() {
     return true;
 }
 
-// Improved payment button loading state
+// Improved payment button loading state with better button detection
 function setPaymentButtonLoading(loading) {
     console.log('🔄 Setting payment button loading state:', loading);
     
@@ -14740,7 +14761,9 @@ function setPaymentButtonLoading(loading) {
         '.payment-btn',
         '#paymentForm button[type="submit"]',
         'button[onclick*="processPayment"]',
-        '.btn-primary'
+        '.btn-primary',
+        'button:contains("Proceed to Payment")',
+        'form button[type="submit"]'
     ];
     
     let paymentBtn = null;
@@ -14753,33 +14776,53 @@ function setPaymentButtonLoading(loading) {
         }
     }
     
+    // If still not found, try finding by button text
     if (!paymentBtn) {
-        console.error('❌ Payment button not found with any selector');
+        const allButtons = document.querySelectorAll('button');
+        for (const btn of allButtons) {
+            if (btn.textContent.includes('Proceed to Payment') || btn.textContent.includes('Pay Now')) {
+                paymentBtn = btn;
+                console.log('✅ Found payment button by text content');
+                break;
+            }
+        }
+    }
+    
+    if (!paymentBtn) {
+        console.error('❌ Payment button not found with any method');
         return;
     }
     
     const loader = paymentBtn.querySelector('.btn-loader');
-    const buttonText = paymentBtn.querySelector('.btn-text') || paymentBtn;
     
     if (loading) {
         paymentBtn.classList.add('loading');
         paymentBtn.disabled = true;
-        if (loader) loader.style.display = 'inline-block';
-        if (buttonText && buttonText !== paymentBtn) {
-            buttonText.style.display = 'none';
+        
+        if (loader) {
+            loader.style.display = 'inline-block';
         } else {
+            // If no loader element, modify button text
+            paymentBtn.dataset.originalText = paymentBtn.innerHTML;
             paymentBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         }
+        
         console.log('✅ Payment button set to loading state');
     } else {
         paymentBtn.classList.remove('loading');
         paymentBtn.disabled = false;
-        if (loader) loader.style.display = 'none';
-        if (buttonText && buttonText !== paymentBtn) {
-            buttonText.style.display = 'inline-block';
+        
+        if (loader) {
+            loader.style.display = 'none';
         } else {
-            paymentBtn.innerHTML = '<i class="fas fa-credit-card"></i> Proceed to Payment';
+            // Restore original text
+            if (paymentBtn.dataset.originalText) {
+                paymentBtn.innerHTML = paymentBtn.dataset.originalText;
+            } else {
+                paymentBtn.innerHTML = '<i class="fas fa-credit-card"></i> Proceed to Payment';
+            }
         }
+        
         console.log('✅ Payment button loading state cleared');
     }
 }
