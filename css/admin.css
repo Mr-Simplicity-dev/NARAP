@@ -6413,14 +6413,14 @@ Payment Success Styles
     display: none;
 }
 
-/* Multiple ways to force display - more reliable */
+/* Force display with maximum specificity */
 #databasePaymentModal.show,
 #databasePaymentModal[style*="display: flex"],
 #databasePaymentModal[style*="display:flex"] {
     display: flex !important;
 }
 
-/* Ensure it overrides the base .modal class */
-#databasePaymentModal.modal.show {
+/* Override base modal class specifically */
+.modal#databasePaymentModal.show {
     display: flex !important;
 }

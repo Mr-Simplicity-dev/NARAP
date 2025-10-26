@@ -13893,19 +13893,15 @@ document.addEventListener('keydown', function(event) {
 
 console.log('✅ Limit modal event listeners added');
 
-// Payment system functions
+// Payment system functions with proper modal management
 function showPaymentModal(type) {
   currentPaymentType = type;
   
+  // First, close ALL modals to ensure clean state
+  closeAllModals();
+  
   if (type === 'database') {
-    // Close any other open modals first
-    const paymentModal = document.getElementById('paymentModal');
-    if (paymentModal) {
-      paymentModal.style.display = 'none';
-      paymentModal.classList.remove('show');
-    }
-    
-    // Show database-specific modal with multiple approaches
+    // Show database-specific modal
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
     
@@ -13915,19 +13911,26 @@ function showPaymentModal(type) {
       databaseModal.style.display = 'flex';
       databaseModal.style.zIndex = '2002';
       
-      // Force a reflow to ensure styles are applied
+      // Force browser reflow to ensure styles are applied
       databaseModal.offsetHeight;
       
-      console.log('✅ Database modal display set to:', databaseModal.style.display);
+      console.log('✅ Database modal shown');
       console.log('✅ Database modal classes:', databaseModal.className);
+      console.log('✅ Database modal display:', databaseModal.style.display);
     } else {
-      console.error('❌ Database modal element not found! Check if databasePaymentModal exists in HTML');
+      console.error('❌ Database modal element not found!');
     }
     return;
   }
   
+  // Handle ID Card and Certificate modals
   const modal = document.getElementById('paymentModal');
   const title = document.getElementById('paymentTitle');
+  
+  if (!modal || !title) {
+    console.error('❌ Payment modal elements not found!');
+    return;
+  }
   
   if (type === 'idcard') {
     title.textContent = 'ID Card Payment - Increase Member Capacity';
@@ -13935,7 +13938,56 @@ function showPaymentModal(type) {
     title.textContent = 'Certificate Payment - Increase Certificate Capacity';
   }
   
+  // Show the regular payment modal
   modal.classList.add('show');
+  modal.style.display = 'flex';
+  
+  console.log('✅ Regular payment modal shown for:', type);
+}
+
+// Comprehensive modal closing function
+function closeAllModals() {
+  // Close database payment modal
+  const databaseModal = document.getElementById('databasePaymentModal');
+  if (databaseModal) {
+    databaseModal.classList.remove('show');
+    databaseModal.style.display = 'none';
+    
+    // Reset database form
+    const databaseForm = document.getElementById('databasePaymentForm');
+    if (databaseForm) {
+      databaseForm.reset();
+      databaseForm.style.display = 'none';
+    }
+  }
+  
+  // Close regular payment modal
+  const paymentModal = document.getElementById('paymentModal');
+  if (paymentModal) {
+    paymentModal.classList.remove('show');
+    paymentModal.style.display = 'none';
+    
+    // Reset payment form
+    const paymentForm = document.getElementById('paymentForm');
+    if (paymentForm) {
+      paymentForm.reset();
+    }
+  }
+  
+  // Reset global state
+  selectedDatabasePlan = '';
+  currentPaymentType = '';
+  
+  console.log('✅ All modals closed and reset');
+}
+
+// Updated individual close functions
+function closePaymentModal() {
+  closeAllModals();
+}
+
+function closeDatabasePaymentModal() {
+  closeAllModals();
 }
 
 function closePaymentModal() {
