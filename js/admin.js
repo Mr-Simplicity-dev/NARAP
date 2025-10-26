@@ -13909,7 +13909,6 @@ function showPaymentModal(type) {
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
     
-    
     if (databaseModal) {
       // Clean approach - add show class and set display
       databaseModal.className = 'modal show';
@@ -13917,6 +13916,16 @@ function showPaymentModal(type) {
       
       console.log('✅ Database modal opened successfully');
       console.log('✅ Modal class:', databaseModal.className);
+      
+      // Initialize validation for database modal after it's opened
+      setTimeout(() => {
+        try {
+          validatePaymentForm();
+          console.log('✅ Database modal validation initialized');
+        } catch (error) {
+          console.error('Error in database modal validation:', error);
+        }
+      }, 100);
       
     } else {
       console.error('❌ Database modal element not found in DOM!');
@@ -13931,21 +13940,57 @@ function showPaymentModal(type) {
   const title = document.getElementById('paymentTitle');
   const hostingPlanGroup = document.getElementById('hostingPlanGroup');
   
+  if (!modal) {
+    console.error('❌ Payment modal element not found!');
+    return;
+  }
+  
+  if (!title) {
+    console.error('❌ Payment title element not found!');
+    return;
+  }
+  
   // Hide hosting plan group for non-database payments
   if (hostingPlanGroup) {
     hostingPlanGroup.style.display = 'none';
   }
   
+  // Set modal title based on payment type
   if (type === 'idcard') {
     title.textContent = 'ID Card Payment - Increase Member Capacity';
   } else if (type === 'certificate') {
     title.textContent = 'Certificate Payment - Increase Certificate Capacity';
   }
   
+  // Show the modal
   modal.classList.add('show');
   modal.style.display = 'flex';
   
   console.log(`✅ ${type} payment modal opened`);
+  
+  // Initialize validation for regular payment modal after it's opened
+  setTimeout(() => {
+    try {
+      validatePaymentForm();
+      
+      // Clear any previous values and calculations
+      const amountInput = document.getElementById('paymentAmount');
+      const calculatedAmount = document.getElementById('calculatedAmount');
+      
+      if (amountInput) {
+        amountInput.value = '';
+        amountInput.setCustomValidity('');
+      }
+      
+      if (calculatedAmount) {
+        calculatedAmount.innerHTML = '';
+      }
+      
+      console.log(`✅ ${type} payment modal validation initialized`);
+    } catch (error) {
+      console.error(`Error in ${type} modal validation:`, error);
+    }
+  }, 100);
 }
 
 // Main function to close all modals
@@ -13957,6 +14002,7 @@ function closeAllModals() {
   if (paymentModal) {
     paymentModal.classList.remove('show');
     paymentModal.style.display = 'none';
+    console.log('✅ Regular payment modal closed');
   }
   
   // Close database payment modal
@@ -13964,27 +14010,60 @@ function closeAllModals() {
   if (databaseModal) {
     databaseModal.classList.remove('show', 'emergency-show');
     databaseModal.style.display = 'none';
+    console.log('✅ Database payment modal closed');
   }
   
   // Reset all forms
   const paymentForm = document.getElementById('paymentForm');
   if (paymentForm) {
     paymentForm.reset();
+    console.log('✅ Payment form reset');
   }
   
   const databaseForm = document.getElementById('databasePaymentForm');
   if (databaseForm) {
     databaseForm.reset();
     databaseForm.style.display = 'none';
+    console.log('✅ Database form reset');
+  }
+  
+  // Clear calculated amounts and validation displays
+  const calculatedAmount = document.getElementById('calculatedAmount');
+  if (calculatedAmount) {
+    calculatedAmount.innerHTML = '';
+    console.log('✅ Calculated amounts cleared');
+  }
+  
+  // Clear validation states
+  const amountInput = document.getElementById('paymentAmount');
+  if (amountInput) {
+    amountInput.setCustomValidity('');
+    amountInput.classList.remove('invalid', 'valid');
+    console.log('✅ Amount input validation cleared');
+  }
+  
+  // Hide hosting plan group
+  const hostingPlanGroup = document.getElementById('hostingPlanGroup');
+  if (hostingPlanGroup) {
+    hostingPlanGroup.style.display = 'none';
+    console.log('✅ Hosting plan group hidden');
+  }
+  
+  // Reset payment button state
+  try {
+    setPaymentButtonLoading(false);
+    console.log('✅ Payment button state reset');
+  } catch (error) {
+    console.warn('⚠️ Could not reset payment button state:', error.message);
   }
   
   // Reset global variables
   currentPaymentType = '';
   selectedDatabasePlan = '';
   
-  console.log('✅ All modals closed');
-}
+  console.log('✅ All modals closed and reset complete');
 
+}
 // Individual close functions
 function closePaymentModal() {
   console.log('📝 Closing regular payment modal');
@@ -14661,75 +14740,151 @@ async function handleSlotIncrease(paymentResponse, slotsToAdd) {
     }
 }
 
-// Update the payment form validation
+// Update the payment form validation with better error handling
 function validatePaymentForm() {
-    const slotsInput = document.getElementById('paymentAmount');
-    const slotsToAdd = parseInt(slotsInput.value);
-    const hostingPlanGroup = document.getElementById('hostingPlanGroup');
-    
-    // Show/hide hosting plan based on payment type
-    if (currentPaymentType === 'database') {
-        hostingPlanGroup.style.display = 'block';
-        slotsInput.parentElement.style.display = 'none';
+    try {
+        console.log('🔍 Validating payment form for type:', currentPaymentType);
         
-        // For database hosting, show USD and NGN amounts
-        const plan = document.getElementById('hostingPlan')?.value || 'monthly';
-        const usdAmount = PRICING_CONFIG.database[plan];
-        const ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
-        
-        const displayElement = document.getElementById('calculatedAmount');
-        if (displayElement) {
-            displayElement.innerHTML = `
-                <div class="amount-breakdown">
-                    <div class="usd-amount">
-                        <i class="fas fa-dollar-sign"></i>
-                        <strong>$${usdAmount}</strong>
-                    </div>
-                    <div class="conversion">
-                        <i class="fas fa-exchange-alt"></i>
-                        <span>≈ ₦${ngnAmount.toLocaleString()}</span>
-                    </div>
-                    <small>Rate: ₦${USD_TO_NGN_RATE}/$1</small>
-                </div>
-            `;
+        // Check if currentPaymentType is set
+        if (!currentPaymentType) {
+            console.warn('⚠️ currentPaymentType not set');
+            return false;
         }
-    } else {
-        hostingPlanGroup.style.display = 'none';
-        slotsInput.parentElement.style.display = 'block';
         
-        if (slotsToAdd && slotsToAdd > 0) {
-            const minSlots = PRICING_CONFIG[currentPaymentType].minimumSlots;
-            const costPerSlotUSD = PRICING_CONFIG[currentPaymentType].costPerSlotUSD;
-            const costPerSlot = Math.round(costPerSlotUSD * USD_TO_NGN_RATE);
-            
-            if (slotsToAdd < minSlots) {
-                slotsInput.setCustomValidity(`Minimum ${minSlots} slots required`);
-                return false;
-            } else {
-                slotsInput.setCustomValidity('');
+        // Check if PRICING_CONFIG exists
+        if (!PRICING_CONFIG) {
+            console.error('❌ PRICING_CONFIG not defined');
+            return false;
+        }
+        
+        const slotsInput = document.getElementById('paymentAmount');
+        const hostingPlanGroup = document.getElementById('hostingPlanGroup');
+        
+        if (!slotsInput) {
+            console.warn('⚠️ paymentAmount input not found');
+            return false;
+        }
+        
+        const slotsToAdd = parseInt(slotsInput.value) || 0;
+        
+        // Show/hide hosting plan based on payment type
+        if (currentPaymentType === 'database') {
+            if (hostingPlanGroup) {
+                hostingPlanGroup.style.display = 'block';
+            }
+            if (slotsInput.parentElement) {
+                slotsInput.parentElement.style.display = 'none';
             }
             
-            // Update display with calculated amount
-            const totalAmount = slotsToAdd * costPerSlot;
+            // For database hosting, show USD and NGN amounts
+            const planSelect = document.getElementById('hostingPlan');
+            const plan = planSelect?.value || 'monthly';
+            
+            // Check if database config exists
+            if (!PRICING_CONFIG.database) {
+                console.error('❌ Database pricing config missing');
+                return false;
+            }
+            
+            const usdAmount = plan === 'monthly' ? PRICING_CONFIG.database.monthlyUSD : PRICING_CONFIG.database.yearlyUSD;
+            
+            if (!usdAmount) {
+                console.error('❌ USD amount not found for plan:', plan);
+                return false;
+            }
+            
+            const ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
+            
             const displayElement = document.getElementById('calculatedAmount');
             if (displayElement) {
                 displayElement.innerHTML = `
                     <div class="amount-breakdown">
-                        <div class="calculation">
-                            <i class="fas fa-calculator"></i>
-                            ${slotsToAdd} slots × ₦${costPerSlot.toLocaleString()}/slot
+                        <div class="usd-amount">
+                            <i class="fas fa-dollar-sign"></i>
+                            <strong>$${usdAmount}</strong>
                         </div>
-                        <div class="total-amount">
-                            <i class="fas fa-equals"></i>
-                            <strong>Total: ₦${totalAmount.toLocaleString()}</strong>
+                        <div class="conversion">
+                            <i class="fas fa-exchange-alt"></i>
+                            <span>≈ ₦${ngnAmount.toLocaleString()}</span>
                         </div>
+                        <small>Rate: ₦${USD_TO_NGN_RATE}/$1</small>
                     </div>
                 `;
             }
+            
+            console.log('✅ Database payment validation completed');
+            return true;
+            
+        } else {
+            // Handle non-database payments (idcard, certificate)
+            if (hostingPlanGroup) {
+                hostingPlanGroup.style.display = 'none';
+            }
+            if (slotsInput.parentElement) {
+                slotsInput.parentElement.style.display = 'block';
+            }
+            
+            // Check if the specific payment type config exists
+            if (!PRICING_CONFIG[currentPaymentType]) {
+                console.error('❌ PRICING_CONFIG missing for type:', currentPaymentType);
+                return false;
+            }
+            
+            if (slotsToAdd && slotsToAdd > 0) {
+                const config = PRICING_CONFIG[currentPaymentType];
+                const minSlots = config.minimumSlots || 1;
+                const costPerSlotUSD = config.costPerSlotUSD || 0;
+                
+                if (slotsToAdd < minSlots) {
+                    slotsInput.setCustomValidity(`Minimum ${minSlots} slots required`);
+                    console.warn(`⚠️ Slots below minimum: ${slotsToAdd} < ${minSlots}`);
+                    return false;
+                } else {
+                    slotsInput.setCustomValidity('');
+                }
+                
+                // Calculate amounts
+                const costPerSlot = Math.round(costPerSlotUSD * USD_TO_NGN_RATE);
+                const totalAmount = slotsToAdd * costPerSlot;
+                
+                // Update display with calculated amount
+                const displayElement = document.getElementById('calculatedAmount');
+                if (displayElement) {
+                    displayElement.innerHTML = `
+                        <div class="amount-breakdown">
+                            <div class="calculation">
+                                <i class="fas fa-calculator"></i>
+                                ${slotsToAdd} slots × ₦${costPerSlot.toLocaleString()}/slot
+                            </div>
+                            <div class="total-amount">
+                                <i class="fas fa-equals"></i>
+                                <strong>Total: ₦${totalAmount.toLocaleString()}</strong>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                console.log('✅ Payment validation completed:', {
+                    type: currentPaymentType,
+                    slots: slotsToAdd,
+                    costPerSlot,
+                    totalAmount
+                });
+            } else {
+                // Clear display if no valid amount
+                const displayElement = document.getElementById('calculatedAmount');
+                if (displayElement) {
+                    displayElement.innerHTML = '';
+                }
+            }
         }
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error in validatePaymentForm:', error);
+        return false;
     }
-    
-    return true;
 }
 
 // Improved payment button loading state with better button detection
