@@ -13907,44 +13907,40 @@ function showPaymentModal(type) {
       paymentModal.classList.remove('show');
     }
     
-    // Show database-specific modal with AGGRESSIVE approach
+    // Show database-specific modal with MAXIMUM FORCE
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // TRIPLE approach: class + inline + force class
-      databaseModal.classList.add('show');
-      databaseModal.classList.add('force-show');
-      databaseModal.style.display = 'flex';
-      databaseModal.style.zIndex = '2002';
-      databaseModal.style.position = 'fixed';
-      databaseModal.style.top = '0';
-      databaseModal.style.left = '0';
-      databaseModal.style.width = '100%';
-      databaseModal.style.height = '100%';
-      databaseModal.style.background = 'rgba(0, 0, 0, 0.5)';
-      databaseModal.style.alignItems = 'center';
-      databaseModal.style.justifyContent = 'center';
+      // Remove all classes first
+      databaseModal.className = 'modal';
+      
+      // Add our classes
+      databaseModal.classList.add('show', 'force-show');
+      
+      // Set inline styles with !important via cssText
+      databaseModal.style.cssText = `
+        display: flex !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+        z-index: 9999 !important;
+        align-items: center !important;
+        justify-content: center !important;
+      `;
       
       // Force browser reflow
       databaseModal.offsetHeight;
       
-      console.log('✅ Database modal display set to:', databaseModal.style.display);
-      console.log('✅ Database modal classes:', databaseModal.className);
-      console.log('✅ Database modal computed display:', getComputedStyle(databaseModal).display);
-      
-      // Double-check after a tiny delay
-      setTimeout(() => {
-        const computedDisplay = getComputedStyle(databaseModal).display;
-        console.log('🔍 Database modal computed display after timeout:', computedDisplay);
-        if (computedDisplay === 'none') {
-          console.error('❌ Modal still not showing! Trying emergency fix...');
-          databaseModal.style.cssText = 'display: flex !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; background: rgba(0, 0, 0, 0.5) !important; z-index: 2002 !important; align-items: center !important; justify-content: center !important;';
-        }
-      }, 10);
+      console.log('✅ Database modal should now be visible');
+      console.log('✅ Modal classes:', databaseModal.className);
+      console.log('✅ Modal cssText:', databaseModal.style.cssText);
       
     } else {
-      console.error('❌ Database modal element not found! Check if databasePaymentModal exists in HTML');
+      console.error('❌ Database modal element not found!');
     }
     return;
   }
