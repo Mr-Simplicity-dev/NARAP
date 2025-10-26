@@ -13900,7 +13900,7 @@ function showPaymentModal(type) {
   console.log('🔍 showPaymentModal called with type:', type);
   
   if (type === 'database') {
-    console.log('🚨 EMERGENCY DATABASE MODAL ACTIVATION');
+    console.log('📊 Opening database payment modal');
     
     // Close any other open modals first
     const paymentModal = document.getElementById('paymentModal');
@@ -13913,19 +13913,12 @@ function showPaymentModal(type) {
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // EMERGENCY APPROACH - Clear everything and start fresh
-      databaseModal.removeAttribute('style');
-      databaseModal.removeAttribute('class');
+      // Clean approach - remove any existing classes and styles
+      databaseModal.className = 'modal show';
+      databaseModal.style.display = 'flex';
       
-      // Set basic class
-      databaseModal.className = 'emergency-show';
-      
-      // Force immediate visibility with setAttribute (bypasses CSS conflicts)
-      databaseModal.setAttribute('style', 'display: flex !important; position: fixed !important; top: 0px !important; left: 0px !important; width: 100vw !important; height: 100vh !important; background: rgba(255, 0, 0, 0.9) !important; z-index: 2147483647 !important; align-items: center !important; justify-content: center !important;');
-      
-      console.log('🚨 EMERGENCY: Modal should be RED and VISIBLE now');
+      console.log('✅ Database modal opened successfully');
       console.log('✅ Modal class:', databaseModal.className);
-      console.log('✅ Modal style attr:', databaseModal.getAttribute('style'));
       
     } else {
       console.error('❌ Database modal element not found in DOM!');
@@ -13933,9 +13926,15 @@ function showPaymentModal(type) {
     return;
   }
   
-  // Handle other modals
+  // Handle other modals (idcard, certificate)
   const modal = document.getElementById('paymentModal');
   const title = document.getElementById('paymentTitle');
+  const hostingPlanGroup = document.getElementById('hostingPlanGroup');
+  
+  // Hide hosting plan group for non-database payments
+  if (hostingPlanGroup) {
+    hostingPlanGroup.style.display = 'none';
+  }
   
   if (type === 'idcard') {
     title.textContent = 'ID Card Payment - Increase Member Capacity';
@@ -13948,6 +13947,12 @@ function showPaymentModal(type) {
 
 // Comprehensive modal closing function
 function closeAllModals() {
+  // Close regular payment modal
+  const paymentModal = document.getElementById('paymentModal');
+  if (paymentModal) {
+    paymentModal.style.display = 'none';
+  }
+  
   // Close database payment modal
   const databaseModal = document.getElementById('databasePaymentModal');
   if (databaseModal) {
@@ -13962,24 +13967,9 @@ function closeAllModals() {
     }
   }
   
-  // Close regular payment modal
-  const paymentModal = document.getElementById('paymentModal');
-  if (paymentModal) {
-    paymentModal.classList.remove('show');
-    paymentModal.style.display = 'none';
-    
-    // Reset payment form
-    const paymentForm = document.getElementById('paymentForm');
-    if (paymentForm) {
-      paymentForm.reset();
-    }
-  }
-  
-  // Reset global state
-  selectedDatabasePlan = '';
+  // Reset payment type
   currentPaymentType = '';
-  
-  console.log('✅ All modals closed and reset');
+  selectedDatabasePlan = '';
 }
 
 // Updated individual close functions
@@ -14881,9 +14871,8 @@ let selectedDatabasePlan = '';
 function closeDatabasePaymentModal() {
   const modal = document.getElementById('databasePaymentModal');
   if (modal) {
-    modal.classList.remove('show', 'force-show');
+    modal.classList.remove('show');
     modal.style.display = 'none';
-    modal.style.cssText = ''; // Clear all inline styles
   }
   
   const form = document.getElementById('databasePaymentForm');
