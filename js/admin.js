@@ -13900,64 +13900,40 @@ function showPaymentModal(type) {
   console.log('🔍 showPaymentModal called with type:', type);
   
   if (type === 'database') {
+    console.log('🚨 EMERGENCY DATABASE MODAL ACTIVATION');
+    
     // Close any other open modals first
     const paymentModal = document.getElementById('paymentModal');
     if (paymentModal) {
       paymentModal.style.display = 'none';
-      paymentModal.classList.remove('show');
     }
     
-    // Show database-specific modal with NUCLEAR APPROACH
+    // Get database modal
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // Clear all existing classes and styles
-      databaseModal.className = '';
-      databaseModal.style.cssText = '';
+      // EMERGENCY APPROACH - Clear everything and start fresh
+      databaseModal.removeAttribute('style');
+      databaseModal.removeAttribute('class');
       
-      // Add our nuclear class
-      databaseModal.className = 'modal force-show';
+      // Set basic class
+      databaseModal.className = 'emergency-show';
       
-      // Also set inline styles as backup
-      databaseModal.style.cssText = `
-        display: flex !important;
-        position: fixed !important;
-        top: 0px !important;
-        left: 0px !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background: rgba(0, 0, 0, 0.8) !important;
-        z-index: 999999 !important;
-        align-items: center !important;
-        justify-content: center !important;
-      `;
+      // Force immediate visibility with setAttribute (bypasses CSS conflicts)
+      databaseModal.setAttribute('style', 'display: flex !important; position: fixed !important; top: 0px !important; left: 0px !important; width: 100vw !important; height: 100vh !important; background: rgba(255, 0, 0, 0.9) !important; z-index: 2147483647 !important; align-items: center !important; justify-content: center !important;');
       
-      // Force multiple reflows
-      databaseModal.offsetHeight;
-      databaseModal.scrollTop;
-      
-      console.log('✅ NUCLEAR: Database modal should be visible now');
-      console.log('✅ Modal className:', databaseModal.className);
-      console.log('✅ Modal cssText:', databaseModal.style.cssText);
-      
-      // Emergency backup - if still not visible after 100ms
-      setTimeout(() => {
-        const computedDisplay = getComputedStyle(databaseModal).display;
-        console.log('🔍 Final check - computed display:', computedDisplay);
-        if (computedDisplay === 'none') {
-          console.error('❌ EMERGENCY: Modal still not showing, applying final fix');
-          databaseModal.setAttribute('style', 'display: flex !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(255, 0, 0, 0.8) !important; z-index: 999999 !important; align-items: center !important; justify-content: center !important;');
-        }
-      }, 100);
+      console.log('🚨 EMERGENCY: Modal should be RED and VISIBLE now');
+      console.log('✅ Modal class:', databaseModal.className);
+      console.log('✅ Modal style attr:', databaseModal.getAttribute('style'));
       
     } else {
-      console.error('❌ Database modal element not found!');
+      console.error('❌ Database modal element not found in DOM!');
     }
     return;
   }
   
-  // Handle regular payment modals (ID Card and Certificate)
+  // Handle other modals
   const modal = document.getElementById('paymentModal');
   const title = document.getElementById('paymentTitle');
   
@@ -13967,15 +13943,7 @@ function showPaymentModal(type) {
     title.textContent = 'Certificate Payment - Increase Certificate Capacity';
   }
   
-  // Close database modal if open
-  const databaseModal = document.getElementById('databasePaymentModal');
-  if (databaseModal) {
-    databaseModal.style.display = 'none';
-    databaseModal.classList.remove('force-show');
-  }
-  
   modal.style.display = 'flex';
-  console.log('✅ Regular payment modal shown for:', type);
 }
 
 // Comprehensive modal closing function
