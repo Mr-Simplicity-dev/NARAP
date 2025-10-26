@@ -6440,3 +6440,15 @@ div#databasePaymentModal.show,
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     position: relative;
 }
+
+/* TEMPORARY DEBUG - Add this to the end of admin.css */
+#databasePaymentModal.show {
+    display: flex !important;
+    background: rgba(255, 0, 0, 0.8) !important; /* Red background to make it obvious */
+    z-index: 9999 !important;
+}
+
+#databasePaymentModal .modal-content {
+    background: yellow !important; /* Yellow content to make it obvious */
+    border: 5px solid red !important;
+}
