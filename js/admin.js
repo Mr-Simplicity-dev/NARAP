@@ -13892,6 +13892,7 @@ document.addEventListener('keydown', function(event) {
 });
 
 console.log('✅ Limit modal event listeners added');
+
 // Payment system functions
 function showPaymentModal(type) {
   currentPaymentType = type;
@@ -13899,27 +13900,19 @@ function showPaymentModal(type) {
   if (type === 'database') {
     // Close any other open modals first
     const paymentModal = document.getElementById('paymentModal');
-    if (paymentModal) paymentModal.style.display = 'none';
+    if (paymentModal) {
+      paymentModal.style.display = 'none';
+      paymentModal.classList.remove('show');
+    }
     
-    // Show database-specific modal with debugging
+    // Show database-specific modal using class instead of inline styles
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // Force show the modal with all necessary styles
-      databaseModal.style.display = 'flex';
-      databaseModal.style.zIndex = '2002';
-      databaseModal.style.position = 'fixed';
-      databaseModal.style.top = '0';
-      databaseModal.style.left = '0';
-      databaseModal.style.width = '100%';
-      databaseModal.style.height = '100%';
-      databaseModal.style.background = 'rgba(0, 0, 0, 0.5)';
-      databaseModal.style.alignItems = 'center';
-      databaseModal.style.justifyContent = 'center';
-      
-      console.log('✅ Database modal display set to:', databaseModal.style.display);
-      console.log('✅ Database modal z-index set to:', databaseModal.style.zIndex);
+      // Use class-based approach for consistency
+      databaseModal.classList.add('show');
+      console.log('✅ Database modal show class added');
     } else {
       console.error('❌ Database modal element not found! Check if databasePaymentModal exists in HTML');
     }
@@ -13935,7 +13928,7 @@ function showPaymentModal(type) {
     title.textContent = 'Certificate Payment - Increase Certificate Capacity';
   }
   
-  modal.style.display = 'flex';
+  modal.classList.add('show');
 }
 
 function closePaymentModal() {
@@ -14816,7 +14809,9 @@ async function updateLimitsDisplay() {
 let selectedDatabasePlan = '';
 
 function closeDatabasePaymentModal() {
-  document.getElementById('databasePaymentModal').style.display = 'none';
+  const modal = document.getElementById('databasePaymentModal');
+  modal.classList.remove('show');
+  modal.style.display = 'none'; // Fallback
   document.getElementById('databasePaymentForm').reset();
   document.getElementById('databasePaymentForm').style.display = 'none';
   selectedDatabasePlan = '';
