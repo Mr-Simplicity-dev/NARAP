@@ -13905,14 +13905,21 @@ function showPaymentModal(type) {
       paymentModal.classList.remove('show');
     }
     
-    // Show database-specific modal using class instead of inline styles
+    // Show database-specific modal with multiple approaches
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // Use class-based approach for consistency
+      // Use both class and inline styles for maximum compatibility
       databaseModal.classList.add('show');
-      console.log('✅ Database modal show class added');
+      databaseModal.style.display = 'flex';
+      databaseModal.style.zIndex = '2002';
+      
+      // Force a reflow to ensure styles are applied
+      databaseModal.offsetHeight;
+      
+      console.log('✅ Database modal display set to:', databaseModal.style.display);
+      console.log('✅ Database modal classes:', databaseModal.className);
     } else {
       console.error('❌ Database modal element not found! Check if databasePaymentModal exists in HTML');
     }
@@ -14811,7 +14818,7 @@ let selectedDatabasePlan = '';
 function closeDatabasePaymentModal() {
   const modal = document.getElementById('databasePaymentModal');
   modal.classList.remove('show');
-  modal.style.display = 'none'; // Fallback
+  modal.style.display = 'none';
   document.getElementById('databasePaymentForm').reset();
   document.getElementById('databasePaymentForm').style.display = 'none';
   selectedDatabasePlan = '';
