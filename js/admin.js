@@ -13945,55 +13945,52 @@ function showPaymentModal(type) {
   modal.style.display = 'flex';
 }
 
-// Comprehensive modal closing function
+// Main function to close all modals
 function closeAllModals() {
+  console.log('🔄 Closing all modals...');
+  
   // Close regular payment modal
   const paymentModal = document.getElementById('paymentModal');
   if (paymentModal) {
+    paymentModal.classList.remove('show');
     paymentModal.style.display = 'none';
   }
   
   // Close database payment modal
   const databaseModal = document.getElementById('databasePaymentModal');
   if (databaseModal) {
-    databaseModal.classList.remove('show');
+    databaseModal.classList.remove('show', 'emergency-show');
     databaseModal.style.display = 'none';
-    
-    // Reset database form
-    const databaseForm = document.getElementById('databasePaymentForm');
-    if (databaseForm) {
-      databaseForm.reset();
-      databaseForm.style.display = 'none';
-    }
   }
   
-  // Reset payment type
+  // Reset all forms
+  const paymentForm = document.getElementById('paymentForm');
+  if (paymentForm) {
+    paymentForm.reset();
+  }
+  
+  const databaseForm = document.getElementById('databasePaymentForm');
+  if (databaseForm) {
+    databaseForm.reset();
+    databaseForm.style.display = 'none';
+  }
+  
+  // Reset global variables
   currentPaymentType = '';
   selectedDatabasePlan = '';
+  
+  console.log('✅ All modals closed');
 }
 
-// Updated individual close functions
+// Individual close functions (call closeAllModals for consistency)
 function closePaymentModal() {
+  console.log('📝 Closing regular payment modal');
   closeAllModals();
 }
 
 function closeDatabasePaymentModal() {
+  console.log('💾 Closing database payment modal');
   closeAllModals();
-}
-
-function closePaymentModal() {
-  const modal = document.getElementById('paymentModal');
-  if (modal) {
-    modal.classList.remove('show');
-    modal.style.display = 'none';
-  }
-  
-  const form = document.getElementById('paymentForm');
-  if (form) {
-    form.reset();
-  }
-  
-  console.log('✅ Regular payment modal closed');
 }
 
 // Replace Monnify Configuration with Flutterwave Configuration
