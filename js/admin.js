@@ -14026,33 +14026,66 @@ const PRICING_CONFIG = {
 // Exchange rate - fetched in real-time
 let USD_TO_NGN_RATE = 1650; // Default fallback rate
 
-// Function to get current USD to NGN exchange rate
+// Function to get current USD to NGN exchange rate with timeout and better error handling
 async function getExchangeRate() {
     try {
         console.log('🔄 Fetching current USD to NGN exchange rate...');
         
-        // Try multiple exchange rate APIs for reliability
-        let rate = null;
+        // Set a timeout for the entire operation
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Exchange rate fetch timeout')), 10000); // 10 second timeout
+        });
         
-        try {
-            // Primary API: exchangerate-api.com
-            const response1 = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-            const data1 = await response1.json();
-            rate = data1.rates.NGN;
-        } catch (error) {
-            console.warn('Primary exchange API failed, trying backup...');
-        }
-        
-        if (!rate) {
+        const fetchPromise = async () => {
+            let rate = null;
+            
             try {
-                // Backup API: fixer.io (you may need API key)
-                const response2 = await fetch('https://api.fixer.io/latest?base=USD&symbols=NGN');
-                const data2 = await response2.json();
-                rate = data2.rates.NGN;
+                // Primary API: exchangerate-api.com with timeout
+                console.log('Trying primary exchange rate API...');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response1 = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                if (response1.ok) {
+                    const data1 = await response1.json();
+                    rate = data1.rates?.NGN;
+                    console.log('✅ Primary API success, rate:', rate);
+                }
             } catch (error) {
-                console.warn('Backup exchange API failed, using fallback rate');
+                console.warn('Primary exchange API failed:', error.message);
             }
-        }
+            
+            // If primary failed, try a simpler approach
+            if (!rate || rate <= 0) {
+                try {
+                    console.log('Trying alternative exchange rate API...');
+                    const controller2 = new AbortController();
+                    const timeoutId2 = setTimeout(() => controller2.abort(), 5000);
+                    
+                    const response2 = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=NGN', {
+                        signal: controller2.signal
+                    });
+                    clearTimeout(timeoutId2);
+                    
+                    if (response2.ok) {
+                        const data2 = await response2.json();
+                        rate = data2.rates?.NGN;
+                        console.log('✅ Alternative API success, rate:', rate);
+                    }
+                } catch (error) {
+                    console.warn('Alternative exchange API failed:', error.message);
+                }
+            }
+            
+            return rate;
+        };
+        
+        // Race between fetch and timeout
+        const rate = await Promise.race([fetchPromise(), timeoutPromise]);
         
         if (rate && rate > 0) {
             USD_TO_NGN_RATE = Math.round(rate * 100) / 100; // Round to 2 decimal places
@@ -14062,8 +14095,9 @@ async function getExchangeRate() {
         }
         
         return USD_TO_NGN_RATE;
+        
     } catch (error) {
-        console.error('Failed to fetch exchange rate:', error);
+        console.error('Failed to fetch exchange rate:', error.message);
         console.warn(`⚠️ Using fallback rate: ₦${USD_TO_NGN_RATE}`);
         return USD_TO_NGN_RATE;
     }
@@ -14697,15 +14731,56 @@ function validatePaymentForm() {
     return true;
 }
 
-// Add loading state to payment button
+// Improved payment button loading state
 function setPaymentButtonLoading(loading) {
-    const paymentBtn = document.querySelector('.payment-btn');
+    console.log('🔄 Setting payment button loading state:', loading);
+    
+    // Try multiple selectors to find the payment button
+    const selectors = [
+        '.payment-btn',
+        '#paymentForm button[type="submit"]',
+        'button[onclick*="processPayment"]',
+        '.btn-primary'
+    ];
+    
+    let paymentBtn = null;
+    
+    for (const selector of selectors) {
+        paymentBtn = document.querySelector(selector);
+        if (paymentBtn) {
+            console.log('✅ Found payment button with selector:', selector);
+            break;
+        }
+    }
+    
+    if (!paymentBtn) {
+        console.error('❌ Payment button not found with any selector');
+        return;
+    }
+    
+    const loader = paymentBtn.querySelector('.btn-loader');
+    const buttonText = paymentBtn.querySelector('.btn-text') || paymentBtn;
+    
     if (loading) {
         paymentBtn.classList.add('loading');
         paymentBtn.disabled = true;
+        if (loader) loader.style.display = 'inline-block';
+        if (buttonText && buttonText !== paymentBtn) {
+            buttonText.style.display = 'none';
+        } else {
+            paymentBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        }
+        console.log('✅ Payment button set to loading state');
     } else {
         paymentBtn.classList.remove('loading');
         paymentBtn.disabled = false;
+        if (loader) loader.style.display = 'none';
+        if (buttonText && buttonText !== paymentBtn) {
+            buttonText.style.display = 'inline-block';
+        } else {
+            paymentBtn.innerHTML = '<i class="fas fa-credit-card"></i> Proceed to Payment';
+        }
+        console.log('✅ Payment button loading state cleared');
     }
 }
 
