@@ -13893,44 +13893,65 @@ document.addEventListener('keydown', function(event) {
 
 console.log('✅ Limit modal event listeners added');
 
-// Payment system functions with proper modal management
+// Payment system functions
 function showPaymentModal(type) {
   currentPaymentType = type;
   
-  // First, close ALL modals to ensure clean state
-  closeAllModals();
+  console.log('🔍 showPaymentModal called with type:', type);
   
   if (type === 'database') {
-    // Show database-specific modal
+    // Close any other open modals first
+    const paymentModal = document.getElementById('paymentModal');
+    if (paymentModal) {
+      paymentModal.style.display = 'none';
+      paymentModal.classList.remove('show');
+    }
+    
+    // Show database-specific modal with AGGRESSIVE approach
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // Use both class and inline styles for maximum compatibility
+      // TRIPLE approach: class + inline + force class
       databaseModal.classList.add('show');
+      databaseModal.classList.add('force-show');
       databaseModal.style.display = 'flex';
       databaseModal.style.zIndex = '2002';
+      databaseModal.style.position = 'fixed';
+      databaseModal.style.top = '0';
+      databaseModal.style.left = '0';
+      databaseModal.style.width = '100%';
+      databaseModal.style.height = '100%';
+      databaseModal.style.background = 'rgba(0, 0, 0, 0.5)';
+      databaseModal.style.alignItems = 'center';
+      databaseModal.style.justifyContent = 'center';
       
-      // Force browser reflow to ensure styles are applied
+      // Force browser reflow
       databaseModal.offsetHeight;
       
-      console.log('✅ Database modal shown');
+      console.log('✅ Database modal display set to:', databaseModal.style.display);
       console.log('✅ Database modal classes:', databaseModal.className);
-      console.log('✅ Database modal display:', databaseModal.style.display);
+      console.log('✅ Database modal computed display:', getComputedStyle(databaseModal).display);
+      
+      // Double-check after a tiny delay
+      setTimeout(() => {
+        const computedDisplay = getComputedStyle(databaseModal).display;
+        console.log('🔍 Database modal computed display after timeout:', computedDisplay);
+        if (computedDisplay === 'none') {
+          console.error('❌ Modal still not showing! Trying emergency fix...');
+          databaseModal.style.cssText = 'display: flex !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; background: rgba(0, 0, 0, 0.5) !important; z-index: 2002 !important; align-items: center !important; justify-content: center !important;';
+        }
+      }, 10);
+      
     } else {
-      console.error('❌ Database modal element not found!');
+      console.error('❌ Database modal element not found! Check if databasePaymentModal exists in HTML');
     }
     return;
   }
   
-  // Handle ID Card and Certificate modals
+  // Handle regular payment modals (ID Card and Certificate)
   const modal = document.getElementById('paymentModal');
   const title = document.getElementById('paymentTitle');
-  
-  if (!modal || !title) {
-    console.error('❌ Payment modal elements not found!');
-    return;
-  }
   
   if (type === 'idcard') {
     title.textContent = 'ID Card Payment - Increase Member Capacity';
@@ -13938,10 +13959,14 @@ function showPaymentModal(type) {
     title.textContent = 'Certificate Payment - Increase Certificate Capacity';
   }
   
-  // Show the regular payment modal
-  modal.classList.add('show');
-  modal.style.display = 'flex';
+  // Close database modal if open
+  const databaseModal = document.getElementById('databasePaymentModal');
+  if (databaseModal) {
+    databaseModal.style.display = 'none';
+    databaseModal.classList.remove('show', 'force-show');
+  }
   
+  modal.style.display = 'flex';
   console.log('✅ Regular payment modal shown for:', type);
 }
 
@@ -13991,8 +14016,18 @@ function closeDatabasePaymentModal() {
 }
 
 function closePaymentModal() {
-  document.getElementById('paymentModal').style.display = 'none';
-  document.getElementById('paymentForm').reset();
+  const modal = document.getElementById('paymentModal');
+  if (modal) {
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+  }
+  
+  const form = document.getElementById('paymentForm');
+  if (form) {
+    form.reset();
+  }
+  
+  console.log('✅ Regular payment modal closed');
 }
 
 // Replace Monnify Configuration with Flutterwave Configuration
@@ -14869,11 +14904,20 @@ let selectedDatabasePlan = '';
 
 function closeDatabasePaymentModal() {
   const modal = document.getElementById('databasePaymentModal');
-  modal.classList.remove('show');
-  modal.style.display = 'none';
-  document.getElementById('databasePaymentForm').reset();
-  document.getElementById('databasePaymentForm').style.display = 'none';
+  if (modal) {
+    modal.classList.remove('show', 'force-show');
+    modal.style.display = 'none';
+    modal.style.cssText = ''; // Clear all inline styles
+  }
+  
+  const form = document.getElementById('databasePaymentForm');
+  if (form) {
+    form.reset();
+    form.style.display = 'none';
+  }
+  
   selectedDatabasePlan = '';
+  console.log('✅ Database payment modal closed');
 }
 
 function selectDatabasePlan(plan) {
