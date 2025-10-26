@@ -6399,7 +6399,7 @@ Payment Success Styles
 }
 
 
-* ===== DATABASE PAYMENT MODAL ===== */
+/*===== DATABASE PAYMENT MODAL ===== */
 #databasePaymentModal {
     display: none;
     position: fixed;
