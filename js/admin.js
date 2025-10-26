@@ -13908,6 +13908,7 @@ function showPaymentModal(type) {
     // Get database modal
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
+    console.log('✅ Database modal opened successfully');
     
     if (databaseModal) {
       // Clean approach - add show class and set display
