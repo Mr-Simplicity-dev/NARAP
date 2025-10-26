@@ -14152,26 +14152,6 @@ async function checkFlutterwaveLoaded() {
     });
 }
 
-// Safety wrapper for processPayment (add this BEFORE your existing processPayment function)
-const originalProcessPayment = processPayment;
-
-async function processPayment(event) {
-    // Add safety timeout
-    const safetyTimeout = setTimeout(() => {
-        console.error('⏰ Payment process timeout - resetting button');
-        setPaymentButtonLoading(false);
-        showMessage('Payment process timed out. Please try again.', 'error');
-    }, 25000); // 25 second safety timeout
-    
-    try {
-        await originalProcessPayment(event);
-        clearTimeout(safetyTimeout);
-    } catch (error) {
-        clearTimeout(safetyTimeout);
-        setPaymentButtonLoading(false);
-        throw error;
-    }
-}
 
 // Updated processPayment function with USD-based pricing
 async function processPayment(event) {
