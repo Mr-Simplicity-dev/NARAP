@@ -13907,37 +13907,49 @@ function showPaymentModal(type) {
       paymentModal.classList.remove('show');
     }
     
-    // Show database-specific modal with MAXIMUM FORCE
+    // Show database-specific modal with NUCLEAR APPROACH
     const databaseModal = document.getElementById('databasePaymentModal');
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // Remove all classes first
-      databaseModal.className = 'modal';
+      // Clear all existing classes and styles
+      databaseModal.className = '';
+      databaseModal.style.cssText = '';
       
-      // Add our classes
-      databaseModal.classList.add('show', 'force-show');
+      // Add our nuclear class
+      databaseModal.className = 'modal force-show';
       
-      // Set inline styles with !important via cssText
+      // Also set inline styles as backup
       databaseModal.style.cssText = `
         display: flex !important;
         position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
+        top: 0px !important;
+        left: 0px !important;
         width: 100vw !important;
         height: 100vh !important;
-        background: rgba(0, 0, 0, 0.5) !important;
-        z-index: 9999 !important;
+        background: rgba(0, 0, 0, 0.8) !important;
+        z-index: 999999 !important;
         align-items: center !important;
         justify-content: center !important;
       `;
       
-      // Force browser reflow
+      // Force multiple reflows
       databaseModal.offsetHeight;
+      databaseModal.scrollTop;
       
-      console.log('✅ Database modal should now be visible');
-      console.log('✅ Modal classes:', databaseModal.className);
+      console.log('✅ NUCLEAR: Database modal should be visible now');
+      console.log('✅ Modal className:', databaseModal.className);
       console.log('✅ Modal cssText:', databaseModal.style.cssText);
+      
+      // Emergency backup - if still not visible after 100ms
+      setTimeout(() => {
+        const computedDisplay = getComputedStyle(databaseModal).display;
+        console.log('🔍 Final check - computed display:', computedDisplay);
+        if (computedDisplay === 'none') {
+          console.error('❌ EMERGENCY: Modal still not showing, applying final fix');
+          databaseModal.setAttribute('style', 'display: flex !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(255, 0, 0, 0.8) !important; z-index: 999999 !important; align-items: center !important; justify-content: center !important;');
+        }
+      }, 100);
       
     } else {
       console.error('❌ Database modal element not found!');
@@ -13959,7 +13971,7 @@ function showPaymentModal(type) {
   const databaseModal = document.getElementById('databasePaymentModal');
   if (databaseModal) {
     databaseModal.style.display = 'none';
-    databaseModal.classList.remove('show', 'force-show');
+    databaseModal.classList.remove('force-show');
   }
   
   modal.style.display = 'flex';

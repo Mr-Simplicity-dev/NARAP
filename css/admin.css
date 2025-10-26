@@ -6404,22 +6404,23 @@ Payment Success Styles
     display: none !important;
 }
 
-#databasePaymentModal.show,
 #databasePaymentModal.force-show {
     display: flex !important;
     position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
+    top: 0px !important;
+    left: 0px !important;
     width: 100vw !important;
     height: 100vh !important;
-    background: rgba(0, 0, 0, 0.5) !important;
-    z-index: 9999 !important;
+    background: rgba(0, 0, 0, 0.8) !important;
+    z-index: 999999 !important;
     align-items: center !important;
     justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* Ensure modal content is visible */
-#databasePaymentModal .modal-content {
+#databasePaymentModal.force-show .modal-content {
     background: white !important;
     border-radius: 12px !important;
     padding: 30px !important;
@@ -6429,5 +6430,6 @@ Payment Success Styles
     overflow-y: auto !important;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
     position: relative !important;
-    z-index: 10000 !important;
+    z-index: 1000000 !important;
+    display: block !important;
 }
