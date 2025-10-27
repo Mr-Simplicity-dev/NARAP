@@ -14309,7 +14309,7 @@ async function processPayment(event) {
             costPerSlotUSD = PRICING_CONFIG.certificate.costPerSlotUSD;
             usdAmount = slotsToAdd * costPerSlotUSD;
             ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
-            serviceDescription = `Certificate Payment for NARAP Database - ${slotsToAdd} slots × $${costPerSlotUSD} = $${usdAmount.toFixed(2)} (₦${ngnAmount.toLocaleString()})`;
+            serviceDescription = `Certificate Payment Slot for NARAP Database - ${slotsToAdd} slots × $${costPerSlotUSD} = $${usdAmount.toFixed(2)} (₦${ngnAmount.toLocaleString()})`;
             paymentTitle = "Certificate Payment for NARAP Database";
             beneficiaryName = "NARAP Admin Database";
         } else if (currentPaymentType === 'database') {
