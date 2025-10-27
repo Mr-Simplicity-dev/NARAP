@@ -14062,8 +14062,9 @@ function closeAllModals() {
   selectedDatabasePlan = '';
   
   console.log('✅ All modals closed and reset complete');
-
 }
+
+
 // Individual close functions
 function closePaymentModal() {
   console.log('📝 Closing regular payment modal');
@@ -14556,6 +14557,62 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
+// Enhanced event listener setup for payment forms
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 Setting up enhanced payment form validation listeners...');
+    
+    // Hosting plan validation
+    const hostingPlan = document.getElementById('hostingPlan');
+    if (hostingPlan) {
+        hostingPlan.addEventListener('change', function() {
+            try {
+                validatePaymentForm();
+            } catch (error) {
+                console.error('Error in hosting plan validation:', error);
+            }
+        });
+        console.log('✅ Hosting plan listener added');
+    }
+    
+    // Payment method validation
+    const paymentMethod = document.getElementById('paymentMethod');
+    if (paymentMethod) {
+        paymentMethod.addEventListener('change', function() {
+            try {
+                validatePaymentForm();
+            } catch (error) {
+                console.error('Error in payment method validation:', error);
+            }
+        });
+        console.log('✅ Payment method listener added');
+    }
+    
+    // Form submission protection
+    const paymentForm = document.getElementById('paymentForm');
+    if (paymentForm) {
+        paymentForm.addEventListener('submit', function(event) {
+            console.log('🔍 Form submission attempted for type:', currentPaymentType);
+            
+            try {
+                const isValid = validatePaymentForm();
+                if (!isValid) {
+                    event.preventDefault();
+                    console.warn('⚠️ Form submission prevented - validation failed');
+                    showMessage('Please fix the form errors before proceeding', 'error');
+                    return false;
+                }
+                console.log('✅ Form validation passed, proceeding with payment');
+            } catch (error) {
+                event.preventDefault();
+                console.error('❌ Form validation error:', error);
+                showMessage('Form validation error. Please try again.', 'error');
+                return false;
+            }
+        });
+        console.log('✅ Form submission handler added');
+    }
+});
+
 // Enhanced slot increase handler
 async function handleSlotIncrease(paymentResponse, slotsToAdd) {
     try {
@@ -14740,7 +14797,7 @@ async function handleSlotIncrease(paymentResponse, slotsToAdd) {
     }
 }
 
-// Update the payment form validation with better error handling
+// Enhanced form validation with better error handling
 function validatePaymentForm() {
     try {
         console.log('🔍 Validating payment form for type:', currentPaymentType);
@@ -14800,14 +14857,17 @@ function validatePaymentForm() {
                 displayElement.innerHTML = `
                     <div class="amount-breakdown">
                         <div class="usd-amount">
-                            <i class="fas fa-dollar-sign"></i>
-                            <strong>$${usdAmount}</strong>
+                            <i class="fas fa-server"></i>
+                            <strong>$${usdAmount}</strong> (${plan} plan)
                         </div>
                         <div class="conversion">
                             <i class="fas fa-exchange-alt"></i>
-                            <span>≈ ₦${ngnAmount.toLocaleString()}</span>
+                            <span>Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1</span>
                         </div>
-                        <small>Rate: ₦${USD_TO_NGN_RATE}/$1</small>
+                        <div class="ngn-total">
+                            <i class="fas fa-equals"></i>
+                            <strong>Pay: ₦${ngnAmount.toLocaleString()}</strong>
+                        </div>
                     </div>
                 `;
             }
@@ -14844,21 +14904,25 @@ function validatePaymentForm() {
                 }
                 
                 // Calculate amounts
-                const costPerSlot = Math.round(costPerSlotUSD * USD_TO_NGN_RATE);
-                const totalAmount = slotsToAdd * costPerSlot;
+                const usdAmount = slotsToAdd * costPerSlotUSD;
+                const ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
                 
                 // Update display with calculated amount
                 const displayElement = document.getElementById('calculatedAmount');
                 if (displayElement) {
                     displayElement.innerHTML = `
                         <div class="amount-breakdown">
-                            <div class="calculation">
-                                <i class="fas fa-calculator"></i>
-                                ${slotsToAdd} slots × ₦${costPerSlot.toLocaleString()}/slot
+                            <div class="usd-calculation">
+                                <i class="fas fa-dollar-sign"></i>
+                                ${slotsToAdd} slots × $${costPerSlotUSD} = <strong>$${usdAmount.toFixed(2)}</strong>
                             </div>
-                            <div class="total-amount">
+                            <div class="conversion">
+                                <i class="fas fa-exchange-alt"></i>
+                                <span>Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1</span>
+                            </div>
+                            <div class="ngn-total">
                                 <i class="fas fa-equals"></i>
-                                <strong>Total: ₦${totalAmount.toLocaleString()}</strong>
+                                <strong>Pay: ₦${ngnAmount.toLocaleString()}</strong>
                             </div>
                         </div>
                     `;
@@ -14867,8 +14931,9 @@ function validatePaymentForm() {
                 console.log('✅ Payment validation completed:', {
                     type: currentPaymentType,
                     slots: slotsToAdd,
-                    costPerSlot,
-                    totalAmount
+                    costPerSlotUSD,
+                    usdAmount,
+                    ngnAmount
                 });
             } else {
                 // Clear display if no valid amount
@@ -15119,6 +15184,37 @@ async function updateLimitsDisplay() {
     console.error('Error updating limits display:', error);
   }
 }
+
+// Helper function to check if any modal is open
+function isAnyModalOpen() {
+  const paymentModal = document.getElementById('paymentModal');
+  const databaseModal = document.getElementById('databasePaymentModal');
+  
+  const paymentOpen = paymentModal && (paymentModal.style.display === 'flex' || paymentModal.classList.contains('show'));
+  const databaseOpen = databaseModal && (databaseModal.style.display === 'flex' || databaseModal.classList.contains('show'));
+  
+  return paymentOpen || databaseOpen;
+}
+
+// Add escape key handler for modals
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape' && isAnyModalOpen()) {
+    console.log('🔑 Escape key pressed - closing modals');
+    closeAllModals();
+  }
+});
+
+// Add click outside handler for modals
+document.addEventListener('click', function(event) {
+  const paymentModal = document.getElementById('paymentModal');
+  const databaseModal = document.getElementById('databasePaymentModal');
+  
+  // Check if click is on modal backdrop
+  if (event.target === paymentModal || event.target === databaseModal) {
+    console.log('🖱️ Clicked outside modal - closing');
+    closeAllModals();
+  }
+});
 
 // Database payment functions
 let selectedDatabasePlan = '';
