@@ -15435,7 +15435,7 @@ async function processDatabasePayment(event) {
             customizations: {
                 title: "NARAP Database Hosting Payment",
                 description: `${selectedDatabasePlan === 'monthly' ? 'Monthly' : 'Yearly'} Database Hosting Plan`,
-                logo: "https://narapdb.com.ng/images/logo.jpg" // Replace with your logo URL
+                logo: "https://narapdb.com.ng/images/narap-logo.jpg"  // Replace with your logo URL
             },
             callback: function(response) {
                 console.log('Payment response:', response);
