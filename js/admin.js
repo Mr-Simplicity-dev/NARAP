@@ -13895,8 +13895,6 @@ console.log('✅ Limit modal event listeners added');
 
 // Payment system functions
 function showPaymentModal(type) {
-  currentPaymentType = type;
-  
   console.log('🔍 showPaymentModal called with type:', type);
   
   if (type === 'database') {
@@ -13904,6 +13902,9 @@ function showPaymentModal(type) {
     
     // Close any other open modals first
     closeAllModals();
+    
+    // SET currentPaymentType AFTER closeAllModals to prevent reset
+    currentPaymentType = type;
     
     // Get database modal
     const databaseModal = document.getElementById('databasePaymentModal');
@@ -13935,6 +13936,9 @@ function showPaymentModal(type) {
   
   // Handle other modals (idcard, certificate)
   closeAllModals(); // Close any open modals first
+  
+  // SET currentPaymentType AFTER closeAllModals to prevent reset
+  currentPaymentType = type;
   
   const modal = document.getElementById('paymentModal');
   const title = document.getElementById('paymentTitle');
