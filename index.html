@@ -4484,7 +4484,6 @@ document.addEventListener('DOMContentLoaded', async function() {
       trackUsage('app', 'initialized_online');
     } catch (error) {
       console.log('Failed to load initial data:', error);
-      showTemporaryMessage('Using cached data', 'info');
       trackUsage('app', 'initialized_offline');
     }
   }
