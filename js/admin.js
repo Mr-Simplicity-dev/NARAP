@@ -14952,6 +14952,7 @@ function validatePaymentForm() {
     }
 }
 
+
 // Improved payment button loading state with better button detection
 function setPaymentButtonLoading(loading) {
     console.log('🔄 Setting payment button loading state:', loading);
