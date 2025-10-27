@@ -13900,10 +13900,26 @@ function showPaymentModal(type) {
   if (type === 'database') {
     console.log('💾 Opening database payment modal');
     
-    // Close any other open modals first
-    closeAllModals();
+    // Close ONLY the regular payment modal, not all modals
+    const paymentModal = document.getElementById('paymentModal');
+    if (paymentModal) {
+      paymentModal.classList.remove('show');
+      paymentModal.style.display = 'none';
+      console.log('✅ Regular payment modal closed');
+    }
     
-    // SET currentPaymentType AFTER closeAllModals to prevent reset
+    // Reset forms and states without closing the database modal
+    const paymentForm = document.getElementById('paymentForm');
+    if (paymentForm) {
+      paymentForm.reset();
+    }
+    
+    const hostingPlanGroup = document.getElementById('hostingPlanGroup');
+    if (hostingPlanGroup) {
+      hostingPlanGroup.style.display = 'none';
+    }
+    
+    // SET currentPaymentType
     currentPaymentType = type;
     
     // Get database modal
