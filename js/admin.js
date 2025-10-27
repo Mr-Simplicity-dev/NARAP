@@ -15347,7 +15347,7 @@ async function processDatabasePayment(event) {
         }
         
         const amount = selectedDatabasePlan === 'monthly' ? 35 : 336;
-        const amountInNGN = amount * 500; // Convert USD to NGN (approximate)
+        const amountInNGN = amount * 500; // Convert USD to NGN
         const duration = selectedDatabasePlan === 'monthly' ? '1 month' : '12 months';
         
         const paymentReference = `NARAP_DB_${selectedDatabasePlan}_${Date.now()}`;
@@ -15406,7 +15406,7 @@ async function handleDatabasePaymentSuccess(response) {
         
         const result = await activationResponse.json();
         
-        // Check for successful payment (Flutterwave uses "successful", Monnify uses "PAID")
+        // Check for successful payment (Flutterwave uses "successful")
         const isPaymentSuccessful = (response.status === "successful") || (response.paymentStatus === "PAID");
         
         if (result.success && isPaymentSuccessful) {
