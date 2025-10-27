@@ -4290,7 +4290,6 @@ async function makeRequest(url, options, retries = 3) {
 // Preload member data function
 async function preloadMemberData() {
   try {
-    showTemporaryMessage('Loading latest member data...', 'info');
     const memberData = await getData('/members');
     
     // Store in localStorage for offline access
