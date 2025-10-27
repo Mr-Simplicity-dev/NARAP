@@ -13927,35 +13927,51 @@ function showPaymentModal(type) {
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // Enhanced approach with higher z-index to ensure visibility
+      // Force all styles to ensure visibility
       databaseModal.className = 'modal show';
-      databaseModal.style.display = 'flex';
-      databaseModal.style.zIndex = '99999'; // Higher than notification containers
-      databaseModal.style.position = 'fixed';
-      databaseModal.style.top = '0';
-      databaseModal.style.left = '0';
-      databaseModal.style.width = '100vw';
-      databaseModal.style.height = '100vh';
-      databaseModal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-      databaseModal.style.alignItems = 'center';
-      databaseModal.style.justifyContent = 'center';
+      databaseModal.style.cssText = `
+        display: flex !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background-color: rgba(0, 0, 0, 0.8) !important;
+        z-index: 999999 !important;
+        align-items: center !important;
+        justify-content: center !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      `;
       
-      // Force reflow to ensure styles are applied
+      // Also ensure modal content is visible
+      const modalContent = databaseModal.querySelector('.modal-content');
+      if (modalContent) {
+        modalContent.style.cssText = `
+          background: white !important;
+          border-radius: 15px !important;
+          padding: 30px !important;
+          max-width: 800px !important;
+          width: 90% !important;
+          max-height: 90vh !important;
+          overflow-y: auto !important;
+          position: relative !important;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+          z-index: 1000000 !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        `;
+      }
+      
+      // Force reflow
       databaseModal.offsetHeight;
       
-      console.log('✅ Database modal opened successfully');
+      console.log('✅ Database modal opened with forced styles');
       console.log('✅ Modal class:', databaseModal.className);
       console.log('✅ Modal z-index:', databaseModal.style.zIndex);
       
-      // Initialize validation for database modal after it's opened
-      setTimeout(() => {
-        try {
-          validatePaymentForm();
-          console.log('✅ Database modal validation initialized');
-        } catch (error) {
-          console.error('Error in database modal validation:', error);
-        }
-      }, 100);
+      // Skip payment config validation for now
+      console.log('⚠️ Skipping payment config validation (fix backend env vars)');
       
     } else {
       console.error('❌ Database modal element not found in DOM!');
@@ -13963,10 +13979,8 @@ function showPaymentModal(type) {
     return;
   }
   
-  // Handle other modals (idcard, certificate)
-  closeAllModals(); // Close any open modals first
-  
-  // SET currentPaymentType AFTER closeAllModals to prevent reset
+  // Handle other modals (existing code)
+  closeAllModals();
   currentPaymentType = type;
   
   const modal = document.getElementById('paymentModal');
@@ -13983,30 +13997,25 @@ function showPaymentModal(type) {
     return;
   }
   
-  // Hide hosting plan group for non-database payments
   if (hostingPlanGroup) {
     hostingPlanGroup.style.display = 'none';
   }
   
-  // Set modal title based on payment type
   if (type === 'idcard') {
     title.textContent = 'ID Card Payment - Increase Member Capacity';
   } else if (type === 'certificate') {
     title.textContent = 'Certificate Payment - Increase Certificate Capacity';
   }
   
-  // Show the modal
   modal.classList.add('show');
   modal.style.display = 'flex';
   
   console.log(`✅ ${type} payment modal opened`);
   
-  // Initialize validation for regular payment modal after it's opened
   setTimeout(() => {
     try {
       validatePaymentForm();
       
-      // Clear any previous values and calculations
       const amountInput = document.getElementById('paymentAmount');
       const calculatedAmount = document.getElementById('calculatedAmount');
       
