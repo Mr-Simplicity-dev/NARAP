@@ -13927,8 +13927,7 @@ function showPaymentModal(type) {
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // Force all styles to ensure visibility
-      databaseModal.className = 'modal show';
+      // DISABLE ANIMATIONS and force visibility
       databaseModal.style.cssText = `
         display: flex !important;
         position: fixed !important;
@@ -13942,9 +13941,11 @@ function showPaymentModal(type) {
         justify-content: center !important;
         visibility: visible !important;
         opacity: 1 !important;
+        animation: none !important;
+        transition: none !important;
       `;
       
-      // Also ensure modal content is visible
+      // Also fix modal content
       const modalContent = databaseModal.querySelector('.modal-content');
       if (modalContent) {
         modalContent.style.cssText = `
@@ -13960,18 +13961,28 @@ function showPaymentModal(type) {
           z-index: 1000000 !important;
           visibility: visible !important;
           opacity: 1 !important;
+          animation: none !important;
+          transition: none !important;
+          transform: none !important;
         `;
       }
       
       // Force reflow
       databaseModal.offsetHeight;
       
-      console.log('✅ Database modal opened with forced styles');
+      console.log('✅ Database modal opened with animation disabled');
       console.log('✅ Modal class:', databaseModal.className);
       console.log('✅ Modal z-index:', databaseModal.style.zIndex);
       
-      // Skip payment config validation for now
-      console.log('⚠️ Skipping payment config validation (fix backend env vars)');
+      // Initialize validation for database modal after it's opened
+      setTimeout(() => {
+        try {
+          validatePaymentForm();
+          console.log('✅ Database modal validation initialized');
+        } catch (error) {
+          console.error('Error in database modal validation:', error);
+        }
+      }, 100);
       
     } else {
       console.error('❌ Database modal element not found in DOM!');
