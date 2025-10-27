@@ -14247,30 +14247,42 @@ async function processPayment(event) {
     const slotsToAdd = parseInt(document.getElementById('paymentAmount').value);
     const paymentMethod = document.getElementById('paymentMethod').value;
     
-    // Validation for non-database payments
-    if (currentPaymentType !== 'database') {
-        if (!slotsToAdd || slotsToAdd <= 0) {
-            showMessage('Please enter a valid number of slots', 'error');
+    try {
+        // Check if Flutterwave is available first
+        if (typeof FlutterwaveCheckout === 'undefined') {
+            throw new Error('Flutterwave payment system is not available. Please refresh the page and try again.');
+        }
+        
+        // Validate API key configuration
+        if (!FLUTTERWAVE_CONFIG.publicKey || 
+            FLUTTERWAVE_CONFIG.publicKey.includes('YOUR_ACTUAL') ||
+            FLUTTERWAVE_CONFIG.publicKey.includes('Replace with')) {
+            throw new Error('Payment system configuration error. Please contact support.');
+        }
+        
+        // Validation for non-database payments
+        if (currentPaymentType !== 'database') {
+            if (!slotsToAdd || slotsToAdd <= 0) {
+                showMessage('Please enter a valid number of slots', 'error');
+                setPaymentButtonLoading(false);
+                return;
+            }
+            
+            // Validate minimum slots
+            const minSlots = PRICING_CONFIG[currentPaymentType].minimumSlots;
+            if (slotsToAdd < minSlots) {
+                showMessage(`Minimum ${minSlots} slots required for ${currentPaymentType}`, 'error');
+                setPaymentButtonLoading(false);
+                return;
+            }
+        }
+        
+        if (!paymentMethod) {
+            showMessage('Please select a payment method', 'error');
             setPaymentButtonLoading(false);
             return;
         }
         
-        // Validate minimum slots
-        const minSlots = PRICING_CONFIG[currentPaymentType].minimumSlots;
-        if (slotsToAdd < minSlots) {
-            showMessage(`Minimum ${minSlots} slots required for ${currentPaymentType}`, 'error');
-            setPaymentButtonLoading(false);
-            return;
-        }
-    }
-    
-    if (!paymentMethod) {
-        showMessage('Please select a payment method', 'error');
-        setPaymentButtonLoading(false);
-        return;
-    }
-    
-    try {
         showMessage('Getting current exchange rate...', 'info');
         
         // ALWAYS get current exchange rate for ALL payment types
@@ -14301,6 +14313,11 @@ async function processPayment(event) {
             serviceDescription = `Database Hosting - ${plan} plan - $${usdAmount} (₦${ngnAmount.toLocaleString()})`;
         }
         
+        // Validate calculated amounts
+        if (!usdAmount || usdAmount <= 0 || !ngnAmount || ngnAmount <= 0) {
+            throw new Error('Invalid payment amount calculated. Please try again.');
+        }
+        
         // Enhanced confirmation dialog showing both USD and NGN
         const confirmMessage = `
 🔔 PAYMENT CONFIRMATION
@@ -14327,7 +14344,7 @@ Proceed with payment?
         
         showMessage('Initializing payment gateway...', 'info');
         
-        // Check if Flutterwave is loaded
+        // Check if Flutterwave is loaded (double-check)
         await checkFlutterwaveLoaded();
         
         const txRef = `NARAP_${currentPaymentType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -14378,12 +14395,21 @@ Proceed with payment?
         console.error('Payment initialization error:', error);
         setPaymentButtonLoading(false);
         
-        if (error.message && error.message.includes('Flutterwave script failed to load')) {
+        // Specific error handling
+        if (error.message && error.message.includes('Flutterwave payment system is not available')) {
+            showMessage('Payment gateway is not available. Please refresh the page and try again.', 'error');
+        } else if (error.message && error.message.includes('configuration error')) {
+            showMessage('Payment system configuration error. Please contact support.', 'error');
+        } else if (error.message && error.message.includes('Flutterwave script failed to load')) {
             showMessage('Payment gateway failed to load. Please refresh the page and try again.', 'error');
         } else if (error.message && error.message.includes('network')) {
             showMessage('Network error. Please check your internet connection and try again.', 'error');
+        } else if (error.message && error.message.includes('Invalid payment amount')) {
+            showMessage('Invalid payment amount calculated. Please try again.', 'error');
+        } else if (error.message && error.message.includes('API key not found')) {
+            showMessage('Payment system authentication error. Please contact support.', 'error');
         } else {
-            showMessage('Failed to initialize payment gateway. Please try again.', 'error');
+            showMessage('Failed to initialize payment gateway: ' + (error.message || 'Unknown error'), 'error');
         }
     }
 }
