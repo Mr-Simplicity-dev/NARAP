@@ -15219,6 +15219,7 @@ document.addEventListener('click', function(event) {
 
 // Database payment functions
 let selectedDatabasePlan = '';
+let currentPaymentType = '';
 
 function closeDatabasePaymentModal() {
   const modal = document.getElementById('databasePaymentModal');
