@@ -131,6 +131,8 @@
   font-size: 14px;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  z-index: 10000; /* Ensure skip button is always on top */
+  pointer-events: auto; /* Ensure it's clickable */
 }
 
 .skip-intro:hover {
