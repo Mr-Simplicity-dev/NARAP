@@ -14294,23 +14294,31 @@ async function processPayment(event) {
         let usdAmount = 0;
         let ngnAmount = 0;
         let serviceDescription = '';
+        let paymentTitle = '';
+        let beneficiaryName = '';
         let costPerSlotUSD = 0;
         
         if (currentPaymentType === 'idcard') {
             costPerSlotUSD = PRICING_CONFIG.idcard.costPerSlotUSD;
             usdAmount = slotsToAdd * costPerSlotUSD;
             ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
-            serviceDescription = `ID Card Payment - ${slotsToAdd} slots × $${costPerSlotUSD} = $${usdAmount.toFixed(2)} (₦${ngnAmount.toLocaleString()})`;
+            serviceDescription = `ID Card Slot Payment for NARAP Database - ${slotsToAdd} slots × $${costPerSlotUSD} = $${usdAmount.toFixed(2)} (₦${ngnAmount.toLocaleString()})`;
+            paymentTitle = "ID Card Slot Payment for NARAP Database";
+            beneficiaryName = "NARAP Admin Database";
         } else if (currentPaymentType === 'certificate') {
             costPerSlotUSD = PRICING_CONFIG.certificate.costPerSlotUSD;
             usdAmount = slotsToAdd * costPerSlotUSD;
             ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
-            serviceDescription = `Certificate Payment - ${slotsToAdd} slots × $${costPerSlotUSD} = $${usdAmount.toFixed(2)} (₦${ngnAmount.toLocaleString()})`;
+            serviceDescription = `Certificate Payment for NARAP Database - ${slotsToAdd} slots × $${costPerSlotUSD} = $${usdAmount.toFixed(2)} (₦${ngnAmount.toLocaleString()})`;
+            paymentTitle = "Certificate Payment for NARAP Database";
+            beneficiaryName = "NARAP Admin Database";
         } else if (currentPaymentType === 'database') {
             const plan = document.getElementById('hostingPlan')?.value || 'monthly';
             usdAmount = plan === 'monthly' ? PRICING_CONFIG.database.monthlyUSD : PRICING_CONFIG.database.yearlyUSD;
             ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
-            serviceDescription = `Database Hosting - ${plan} plan - $${usdAmount} (₦${ngnAmount.toLocaleString()})`;
+            serviceDescription = `Database Hosting Payment for NARAP - ${plan} plan - $${usdAmount} (₦${ngnAmount.toLocaleString()})`;
+            paymentTitle = "Database Hosting Payment for NARAP";
+            beneficiaryName = "NARAP Admin Database";
         }
         
         // Validate calculated amounts
@@ -14331,6 +14339,7 @@ Exchange Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1
 NGN Equivalent: ₦${ngnAmount.toLocaleString()}
 
 Payment Method: ${paymentMethod.toUpperCase()}
+Beneficiary: ${beneficiaryName}
 
 You will be charged ₦${ngnAmount.toLocaleString()} (NGN equivalent of $${usdAmount.toFixed(2)} USD)
 
@@ -14361,10 +14370,10 @@ Proceed with payment?
             customer: {
                 email: "admin@narap.org.ng",
                 phone_number: "+2348000000000",
-                name: "NARAP Admin",
+                name: beneficiaryName, // Dynamic beneficiary name
             },
             customizations: {
-                title: "NARAP Payment System",
+                title: paymentTitle, // Dynamic payment title
                 description: serviceDescription,
                 logo: "https://narapdb.com.ng/images/narap-logo.jpg",
             },
@@ -14376,6 +14385,8 @@ Proceed with payment?
                 exchange_rate: USD_TO_NGN_RATE,
                 ngn_amount: ngnAmount,
                 admin_payment: true,
+                beneficiary: beneficiaryName,
+                service_title: paymentTitle,
                 timestamp: new Date().toISOString(),
                 rate_fetched_at: new Date().toISOString()
             },
