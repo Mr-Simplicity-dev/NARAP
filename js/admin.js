@@ -14360,47 +14360,58 @@ Proceed with payment?
         
         showMessage('Opening payment modal...', 'info');
         
-        // Initialize Flutterwave payment (always in NGN but with USD metadata)
-        FlutterwaveCheckout({
-            public_key: FLUTTERWAVE_CONFIG.publicKey,
-            tx_ref: txRef,
-            amount: ngnAmount, // Always pay in NGN equivalent
-            currency: "NGN",
-            payment_options: "card,mobilemoney,ussd,bank_transfer",
-            customer: {
-                email: "admin@narap.org.ng",
-                phone_number: "+2348000000000",
-                name: beneficiaryName, // Dynamic beneficiary name
-            },
-            customizations: {
-                title: paymentTitle, // Dynamic payment title
-                description: serviceDescription,
-                logo: "https://narapdb.com.ng/images/narap-logo.jpg",
-            },
-            meta: {
-                payment_type: currentPaymentType,
-                slots_to_add: currentPaymentType !== 'database' ? slotsToAdd : 0,
-                cost_per_slot_usd: costPerSlotUSD,
-                usd_amount: usdAmount,
-                exchange_rate: USD_TO_NGN_RATE,
-                ngn_amount: ngnAmount,
-                admin_payment: true,
-                beneficiary: beneficiaryName,
-                service_title: paymentTitle,
-                timestamp: new Date().toISOString(),
-                rate_fetched_at: new Date().toISOString()
-            },
-            callback: function (data) {
-                console.log("Flutterwave payment completed:", data);
-                setPaymentButtonLoading(false);
-                handlePaymentSuccess(data, slotsToAdd, ngnAmount, usdAmount, costPerSlotUSD);
-            },
-            onclose: function() {
-                console.log("Flutterwave payment modal closed");
-                setPaymentButtonLoading(false);
-                showMessage('Payment was cancelled or closed', 'warning');
-            }
-        });
+        // Map your payment method values to Flutterwave options
+                const paymentMethodMapping = {
+                    'card': 'card',
+                    'bank_transfer': 'banktransfer', 
+                    'ussd': 'ussd',
+                    'mobile_money': 'mobilemoney'
+                };
+
+                const selectedPaymentOption = paymentMethodMapping[paymentMethod] || 'card';
+
+            // Initialize Flutterwave payment with pre-selected method
+            FlutterwaveCheckout({
+                public_key: FLUTTERWAVE_CONFIG.publicKey,
+                tx_ref: txRef,
+                amount: ngnAmount,
+                currency: "NGN",
+                payment_options: selectedPaymentOption, // Use only the selected method
+                customer: {
+                    email: "admin@narap.org.ng",
+                    phone_number: "+2348000000000",
+                    name: beneficiaryName,
+                },
+                customizations: {
+                    title: paymentTitle,
+                    description: serviceDescription,
+                    logo: "https://narapdb.com.ng/images/narap-logo.jpg",
+                },
+                meta: {
+                    payment_type: currentPaymentType,
+                    slots_to_add: currentPaymentType !== 'database' ? slotsToAdd : 0,
+                    cost_per_slot_usd: costPerSlotUSD,
+                    usd_amount: usdAmount,
+                    exchange_rate: USD_TO_NGN_RATE,
+                    ngn_amount: ngnAmount,
+                    admin_payment: true,
+                    beneficiary: beneficiaryName,
+                    service_title: paymentTitle,
+                    selected_method: paymentMethod, // Track the pre-selected method
+                    timestamp: new Date().toISOString(),
+                    rate_fetched_at: new Date().toISOString()
+                },
+                callback: function (data) {
+                    console.log("Flutterwave payment completed:", data);
+                    setPaymentButtonLoading(false);
+                    handlePaymentSuccess(data, slotsToAdd, ngnAmount, usdAmount, costPerSlotUSD);
+                },
+                onclose: function() {
+                    console.log("Flutterwave payment modal closed");
+                    setPaymentButtonLoading(false);
+                    showMessage('Payment was cancelled or closed', 'warning');
+                }
+            });
         
     } catch (error) {
         console.error('Payment initialization error:', error);
