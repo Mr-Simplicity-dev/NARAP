@@ -13927,50 +13927,49 @@ function showPaymentModal(type) {
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // DISABLE ANIMATIONS and force visibility
-      databaseModal.style.cssText = `
-        display: flex !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background-color: rgba(0, 0, 0, 0.8) !important;
-        z-index: 999999 !important;
-        align-items: center !important;
-        justify-content: center !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        animation: none !important;
-        transition: none !important;
-      `;
+      // Move modal to body root to escape any hiding parent containers
+      document.body.appendChild(databaseModal);
+      
+      // Use setProperty with 'important' to override CSS rules
+      databaseModal.style.setProperty('display', 'flex', 'important');
+      databaseModal.style.setProperty('position', 'fixed', 'important');
+      databaseModal.style.setProperty('top', '0', 'important');
+      databaseModal.style.setProperty('left', '0', 'important');
+      databaseModal.style.setProperty('width', '100vw', 'important');
+      databaseModal.style.setProperty('height', '100vh', 'important');
+      databaseModal.style.setProperty('background-color', 'rgba(0, 0, 0, 0.8)', 'important');
+      databaseModal.style.setProperty('z-index', '999999', 'important');
+      databaseModal.style.setProperty('align-items', 'center', 'important');
+      databaseModal.style.setProperty('justify-content', 'center', 'important');
+      databaseModal.style.setProperty('visibility', 'visible', 'important');
+      databaseModal.style.setProperty('opacity', '1', 'important');
+      databaseModal.style.setProperty('animation', 'none', 'important');
+      databaseModal.style.setProperty('transition', 'none', 'important');
       
       // Also fix modal content
       const modalContent = databaseModal.querySelector('.modal-content');
       if (modalContent) {
-        modalContent.style.cssText = `
-          background: white !important;
-          border-radius: 15px !important;
-          padding: 30px !important;
-          max-width: 800px !important;
-          width: 90% !important;
-          max-height: 90vh !important;
-          overflow-y: auto !important;
-          position: relative !important;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
-          z-index: 1000000 !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-          animation: none !important;
-          transition: none !important;
-          transform: none !important;
-        `;
+        modalContent.style.setProperty('display', 'block', 'important');
+        modalContent.style.setProperty('background', 'white', 'important');
+        modalContent.style.setProperty('border-radius', '15px', 'important');
+        modalContent.style.setProperty('padding', '30px', 'important');
+        modalContent.style.setProperty('max-width', '800px', 'important');
+        modalContent.style.setProperty('width', '90%', 'important');
+        modalContent.style.setProperty('max-height', '90vh', 'important');
+        modalContent.style.setProperty('overflow-y', 'auto', 'important');
+        modalContent.style.setProperty('position', 'relative', 'important');
+        modalContent.style.setProperty('box-shadow', '0 4px 20px rgba(0, 0, 0, 0.3)', 'important');
+        modalContent.style.setProperty('visibility', 'visible', 'important');
+        modalContent.style.setProperty('opacity', '1', 'important');
+        modalContent.style.setProperty('animation', 'none', 'important');
+        modalContent.style.setProperty('transition', 'none', 'important');
+        modalContent.style.setProperty('transform', 'none', 'important');
       }
       
       // Force reflow
       databaseModal.offsetHeight;
       
-      console.log('✅ Database modal opened with animation disabled');
+      console.log('✅ Database modal opened with CSS override');
       console.log('✅ Modal class:', databaseModal.className);
       console.log('✅ Modal z-index:', databaseModal.style.zIndex);
       
