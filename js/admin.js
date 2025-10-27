@@ -15387,9 +15387,18 @@ async function processDatabasePayment(event) {
     try {
         showMessage('Initializing database hosting payment...', 'info');
         
-        const amount = selectedDatabasePlan === 'monthly' ? 35 : 336;
-        const amountInNGN = amount * 500; // Convert USD to NGN (adjust rate as needed)
+        // Get current exchange rate (same as ID card/certificate payments)
+        console.log('🔄 Getting current exchange rate for database payment...');
+        await getExchangeRate();
+        
+        // Database hosting prices in USD
+        const usdAmount = selectedDatabasePlan === 'monthly' ? 35 : 336;
         const duration = selectedDatabasePlan === 'monthly' ? '1 month' : '12 months';
+        
+        // Convert to NGN using current exchange rate
+        const ngnAmount = Math.round(usdAmount * USD_TO_NGN_RATE);
+        
+        console.log(`💰 Database payment: $${usdAmount} USD = ₦${ngnAmount.toLocaleString()} NGN (Rate: ₦${USD_TO_NGN_RATE}/$1)`);
         
         const paymentReference = `NARAP_DB_${selectedDatabasePlan}_${Date.now()}`;
         
@@ -15402,11 +15411,14 @@ async function processDatabasePayment(event) {
         // Use hardcoded public key temporarily (replace with your actual Flutterwave public key)
         const FLUTTERWAVE_PUBLIC_KEY = 'FLWPUBK-a7b13655be18ddefb0c1b8aa598d3091-X'; // Replace with your actual key
         
-        // Use Flutterwave Checkout
+        // Show payment details to user before processing
+        showMessage(`Processing payment: $${usdAmount} USD (₦${ngnAmount.toLocaleString()} NGN) for ${duration} database hosting`, 'info');
+        
+        // Use Flutterwave Checkout with dynamic NGN amount
         FlutterwaveCheckout({
             public_key: FLUTTERWAVE_PUBLIC_KEY,
             tx_ref: paymentReference,
-            amount: amountInNGN,
+            amount: ngnAmount, // Use the converted NGN amount
             currency: "NGN",
             customer: {
                 email: "admin@narap.org.ng",
@@ -15416,19 +15428,44 @@ async function processDatabasePayment(event) {
                 paymentType: 'database',
                 plan: selectedDatabasePlan,
                 duration: duration,
-                originalAmount: amount
+                originalAmountUSD: usdAmount,
+                exchangeRate: USD_TO_NGN_RATE,
+                ngnAmount: ngnAmount
+            },
+            customizations: {
+                title: "NARAP Database Hosting Payment",
+                description: `${selectedDatabasePlan === 'monthly' ? 'Monthly' : 'Yearly'} Database Hosting Plan`,
+                logo: "https://narapdb.com.ng/images/logo.png" // Replace with your logo URL
             },
             callback: function(response) {
                 console.log('Payment response:', response);
                 
                 if (response.status === 'successful') {
-                    showMessage(`Database hosting payment successful! Reference: ${response.tx_ref}`, 'success');
+                    const successMessage = `
+                        ✅ Database hosting payment successful!
+                        
+                        Plan: ${selectedDatabasePlan === 'monthly' ? 'Monthly' : 'Yearly'} (${duration})
+                        USD Amount: $${usdAmount.toFixed(2)}
+                        Exchange Rate: ₦${USD_TO_NGN_RATE.toLocaleString()}/$1
+                        NGN Paid: ₦${ngnAmount.toLocaleString()}
+                        Reference: ${response.tx_ref}
+                        
+                        Your database hosting is now active!
+                    `;
+                    
+                    showMessage(successMessage, 'success');
                     
                     // Record the payment in your backend
-                    recordDatabasePayment(response, selectedDatabasePlan, amount);
+                    recordDatabasePayment(response, selectedDatabasePlan, usdAmount, USD_TO_NGN_RATE, ngnAmount);
                     
                     // Close modal
                     closeDatabasePaymentModal();
+                    
+                    // Optionally refresh the page or update UI to show active hosting
+                    setTimeout(() => {
+                        showMessage('Database hosting activated successfully!', 'success');
+                    }, 2000);
+                    
                 } else {
                     showMessage('Payment was not completed. Please try again.', 'error');
                 }
@@ -15444,8 +15481,8 @@ async function processDatabasePayment(event) {
     }
 }
 
-// Function to record payment in backend
-async function recordDatabasePayment(paymentResponse, plan, amount) {
+// Function to record database payment in backend
+async function recordDatabasePayment(paymentResponse, plan, usdAmount, exchangeRate, ngnAmount) {
     try {
         const response = await fetch('/api/database-hosting', {
             method: 'POST',
@@ -15455,20 +15492,25 @@ async function recordDatabasePayment(paymentResponse, plan, amount) {
             body: JSON.stringify({
                 transactionRef: paymentResponse.tx_ref,
                 flutterwaveRef: paymentResponse.flw_ref,
-                amount: amount,
                 plan: plan,
+                duration: plan === 'monthly' ? '1 month' : '12 months',
+                usdAmount: usdAmount,
+                exchangeRate: exchangeRate,
+                ngnAmount: ngnAmount,
                 status: paymentResponse.status,
-                paymentMethod: 'flutterwave'
+                paymentMethod: 'flutterwave',
+                paymentDate: new Date().toISOString()
             })
         });
         
         if (response.ok) {
-            console.log('Payment recorded successfully');
+            const result = await response.json();
+            console.log('✅ Database payment recorded successfully:', result);
         } else {
-            console.error('Failed to record payment');
+            console.error('❌ Failed to record database payment:', response.status);
         }
     } catch (error) {
-        console.error('Error recording payment:', error);
+        console.error('❌ Error recording database payment:', error);
     }
 }
 
