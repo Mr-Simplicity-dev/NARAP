@@ -15303,6 +15303,24 @@ function selectDatabasePlan(plan) {
   form.style.display = 'block';
 }
 
+// Add this near the top of your admin.js file (before the processDatabasePayment function)
+let PAYMENT_CONFIG = null;
+
+// Function to load payment configuration
+async function loadPaymentConfig() {
+    if (!PAYMENT_CONFIG) {
+        try {
+            const response = await fetch('/api/payment-config');
+            PAYMENT_CONFIG = await response.json();
+            console.log('✅ Payment config loaded:', PAYMENT_CONFIG);
+        } catch (error) {
+            console.error('❌ Failed to load payment config:', error);
+        }
+    }
+    return PAYMENT_CONFIG;
+}
+
+// Your fixed processDatabasePayment function
 async function processDatabasePayment(event) {
     event.preventDefault();
     
@@ -15321,36 +15339,41 @@ async function processDatabasePayment(event) {
     try {
         showMessage('Initializing database hosting payment...', 'info');
         
+        // Load payment config first
+        const config = await loadPaymentConfig();
+        if (!config || !config.publicKey) {
+            showMessage('Payment configuration not available', 'error');
+            return;
+        }
+        
         const amount = selectedDatabasePlan === 'monthly' ? 35 : 336;
-        const amountInKobo = amount * 100 * 500; // Convert USD to NGN (approximate)
+        const amountInNGN = amount * 500; // Convert USD to NGN (approximate)
         const duration = selectedDatabasePlan === 'monthly' ? '1 month' : '12 months';
         
         const paymentReference = `NARAP_DB_${selectedDatabasePlan}_${Date.now()}`;
         
-        // Initialize Monnify payment for database hosting
-        window.MonnifySDK.initialize({
-            amount: amountInKobo,
+        // Use Flutterwave instead of Monnify
+        FlutterwaveCheckout({
+            public_key: config.publicKey,
+            tx_ref: paymentReference,
+            amount: amountInNGN,
             currency: "NGN",
-            reference: paymentReference,
-            customerName: "NARAP Admin",
-            customerEmail: "admin@narap.org.ng",
-            apiKey: MONNIFY_CONFIG.apiKey,
-            contractCode: MONNIFY_CONFIG.contractCode,
-            paymentDescription: `Database Hosting - ${selectedDatabasePlan} plan (${duration})`,
-            metadata: {
+            customer: {
+                email: "admin@narap.org.ng",
+                name: "NARAP Admin"
+            },
+            meta: {
                 paymentType: 'database',
                 plan: selectedDatabasePlan,
                 duration: duration,
                 originalAmount: amount
             },
-            paymentMethods: [paymentMethod.toUpperCase()],
-            onComplete: function(response) {
+            callback: function(response) {
+                console.log('Payment response:', response);
                 handleDatabasePaymentSuccess(response);
             },
-            onClose: function(data) {
-                if (data.paymentStatus !== "PAID") {
-                    showMessage('Database hosting payment was cancelled', 'warning');
-                }
+            onclose: function() {
+                showMessage('Database hosting payment was cancelled', 'warning');
             }
         });
         
@@ -15364,6 +15387,8 @@ async function handleDatabasePaymentSuccess(response) {
     try {
         showMessage('Verifying database hosting payment...', 'info');
         
+        console.log('Payment response received:', response); // Debug log
+        
         // Call backend to activate database hosting
         const activationResponse = await fetch('/api/database-hosting', {
             method: 'POST',
@@ -15372,16 +15397,19 @@ async function handleDatabasePaymentSuccess(response) {
             },
             body: JSON.stringify({
                 plan: selectedDatabasePlan,
-                paymentReference: response.paymentReference,
-                transactionReference: response.transactionReference,
-                amountPaid: response.amountPaid,
-                paymentStatus: response.paymentStatus
+                paymentReference: response.tx_ref || response.paymentReference,
+                transactionReference: response.transaction_id || response.transactionReference,
+                amountPaid: response.amount || response.amountPaid,
+                paymentStatus: response.status || response.paymentStatus
             })
         });
         
         const result = await activationResponse.json();
         
-        if (result.success && response.paymentStatus === "PAID") {
+        // Check for successful payment (Flutterwave uses "successful", Monnify uses "PAID")
+        const isPaymentSuccessful = (response.status === "successful") || (response.paymentStatus === "PAID");
+        
+        if (result.success && isPaymentSuccessful) {
             const duration = selectedDatabasePlan === 'monthly' ? '1 month' : '12 months';
             showMessage(`🎉 Database hosting activated! Plan: ${selectedDatabasePlan} (${duration})`, 'success');
             
@@ -15390,14 +15418,17 @@ async function handleDatabasePaymentSuccess(response) {
             closeDatabasePaymentModal();
             
             // Log activity
-            logActivity('payment', `Database hosting payment completed: ${selectedDatabasePlan} plan - Ref: ${response.paymentReference}`);
+            const paymentRef = response.tx_ref || response.paymentReference;
+            logActivity('payment', `Database hosting payment completed: ${selectedDatabasePlan} plan - Ref: ${paymentRef}`);
         } else {
-            showMessage('Database hosting activation failed: ' + result.message, 'error');
+            const errorMessage = result.message || 'Payment verification failed';
+            showMessage('Database hosting activation failed: ' + errorMessage, 'error');
+            console.error('Payment activation failed:', { result, response });
         }
         
     } catch (error) {
         console.error('Database hosting activation error:', error);
-        showMessage('Database hosting activation failed', 'error');
+        showMessage('Database hosting activation failed: ' + error.message, 'error');
     }
 }
 

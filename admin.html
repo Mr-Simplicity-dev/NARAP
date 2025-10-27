@@ -2283,13 +2283,18 @@
   };
 
   // Ensure button click is bound even if inline handler is removed later
-  document.addEventListener('DOMContentLoaded', function(){
+document.addEventListener('DOMContentLoaded', function(){
     var btn = document.getElementById('refreshMembers');
     if (btn && !btn.__refreshBound) {
-      btn.addEventListener('click', function(e){ /* inline already calls refreshMembers(); keep as safety */ });
-      btn.__refreshBound = true;
+        btn.addEventListener('click', function(e){ /* inline already calls refreshMembers(); keep as safety */ });
+        btn.__refreshBound = true;
     }
-  });
+    
+    // Load payment configuration for database hosting
+    loadPaymentConfig();
+    
+    console.log('✅ DOM loaded - Payment config initialization started');
+});
 })();
 </script>
 
