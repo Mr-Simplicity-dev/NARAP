@@ -13927,12 +13927,25 @@ function showPaymentModal(type) {
     console.log('🔍 Database modal element:', databaseModal);
     
     if (databaseModal) {
-      // Clean approach - add show class and set display
+      // Enhanced approach with higher z-index to ensure visibility
       databaseModal.className = 'modal show';
       databaseModal.style.display = 'flex';
+      databaseModal.style.zIndex = '99999'; // Higher than notification containers
+      databaseModal.style.position = 'fixed';
+      databaseModal.style.top = '0';
+      databaseModal.style.left = '0';
+      databaseModal.style.width = '100vw';
+      databaseModal.style.height = '100vh';
+      databaseModal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+      databaseModal.style.alignItems = 'center';
+      databaseModal.style.justifyContent = 'center';
+      
+      // Force reflow to ensure styles are applied
+      databaseModal.offsetHeight;
       
       console.log('✅ Database modal opened successfully');
       console.log('✅ Modal class:', databaseModal.className);
+      console.log('✅ Modal z-index:', databaseModal.style.zIndex);
       
       // Initialize validation for database modal after it's opened
       setTimeout(() => {
