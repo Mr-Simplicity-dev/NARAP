@@ -15474,3 +15474,56 @@ async function fixCertificateLimit() {
 
 // Call it immediately
 fixCertificateLimit();
+
+(function(){
+  // Define a backend-first refreshMembers that mirrors certificates
+  window.refreshMembers = async function refreshMembers(){
+    try {
+      if (typeof showMessage === 'function') showMessage('Refreshing members from server…', 'info');
+
+      // Prefer the new backend-first loader if present
+      if (typeof window.reloadMembersBackendFirst === 'function') {
+        await window.reloadMembersBackendFirst(true);
+      } else if (typeof window.getMembers === 'function') {
+        await window.getMembers({ forceRefresh: true });
+        if (typeof window.refreshMembersUI === 'function') window.refreshMembersUI();
+      }
+
+      // Update counters
+      try {
+        var count = Array.isArray(window.members) ? window.members.length : 0;
+        var ids = ['totalMembers','membersCount'];
+        ids.forEach(function(id){
+          var el = document.getElementById(id);
+          if (el) el.textContent = String(count);
+        });
+      } catch(e){}
+
+      // Update recent activity (backend-first)
+      try {
+        if (typeof window.reloadRecentActivity === 'function') await window.reloadRecentActivity(50);
+      } catch(e){}
+
+      // Kick any pending sync (non-blocking)
+      try { if (typeof window.syncPendingChanges === 'function') window.syncPendingChanges(); } catch(e){}
+
+      if (typeof showMessage === 'function') showMessage('Members refreshed from server.', 'success');
+    } catch (err) {
+      if (typeof showMessage === 'function') showMessage('Failed to refresh members: ' + (err && err.message || err), 'error');
+    }
+  };
+
+  // Ensure button click is bound even if inline handler is removed later
+document.addEventListener('DOMContentLoaded', function(){
+    var btn = document.getElementById('refreshMembers');
+    if (btn && !btn.__refreshBound) {
+        btn.addEventListener('click', function(e){ /* inline already calls refreshMembers(); keep as safety */ });
+        btn.__refreshBound = true;
+    }
+    
+    // Load payment configuration for database hosting
+    loadPaymentConfig();
+    
+    console.log('✅ DOM loaded - Payment config initialization started');
+});
+})();
