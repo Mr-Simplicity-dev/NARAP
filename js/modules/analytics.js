@@ -510,9 +510,9 @@ function loadDashboardStats() {
 }
 
 function loadRecentActivity() {
-    if (window.analyticsManager) {
-        window.analyticsManager.loadAnalytics();
-    }
+    // ✅ FIX: Don't create duplicate - admin.js already handles this
+    // Just call the admin.js version if it exists
+    return; // Let admin.js handle recent activity loading
 }
 
 function loadSystemPage() {
