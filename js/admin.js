@@ -7112,72 +7112,173 @@ function confirmPrint() {
         <head>
             <title>Certificate - ${certificate.recipientName || certificate.recipient || certificate.name}</title>
             <style>
-                body { 
-                    font-family: Arial, sans-serif; 
-                    margin: 0; 
-                    padding: 20px; 
-                    background: white;
-                }
-                .certificate { 
-                    border: 3px solid #DAA520; 
-                    padding: 40px; 
-                    text-align: center; 
-                    background: #fff;
-                    max-width: 210mm;
-                    margin: 0 auto;
-                    min-height: 297mm;
+                * {
+                    margin: 0;
+                    padding: 0;
                     box-sizing: border-box;
                 }
-                .header { 
-                    font-size: 24px; 
-                    font-weight: bold; 
-                    margin-bottom: 20px; 
-                    color: #333; 
+                
+                body { 
+                    font-family: 'Georgia', serif; 
+                    margin: 0; 
+                    padding: 0; 
+                    background: white;
+                    font-size: 14px;
                 }
-                .title { 
-                    font-size: 28px; 
-                    font-weight: bold; 
-                    margin: 30px 0; 
-                    color: #2c3e50; 
+                
+                .certificate-container {
+                    width: 100%;
+                    max-width: 210mm;
+                    margin: 0 auto;
+                    padding: 0;
                 }
-                .recipient { 
-                    font-size: 20px; 
-                    margin: 20px 0; 
-                    color: #34495e; 
+                
+                .certificate { 
+                    border: 2px solid #000; 
+                    padding: 20mm; 
+                    background: white;
+                    width: 210mm;
+                    min-height: 297mm;
+                    margin: 0 auto;
+                    box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
                 }
-                .description { 
-                    font-size: 16px; 
-                    margin: 20px 0; 
-                    color: #7f8c8d; 
-                    line-height: 1.6;
+                
+                .certificate-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-bottom: 25px;
+                    padding-bottom: 15px;
+                    border-bottom: 2px solid #3498db;
                 }
-                .footer { 
-                    margin-top: 40px; 
-                    font-size: 14px; 
-                    color: #95a5a6; 
+                
+                .logo-section {
+                    margin-right: 20px;
                 }
-                .signature { 
-                    margin-top: 30px; 
-                    border-top: 1px solid #000;
-                    padding-top: 10px;
-                    width: 200px;
-                    margin-left: auto;
-                    margin-right: auto;
+                
+                .logo {
+                    width: 50px;
+                    height: 50px;
+                    object-fit: contain;
                 }
-                @media print { 
-                    body { 
-                        margin: 0 !important; 
-                        padding: 0 !important;
-                    } 
-                    .certificate { 
-                        border: 2px solid #000 !important;
+                
+                .org-name {
+                    font-size: 1.6em;
+                    font-weight: bold;
+                    color: #2c3e50;
+                    margin: 0;
+                }
+                
+                .org-full-name {
+                    font-size: 0.9em;
+                    color: #7f8c8d;
+                    margin: 5px 0 0 0;
+                }
+                
+                .certificate-title h2 {
+                    font-size: 1.4em;
+                    text-align: center;
+                    color: #2c3e50;
+                    margin: 20px 0;
+                }
+                
+                .recipient-name {
+                    font-size: 1.2em;
+                    font-weight: bold;
+                    text-align: center;
+                    color: #2c3e50;
+                    margin: 15px 0;
+                }
+                
+                .recipient-description {
+                    text-align: center;
+                    line-height: 1.4;
+                    margin: 15px 0;
+                    font-size: 0.95em;
+                }
+                
+                .details-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 8px;
+                    margin: 20px 0;
+                }
+                
+                .detail-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 6px 10px;
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    font-size: 11px;
+                }
+                
+                .certificate-signature {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-top: 30px;
+                }
+                
+                .signature-line {
+                    width: 120px;
+                    height: 1px;
+                    background: #000;
+                    margin-bottom: 5px;
+                }
+                
+                .signature-title, .signature-name {
+                    font-size: 11px;
+                    text-align: center;
+                    margin: 2px 0;
+                }
+                
+                .seal-circle {
+                    width: 40px;
+                    height: 40px;
+                    border: 2px solid #000;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 10px;
+                    font-weight: bold;
+                }
+                
+                .footer-text {
+                    font-size: 10px;
+                    text-align: center;
+                    margin: 15px 0 5px 0;
+                }
+                
+                .certificate-meta {
+                    display: flex;
+                    justify-content: center;
+                    gap: 20px;
+                }
+                
+                .meta-item {
+                    font-size: 9px;
+                    color: #666;
+                }
+                
+                @page {
+                    size: A4;
+                    margin: 0.5in;
+                }
+                
+                @media print {
+                    body {
                         margin: 0 !important;
-                        padding: 30px !important;
-                        min-height: 100vh !important;
-                    } 
-                    @page {
-                        margin: 0.5in;
-                        size: A4;
+                        padding: 0 !important;
+                    }
+                    
+                    .certificate {
+                        border: 1px solid #000 !important;
+                        page-break-after: always;
                     }
                 }
             </style>
