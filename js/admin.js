@@ -6993,44 +6993,215 @@ function printCertificate(certificateId = null) {
             return;
         }
         
-        // Generate certificate HTML
-        const certificateHTML = generateCertificateHTML(certificate);
-        
-        // Create print window
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Certificate - ${certificate.recipientName || certificate.recipient || certificate.name}</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-                    .certificate { border: 3px solid #gold; padding: 40px; text-align: center; background: #fff; }
-                    .header { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #333; }
-                    .title { font-size: 28px; font-weight: bold; margin: 30px 0; color: #2c3e50; }
-                    .recipient { font-size: 20px; margin: 20px 0; color: #34495e; }
-                    .description { font-size: 16px; margin: 20px 0; color: #7f8c8d; }
-                    .footer { margin-top: 40px; font-size: 14px; color: #95a5a6; }
-                    .signature { margin-top: 30px; }
-                    @media print { body { margin: 0; } .certificate { border: none; } }
-                </style>
-            </head>
-            <body>
-                ${certificateHTML}
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-        
-        showMessage('Certificate sent to printer!', 'success');
+        // Show preview modal first
+        showPrintPreviewModal(certificate);
         
     } catch (error) {
-        
-        showMessage('Failed to print certificate', 'error');
+        showMessage('Failed to prepare certificate for printing', 'error');
     }
+}
+
+function showPrintPreviewModal(certificate) {
+    const certificateHTML = generateCertificateHTML(certificate);
+    
+    const modalHTML = `
+        <div class="print-preview-modal" id="printPreviewModal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        ">
+            <div class="print-preview-content" style="
+                background: white;
+                border-radius: 12px;
+                max-width: 90vw;
+                max-height: 90vh;
+                overflow: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            ">
+                <div class="print-preview-header" style="
+                    padding: 20px 24px;
+                    border-bottom: 1px solid #e9ecef;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: #f8f9fa;
+                    border-radius: 12px 12px 0 0;
+                ">
+                    <h3 style="margin: 0; color: #333; font-size: 18px;">Print Preview</h3>
+                    <button class="close-btn" onclick="closePrintPreview()" style="
+                        background: none;
+                        border: none;
+                        font-size: 24px;
+                        color: #666;
+                        cursor: pointer;
+                        padding: 0;
+                        width: 30px;
+                        height: 30px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 50%;
+                        transition: all 0.2s ease;
+                    " onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='none'">×</button>
+                </div>
+                <div class="print-preview-body" style="
+                    padding: 24px;
+                    max-height: 60vh;
+                    overflow: auto;
+                ">
+                    ${certificateHTML}
+                </div>
+                <div class="print-preview-footer" style="
+                    padding: 20px 24px;
+                    border-top: 1px solid #e9ecef;
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 12px;
+                    background: #f8f9fa;
+                    border-radius: 0 0 12px 12px;
+                ">
+                    <button class="btn btn-secondary" onclick="closePrintPreview()" style="
+                        padding: 10px 20px;
+                        border: 1px solid #6c757d;
+                        background: white;
+                        color: #6c757d;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.2s ease;
+                    " onmouseover="this.style.background='#6c757d'; this.style.color='white'" onmouseout="this.style.background='white'; this.style.color='#6c757d'">Cancel</button>
+                    <button class="btn btn-primary" onclick="confirmPrint()" style="
+                        padding: 10px 20px;
+                        border: 1px solid #007bff;
+                        background: #007bff;
+                        color: white;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.2s ease;
+                    " onmouseover="this.style.background='#0056b3'" onmouseout="this.style.background='#007bff'">🖨️ Print Certificate</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Store certificate data for actual printing
+    window.currentPrintCertificate = certificate;
+}
+
+function confirmPrint() {
+    const certificate = window.currentPrintCertificate;
+    if (!certificate) return;
+    
+    const certificateHTML = generateCertificateHTML(certificate);
+    
+    // Create print window
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Certificate - ${certificate.recipientName || certificate.recipient || certificate.name}</title>
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    margin: 0; 
+                    padding: 20px; 
+                    background: white;
+                }
+                .certificate { 
+                    border: 3px solid #DAA520; 
+                    padding: 40px; 
+                    text-align: center; 
+                    background: #fff;
+                    max-width: 210mm;
+                    margin: 0 auto;
+                    min-height: 297mm;
+                    box-sizing: border-box;
+                }
+                .header { 
+                    font-size: 24px; 
+                    font-weight: bold; 
+                    margin-bottom: 20px; 
+                    color: #333; 
+                }
+                .title { 
+                    font-size: 28px; 
+                    font-weight: bold; 
+                    margin: 30px 0; 
+                    color: #2c3e50; 
+                }
+                .recipient { 
+                    font-size: 20px; 
+                    margin: 20px 0; 
+                    color: #34495e; 
+                }
+                .description { 
+                    font-size: 16px; 
+                    margin: 20px 0; 
+                    color: #7f8c8d; 
+                    line-height: 1.6;
+                }
+                .footer { 
+                    margin-top: 40px; 
+                    font-size: 14px; 
+                    color: #95a5a6; 
+                }
+                .signature { 
+                    margin-top: 30px; 
+                    border-top: 1px solid #000;
+                    padding-top: 10px;
+                    width: 200px;
+                    margin-left: auto;
+                    margin-right: auto;
+                }
+                @media print { 
+                    body { 
+                        margin: 0 !important; 
+                        padding: 0 !important;
+                    } 
+                    .certificate { 
+                        border: 2px solid #000 !important;
+                        margin: 0 !important;
+                        padding: 30px !important;
+                        min-height: 100vh !important;
+                    } 
+                    @page {
+                        margin: 0.5in;
+                        size: A4;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            ${certificateHTML}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+    
+    closePrintPreview();
+    showMessage('Print dialog opened! Choose your printer settings and click Print.', 'success');
+}
+
+function closePrintPreview() {
+    const modal = document.getElementById('printPreviewModal');
+    if (modal) {
+        modal.remove();
+    }
+    window.currentPrintCertificate = null;
 }
 
 // ==================== ID CARD FUNCTIONS ====================
