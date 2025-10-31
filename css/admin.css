@@ -887,35 +887,37 @@ body {
 }
 
 .certificate {
-    width: 600px;
-    height: 400px;
+    width: 100%;
+    max-width: 750px; /* Fits A4 width with margins */
+    min-height: 500px;
     background: white;
-    border: 10px solid #667eea;
-    border-radius: 15px;
-    padding: 40px;
+    border: 8px solid #667eea;
+    border-radius: 12px;
+    padding: 30px; /* Reduced from 40px */
     margin: 20px auto;
     text-align: center;
     position: relative;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
 }
 
 .certificate-header {
-    font-size: 24px;
+    font-size: 22px; /* Slightly reduced */
     font-weight: bold;
     color: #667eea;
-    margin-bottom: 20px;
+    margin-bottom: 18px;
 }
 
 .certificate-title {
-    font-size: 18px;
-    margin-bottom: 30px;
+    font-size: 16px; /* Slightly reduced */
+    margin-bottom: 25px;
     color: var(--dark-color);
 }
 
 .certificate-content {
-    font-size: 14px;
+    font-size: 13px; /* Slightly reduced */
     line-height: 1.6;
-    margin-bottom: 30px;
+    margin-bottom: 25px;
     color: var(--text-color);
 }
 
@@ -923,7 +925,67 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 40px;
+    margin-top: 30px;
+}
+
+/* A4 Print Styles */
+@media print {
+    .certificate {
+        width: 210mm !important;
+        max-width: 210mm !important;
+        min-height: 297mm !important;
+        padding: 15mm !important;
+        margin: 0 !important;
+        border: 2px solid #667eea !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        page-break-after: always;
+    }
+    
+    .certificate-header {
+        font-size: 18px !important;
+        margin-bottom: 15px !important;
+    }
+    
+    .certificate-title {
+        font-size: 14px !important;
+        margin-bottom: 20px !important;
+    }
+    
+    .certificate-content {
+        font-size: 12px !important;
+        margin-bottom: 20px !important;
+    }
+    
+    .certificate-footer {
+        margin-top: 25px !important;
+    }
+    
+    @page {
+        size: A4;
+        margin: 0.5in;
+    }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .certificate {
+        max-width: 95%;
+        padding: 20px;
+        border-width: 6px;
+    }
+    
+    .certificate-header {
+        font-size: 18px;
+    }
+    
+    .certificate-title {
+        font-size: 14px;
+    }
+    
+    .certificate-content {
+        font-size: 12px;
+    }
 }
 
 /* ===== FOOTER ===== */
