@@ -6868,14 +6868,47 @@ function downloadCertificatePreview() {
     try {
         const content = document.getElementById('documentPreviewContent');
         if (content) {
-            const certificateHTML = content.innerHTML;
-            const filename = `certificate_preview_${Date.now()}.html`;
-            downloadFile(certificateHTML, filename, 'text/html');
-            showMessage('Certificate preview downloaded successfully!', 'success');
+            // Create a temporary container for PDF generation
+            const tempContainer = document.createElement('div');
+            tempContainer.style.position = 'absolute';
+            tempContainer.style.left = '-9999px';
+            tempContainer.style.top = '0';
+            tempContainer.style.width = '210mm';
+            tempContainer.style.background = 'white';
+            tempContainer.innerHTML = content.innerHTML;
+            document.body.appendChild(tempContainer);
+
+            // Use html2pdf library to generate PDF
+            const opt = {
+                margin: [10, 10, 10, 10], // top, left, bottom, right in mm
+                filename: `NARAP_Certificate_${Date.now()}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2,
+                    useCORS: true,
+                    letterRendering: true,
+                    allowTaint: false
+                },
+                jsPDF: { 
+                    unit: 'mm', 
+                    format: 'a4', 
+                    orientation: 'portrait' 
+                }
+            };
+
+            // Generate and download PDF
+            html2pdf().set(opt).from(tempContainer).save().then(() => {
+                document.body.removeChild(tempContainer);
+                showMessage('Certificate PDF downloaded successfully!', 'success');
+            }).catch((error) => {
+                document.body.removeChild(tempContainer);
+                console.error('PDF generation error:', error);
+                showMessage('Failed to generate PDF. Please try again.', 'error');
+            });
         }
     } catch (error) {
-        
-        showMessage('Failed to download certificate preview', 'error');
+        console.error('Download error:', error);
+        showMessage('Failed to download certificate', 'error');
     }
 }
 
