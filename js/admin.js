@@ -6868,43 +6868,55 @@ function downloadCertificatePreview() {
     try {
         const content = document.getElementById('documentPreviewContent');
         if (content) {
-            // Create a temporary container for PDF generation
-            const tempContainer = document.createElement('div');
-            tempContainer.style.position = 'absolute';
-            tempContainer.style.left = '-9999px';
-            tempContainer.style.top = '0';
-            tempContainer.style.width = '210mm';
-            tempContainer.style.background = 'white';
-            tempContainer.innerHTML = content.innerHTML;
-            document.body.appendChild(tempContainer);
-
-            // Use html2pdf library to generate PDF
-            const opt = {
-                margin: [10, 10, 10, 10], // top, left, bottom, right in mm
-                filename: `NARAP_Certificate_${Date.now()}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { 
-                    scale: 2,
-                    useCORS: true,
-                    letterRendering: true,
-                    allowTaint: false
-                },
-                jsPDF: { 
-                    unit: 'mm', 
-                    format: 'a4', 
-                    orientation: 'portrait' 
-                }
-            };
-
-            // Generate and download PDF
-            html2pdf().set(opt).from(tempContainer).save().then(() => {
-                document.body.removeChild(tempContainer);
-                showMessage('Certificate PDF downloaded successfully!', 'success');
-            }).catch((error) => {
-                document.body.removeChild(tempContainer);
-                console.error('PDF generation error:', error);
-                showMessage('Failed to generate PDF. Please try again.', 'error');
-            });
+            // Create a new window for PDF generation
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>NARAP Certificate</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { 
+                            font-family: 'Georgia', serif; 
+                            background: white;
+                            padding: 0;
+                            margin: 0;
+                        }
+                        .certificate-container {
+                            width: 210mm;
+                            min-height: 297mm;
+                            margin: 0 auto;
+                            padding: 15mm;
+                            background: white;
+                        }
+                        @page {
+                            size: A4;
+                            margin: 0;
+                        }
+                        @media print {
+                            body { margin: 0; padding: 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="certificate-container">
+                        ${content.innerHTML}
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            setTimeout(() => {
+                                window.print();
+                                setTimeout(() => window.close(), 1000);
+                            }, 500);
+                        }
+                    </script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            
+            showMessage('PDF download dialog opened. Choose "Save as PDF" in the print dialog.', 'info');
         }
     } catch (error) {
         console.error('Download error:', error);
