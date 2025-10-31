@@ -6889,9 +6889,75 @@ function printCertificatePreview() {
                     <head>
                         <title>Certificate Preview</title>
                         <style>
-                            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-                            .certificate { max-width: 210mm; margin: 0 auto; }
-                        </style>
+    body { 
+        font-family: Arial, sans-serif; 
+        margin: 0; 
+        padding: 20px; 
+        background: white;
+    }
+    .certificate { 
+        border: 3px solid #DAA520; 
+        padding: 40px; 
+        text-align: center; 
+        background: #fff;
+        max-width: 210mm;
+        margin: 0 auto;
+        min-height: 297mm;
+        box-sizing: border-box;
+    }
+    .header { 
+        font-size: 24px; 
+        font-weight: bold; 
+        margin-bottom: 20px; 
+        color: #333; 
+    }
+    .title { 
+        font-size: 28px; 
+        font-weight: bold; 
+        margin: 30px 0; 
+        color: #2c3e50; 
+    }
+    .recipient { 
+        font-size: 20px; 
+        margin: 20px 0; 
+        color: #34495e; 
+    }
+    .description { 
+        font-size: 16px; 
+        margin: 20px 0; 
+        color: #7f8c8d; 
+        line-height: 1.6;
+    }
+    .footer { 
+        margin-top: 40px; 
+        font-size: 14px; 
+        color: #95a5a6; 
+    }
+    .signature { 
+        margin-top: 30px; 
+        border-top: 1px solid #000;
+        padding-top: 10px;
+        width: 200px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    @media print { 
+        body { 
+            margin: 0 !important; 
+            padding: 0 !important;
+        } 
+        .certificate { 
+            border: 2px solid #000 !important;
+            margin: 0 !important;
+            padding: 30px !important;
+            min-height: 100vh !important;
+        } 
+        @page {
+            margin: 0.5in;
+            size: A4;
+        }
+    }
+</style>
                     </head>
                     <body>
                         ${content.innerHTML}
@@ -7060,7 +7126,59 @@ function hideIdCardPreview() {
 }
 
 function printIdCard() {
-    showMessage('ID card print feature coming soon!', 'info');
+    try {
+        // Get member data from form or selected member
+        const memberData = getMemberFormData(); // You'll need to implement this
+        
+        if (!memberData) {
+            showMessage('No member data to print', 'error');
+            return;
+        }
+        
+        const idCardHTML = generateIdCardHTML(memberData);
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>ID Card - ${memberData.name}</title>
+                <style>
+                    body { 
+                        font-family: Arial, sans-serif; 
+                        margin: 0; 
+                        padding: 20px; 
+                        background: white;
+                    }
+                    .id-card { 
+                        width: 85.6mm; 
+                        height: 53.98mm; 
+                        border: 1px solid #000; 
+                        padding: 5mm; 
+                        margin: 0 auto;
+                        background: white;
+                        box-sizing: border-box;
+                    }
+                    @media print { 
+                        body { margin: 0; padding: 0; }
+                        @page { margin: 0.5in; size: A4; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${idCardHTML}
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+        
+        showMessage('ID Card sent to printer!', 'success');
+    } catch (error) {
+        showMessage('Failed to print ID card', 'error');
+    }
 }
 
 function downloadIdCard() {
@@ -15435,7 +15553,7 @@ async function processDatabasePayment(event) {
             customizations: {
                 title: "NARAP Database Hosting Payment",
                 description: `${selectedDatabasePlan === 'monthly' ? 'Monthly' : 'Yearly'} Database Hosting Plan`,
-                logo: "https://narapdb.com.ng/images/narap-logo.jpg"  // Replace with your logo URL
+                logo: "https://narapdb.com.ng/images/narap-logo.jpg printCertificate function"  // Replace with your logo URL
             },
             callback: function(response) {
                 console.log('Payment response:', response);

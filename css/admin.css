@@ -2641,27 +2641,57 @@ body {
     }
 }
 
-/* Print styles */
+/* Improved Admin Print Styles */
 @media print {
+    /* Hide navigation and UI elements */
     .sidebar,
     .hamburger-btn,
     .header,
     .admin-footer,
-    .action-buttons,
-    .btn {
+    .action-buttons {
         display: none !important;
     }
     
+    /* Hide specific buttons but allow print content */
+    .btn:not(.print-allowed) {
+        display: none !important;
+    }
+    
+    /* Ensure main content fills the page */
     .main-content {
-        margin-left: 0;
-        padding: 0;
+        margin-left: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
     }
     
     .content {
-        padding: 20px;
+        padding: 20px !important;
+    }
+    
+    /* Fix document preview for printing */
+    .document-preview-content {
+        transform: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 20px !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        max-height: none !important;
+    }
+    
+    /* Ensure tables print properly */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+    
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 8px !important;
+        font-size: 12px !important;
     }
 }
-
 /* ===== MODERN PAGINATION STYLES ===== */
 .modern-pagination {
     display: flex;
