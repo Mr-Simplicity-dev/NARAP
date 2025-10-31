@@ -1735,32 +1735,95 @@ body {
   animation: mainContentFadeIn 1s ease-out 15s both;
 }
 
-/* Print Styles */
+/* Improved Print Styles */
 @media print {
+  /* Hide everything first */
   body * {
     visibility: hidden;
   }
   
-  .result-modal-content, .result-modal-content * {
-    visibility: visible;
+  /* Show only the modal content and ensure all children are visible */
+  .result-modal-content,
+  .result-modal-content *,
+  .details-container,
+  .details-container *,
+  .member-verification-card,
+  .member-verification-card *,
+  .personal-details-section,
+  .personal-details-section *,
+  .details-grid,
+  .details-grid *,
+  .detail-item,
+  .detail-item *,
+  .member-photo,
+  .member-photo-container,
+  .member-info,
+  .member-info * {
+    visibility: visible !important;
   }
   
+  /* Position and style the content for print */
   .result-modal-content {
-    position: static;
-    margin: 0;
-    padding: 20px;
-    box-shadow: none;
-    border: 1px solid #000;
+    position: static !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+    background: white !important;
+    width: 100% !important;
+    max-width: none !important;
   }
   
-  .modal-buttons {
-    display: none;
+  /* Ensure proper layout for verification details */
+  .details-container {
+    display: block !important;
   }
   
-  .close {
-    display: none;
+  .details-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  
+  .detail-item {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 8px !important;
+    border: 1px solid #ddd !important;
+    background: #f8f9fa !important;
+  }
+  
+  /* Ensure member photo displays correctly */
+  .member-photo {
+    display: block !important;
+    max-width: 120px !important;
+    height: auto !important;
+  }
+  
+  /* Hide interactive elements */
+  .modal-buttons,
+  .close,
+  button {
+    display: none !important;
+  }
+  
+  /* Ensure text is readable */
+  * {
+    color: #000 !important;
+    font-size: 12px !important;
+  }
+  
+  h3, h4 {
+    font-size: 14px !important;
+    font-weight: bold !important;
+  }
+  
+  .member-name {
+    font-size: 16px !important;
+    font-weight: bold !important;
   }
 }
+
 /* Center the action buttons on mobile */
 .result-modal.mobile-fullscreen .modal-buttons {
   display: flex;
@@ -1946,7 +2009,7 @@ body {
       </div>
       <div class="welcome-text">Welcome to NARAP Authentication Portal</div>
       <div class="welcome-subtitle">
-        Nigerian Association Of Refregiration And Air Conditioning Practitioners
+        Nigerian Association Of Refrigeration And Air Conditioning Practitioners
 <br>
         Official Member & Certificate Verification System
       </div>
@@ -2095,12 +2158,13 @@ body {
         
         <div class="contact-info">
           <strong>📞 Phone Support:</strong>
-          <p>+234 706 701 2884</p>
+          <p>+234 810 775 0166</p>
         </div>
 
         <div class="contact-info">
           <strong>📧 Email Support:</strong>
-          <p>support@narap.org.ng</p>
+          <p>nationalnarap@yahoo.com</p>
+          <p>narapnigeria@gmail.com</p>
         </div>
 
         <div class="contact-info">
