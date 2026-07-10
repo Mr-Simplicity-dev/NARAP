@@ -17,7 +17,7 @@ class APIManager {
     getBackendURL() {
         // Try multiple backend URLs in order of preference
         const candidateURLs = [
-            'https://narapdb.com.ng',
+            'http://185.215.167.14:5002',
             (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '',
             (typeof window !== 'undefined' && window.__narapApiBase) ? window.__narapApiBase : ''
         ];
@@ -29,7 +29,7 @@ class APIManager {
         const urls = candidateURLs.filter(url => !!url);
         console.log('APIManager.getBackendURL filtered URLs:', urls);
 
-        const selectedURL = urls[0] || 'https://narapdb.com.ng';
+        const selectedURL = urls[0] || 'http://185.215.167.14:5002';
         console.log('APIManager.getBackendURL selected:', selectedURL);
         console.log('Selected URL type:', typeof selectedURL);
         console.log('Selected URL length:', selectedURL ? selectedURL.length : 'undefined');
@@ -47,7 +47,7 @@ class APIManager {
         // Safety check for baseURL
         if (!this.baseURL || this.baseURL.trim() === '') {
             console.error('❌ baseURL is empty or undefined!');
-            this.baseURL = 'https://narapdb.com.ng'; // Fallback
+            this.baseURL = 'http://185.215.167.14:5002'; // Fallback
             console.log('🔄 Using fallback baseURL:', this.baseURL);
         }
         
